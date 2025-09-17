@@ -37,7 +37,7 @@ const Login = () => {
                           response.user.role?.includes('SUPER_ADM');
       
       if (isSuperAdmin) {
-        navigate('/dashboard/super-admin');
+        navigate('/dashboard/admin-management');
       } else {
         navigate('/dashboard');
       }

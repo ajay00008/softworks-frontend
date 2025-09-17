@@ -30,9 +30,7 @@ const getNavigation = (userRole?: string) => {
   // Super admin navigation - only admin management features
   if (isSuperAdmin) {
     return [
-      { name: 'Super Admin Dashboard', href: '/dashboard/super-admin', icon: Crown, section: 'SUPER_ADMIN' },
       { name: 'Admin Management', href: '/dashboard/admin-management', icon: Shield, section: 'SUPER_ADMIN' },
-      { name: 'Data Migration', href: '/dashboard/data-migration', icon: Database, section: 'SYSTEM' },
       { name: 'System Settings', href: '/dashboard/settings', icon: Settings, section: 'SYSTEM' },
       { name: 'System Analytics', href: '/dashboard/analytics', icon: BarChart3, section: 'SYSTEM' },
     ];

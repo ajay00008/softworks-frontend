@@ -64,7 +64,7 @@ export interface Teacher {
   phone?: string;
   address?: string;
   qualification?: string;
-  experience?: string;
+  experience?: number;
   department?: string;
   isActive: boolean;
   createdAt: string;

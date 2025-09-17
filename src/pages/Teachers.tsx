@@ -38,7 +38,7 @@ const Teachers = () => {
     phone: "",
     address: "",
     qualification: "",
-    experience: "",
+    experience: 0,
     department: "",
   });
 
@@ -71,7 +71,7 @@ const Teachers = () => {
       phone: teacher.phone || "",
       address: teacher.address || "",
       qualification: teacher.qualification || "",
-      experience: teacher.experience || "",
+      experience: teacher.experience || 0,
       department: teacher.department || "",
     });
     setShowForm(true);
@@ -158,7 +158,7 @@ const Teachers = () => {
       phone: "",
       address: "",
       qualification: "",
-      experience: "",
+      experience: 0,
       department: "",
     });
   };
@@ -283,7 +283,7 @@ const Teachers = () => {
                       const value = e.target.value;
                       if (/^\d*$/.test(value)) {
                         // allow only digits
-                        setFormData({ ...formData, experience: value });
+                        setFormData({ ...formData, experience: Number(value) });
                       }
                     }}
                   />

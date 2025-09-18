@@ -144,27 +144,6 @@ const SuperAdminDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-accent/5 to-accent/10 border-accent/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Super Admins</CardTitle>
-            <Crown className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-accent">{stats.superAdmins}</div>
-            <p className="text-xs text-muted-foreground">Highest privilege level</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-success/5 to-success/10 border-success/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Regular Admins</CardTitle>
-            <Users className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">{stats.regularAdmins}</div>
-            <p className="text-xs text-muted-foreground">Standard administrators</p>
-          </CardContent>
-        </Card>
 
         <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

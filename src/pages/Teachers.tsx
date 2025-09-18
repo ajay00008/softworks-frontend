@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { teachersAPI, Teacher } from "@/services/api";
 import {
@@ -28,6 +29,7 @@ const Teachers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editTeacher, setEditTeacher] = useState<Teacher | null>(null);
+  const [deleteTeacher, setDeleteTeacher] = useState<Teacher | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -38,8 +40,7 @@ const Teachers = () => {
     phone: "",
     address: "",
     qualification: "",
-    experience: 0,
-    department: "",
+    experience: "",
   });
 
   useEffect(() => {
@@ -71,19 +72,20 @@ const Teachers = () => {
       phone: teacher.phone || "",
       address: teacher.address || "",
       qualification: teacher.qualification || "",
-      experience: teacher.experience || 0,
-      department: teacher.department || "",
+      experience: teacher.experience || "",
     });
     setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Teacher form submitted!', { formData, editTeacher });
     setIsSubmitting(true);
 
     try {
       if (editTeacher) {
         // Update API
+        console.log('Updating teacher:', editTeacher.id);
         const updatedTeacher = await teachersAPI.update(editTeacher.id, {
           ...formData,
           isActive: editTeacher.isActive,
@@ -101,6 +103,7 @@ const Teachers = () => {
         });
       } else {
         // Create API
+        console.log('Creating new teacher with formData:', formData);
         const newTeacher = await teachersAPI.create({
           ...formData,
           isActive: true,
@@ -108,18 +111,25 @@ const Teachers = () => {
           userId: null as any,
         } as any);
 
+        console.log('Created teacher:', newTeacher);
         setTeachers([...teachers, newTeacher]);
 
         toast({
           title: "Success",
           description: "Teacher created successfully",
         });
+        
+        // Reload teachers to ensure fresh data
+        setTimeout(() => {
+          loadTeachers();
+        }, 1000);
       }
 
       resetForm();
       setEditTeacher(null);
       setShowForm(false);
     } catch (error) {
+      console.error('Error in handleSubmit:', error);
       toast({
         title: "Error",
         description: editTeacher
@@ -132,10 +142,12 @@ const Teachers = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!deleteTeacher) return;
+    
     try {
-      await teachersAPI.delete(id);
-      setTeachers(teachers.filter((t) => t.id !== id));
+      await teachersAPI.delete(deleteTeacher.id);
+      setTeachers(teachers.filter((t) => t.id !== deleteTeacher.id));
       toast({
         title: "Success",
         description: "Teacher removed successfully",
@@ -146,6 +158,8 @@ const Teachers = () => {
         description: "Failed to remove teacher",
         variant: "destructive",
       });
+    } finally {
+      setDeleteTeacher(null);
     }
   };
 
@@ -158,17 +172,14 @@ const Teachers = () => {
       phone: "",
       address: "",
       qualification: "",
-      experience: 0,
-      department: "",
+      experience: "",
     });
   };
 
   const filteredTeachers = teachers.filter(
     (teacher) =>
       teacher?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      teacher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (teacher?.department &&
-        teacher.department.toLowerCase().includes(searchTerm.toLowerCase()))
+      teacher?.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (isLoading) {
@@ -215,6 +226,19 @@ const Teachers = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* name field */}
+              <div>
+                <Label>Name *</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  required
+                  placeholder="Enter teacher's full name"
+                />
+              </div>
+
               {/* email + password */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -242,25 +266,6 @@ const Teachers = () => {
                   </div>
                 )}
               </div>
-
-              {/* name + department */}
-              {/* <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Name *</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Department</Label>
-                  <Input
-                    value={formData.department}
-                    onChange={(e) => setFormData({...formData, department: e.target.value})}
-                  />
-                </div>
-              </div> */}
 
               {/* phone + experience */}
               <div className="grid gap-4 md:grid-cols-2">
@@ -385,14 +390,37 @@ const Teachers = () => {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(teacher.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDeleteTeacher(teacher)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the teacher "{teacher.name}" and remove all their data.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => setDeleteTeacher(null)}>
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleDelete}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete Teacher
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   </CardContent>

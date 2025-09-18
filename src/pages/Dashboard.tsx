@@ -75,94 +75,6 @@ const Dashboard = () => {
       stats: `${stats.totalTeachers} active`,
       badge: null
     },
-    {
-      title: 'Upload Books',
-      description: 'Upload and organize educational content',
-      icon: BookOpen,
-      color: 'success',
-      required: ['Class', 'Subject'],
-      actionText: 'Upload Content',
-      onClick: () => navigate('/dashboard/books'),
-      stats: `${stats.totalBooks} books`,
-      badge: null
-    },
-    {
-      title: 'Create Questions',
-      description: 'Build assessments and question banks',
-      icon: HelpCircle,
-      color: 'warning',
-      required: ['Class and Subject (BCI)', 'Foreign Based Questions', 'Subject Syllabus'],
-      actionText: 'Manage Questions',
-      onClick: () => navigate('/dashboard/questions'),
-      stats: `${stats.totalQuestions} questions`,
-      badge: null
-    },
-    {
-      title: 'Access Privileges',
-      description: 'Control user permissions and settings',
-      icon: Settings,
-      color: 'secondary',
-      required: ['Can edit teacher settings'],
-      actionText: 'Manage Access',
-      onClick: () => navigate('/dashboard/access'),
-      stats: 'System settings',
-      badge: null
-    },
-    {
-      title: 'Performance Analytics',
-      description: 'Individual and class performance with graphical representation',
-      icon: BarChart3,
-      color: 'primary',
-      required: ['Individual Performance', 'Class Performance', 'Percentage Analytics'],
-      actionText: 'View Analytics',
-      onClick: () => navigate('/dashboard/performance'),
-      stats: 'Latest insights',
-      badge: 'New'
-    },
-    {
-      title: 'Teacher Assignment',
-      description: 'Assign staff access and class/subject limitations',
-      icon: Settings,
-      color: 'secondary',
-      required: ['Class Assignment', 'Subject Assignment', 'Permission Control'],
-      actionText: 'Manage Access',
-      onClick: () => navigate('/dashboard/teacher-assignment'),
-      stats: 'Access control',
-      badge: null
-    },
-    {
-      title: 'Question Management',
-      description: 'Create questions based on Blooms Taxonomy with AI',
-      icon: HelpCircle,
-      color: 'warning',
-      required: ['Blooms Taxonomy', 'AI Generation', 'Difficulty Levels'],
-      actionText: 'Manage Questions',
-      onClick: () => navigate('/dashboard/questions'),
-      stats: `${stats.totalQuestions} questions`,
-      badge: 'AI Powered'
-    },
-    {
-      title: 'Syllabus Management',
-      description: 'Upload and manage educational syllabi',
-      icon: BookOpen,
-      color: 'success',
-      required: ['File Upload', 'Version Control', 'Class Organization'],
-      actionText: 'Manage Syllabus',
-      onClick: () => navigate('/dashboard/syllabus'),
-      stats: 'Content management',
-      badge: null
-    },
-    {
-      title: 'Absenteeism Tracking',
-      description: 'Track student absenteeism with red flag system',
-      icon: AlertTriangle,
-      color: 'destructive',
-      required: ['Red Flag System', 'Admin Acknowledgment', 'Missing Answer Sheets'],
-      actionText: 'Track Absenteeism',
-      onClick: () => navigate('/dashboard/absenteeism'),
-      stats: 'Critical alerts',
-      badge: 'Priority'
-    }
   ];
 
   if (isLoading) {
@@ -231,7 +143,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-success/10 to-success/20 border-success/30 dark:from-success/20 dark:to-success/30">
+        {/*<Card className="bg-gradient-to-br from-success/10 to-success/20 border-success/30 dark:from-success/20 dark:to-success/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Educational Content</CardTitle>
             <BookOpen className="h-4 w-4 text-success" />
@@ -240,9 +152,9 @@ const Dashboard = () => {
             <div className="text-2xl font-bold text-success">{stats.totalBooks}</div>
             <p className="text-xs text-muted-foreground">Books uploaded</p>
           </CardContent>
-        </Card>
+        </Card>*/}
 
-        <Card className="bg-gradient-to-br from-warning/10 to-warning/20 border-warning/30 dark:from-warning/20 dark:to-warning/30">
+        {/* <Card className="bg-gradient-to-br from-warning/10 to-warning/20 border-warning/30 dark:from-warning/20 dark:to-warning/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Question Bank</CardTitle>
             <HelpCircle className="h-4 w-4 text-warning" />
@@ -251,7 +163,7 @@ const Dashboard = () => {
             <div className="text-2xl font-bold text-warning">{stats.totalQuestions}</div>
             <p className="text-xs text-muted-foreground">Total questions</p>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Management Cards */}

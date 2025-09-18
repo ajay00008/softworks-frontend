@@ -41,14 +41,14 @@ const getNavigation = (userRole?: string) => {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, section: 'MAIN' },
     { name: 'Students', href: '/dashboard/students', icon: Users, section: 'MAIN' },
     { name: 'Teachers', href: '/dashboard/teachers', icon: GraduationCap, section: 'MAIN' },
-    { name: 'Performance Analytics', href: '/dashboard/performance', icon: BarChart3, section: 'ANALYTICS' },
-    { name: 'Teacher Assignment', href: '/dashboard/teacher-assignment', icon: Settings, section: 'MANAGEMENT' },
-    { name: 'Questions', href: '/dashboard/questions', icon: HelpCircle, section: 'CONTENT' },
-    { name: 'Syllabus Management', href: '/dashboard/syllabus', icon: BookOpen, section: 'CONTENT' },
-    { name: 'Absenteeism Tracking', href: '/dashboard/absenteeism', icon: AlertTriangle, section: 'TRACKING' },
-    { name: 'Upload Books', href: '/dashboard/books', icon: BookOpen, section: 'CONTENT' },
-    { name: 'Access Privileges', href: '/dashboard/access', icon: Settings, section: 'SYSTEM' },
-    { name: 'Mirror Login', href: '/dashboard/mirror', icon: UserCheck, section: 'SYSTEM' },
+    // { name: 'Performance Analytics', href: '/dashboard/performance', icon: BarChart3, section: 'ANALYTICS' },
+    // { name: 'Teacher Assignment', href: '/dashboard/teacher-assignment', icon: Settings, section: 'MANAGEMENT' },
+    // { name: 'Questions', href: '/dashboard/questions', icon: HelpCircle, section: 'CONTENT' },
+    // { name: 'Syllabus Management', href: '/dashboard/syllabus', icon: BookOpen, section: 'CONTENT' },
+    // { name: 'Absenteeism Tracking', href: '/dashboard/absenteeism', icon: AlertTriangle, section: 'TRACKING' },
+    // { name: 'Upload Books', href: '/dashboard/books', icon: BookOpen, section: 'CONTENT' },
+    // { name: 'Access Privileges', href: '/dashboard/access', icon: Settings, section: 'SYSTEM' },
+    // { name: 'Mirror Login', href: '/dashboard/mirror', icon: UserCheck, section: 'SYSTEM' },
   ];
 };
 
@@ -82,7 +82,7 @@ const DashboardLayout = () => {
     // If super admin is on regular admin routes, redirect to super admin dashboard
     if (isSuperAdmin && location.pathname === '/dashboard') {
       console.log('Super admin on regular dashboard, redirecting to super admin dashboard');
-      navigate('/dashboard/super-admin');
+      navigate('/dashboard/admin-management');
       return;
     }
 

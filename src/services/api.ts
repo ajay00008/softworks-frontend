@@ -21,14 +21,17 @@ const testBackendConnection = async () => {
 testBackendConnection();
 
 export interface Student {
-  userId: any;
-  student: any;
+  userId?: any;
+  student?: any;
   id: string;
   email: string;
-  password: string;
+  password?: string;
   name: string;
-  rollNumber: string;
-  class:Array<any>;
+  rollNumber?: string;
+  class?: {
+    classId: string;
+    name: string;
+  };
   fatherName?: string;
   motherName?: string;
   dateOfBirth?: string;
@@ -37,8 +40,8 @@ export interface Student {
   address?: string;
   whatsappNumber?: string;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Subject {
@@ -182,8 +185,12 @@ export const authAPI = {
 
 // Helper function to handle API responses
 const handleApiResponse = async <T>(response: Response): Promise<T> => {
+  console.log('handleApiResponse called with status:', response.status);
+  
   if (!response.ok) {
+    console.log('Response not ok, status:', response.status, 'statusText:', response.statusText);
     const errorData: ApiError = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.log('Error data:', errorData);
     throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
   }
   
@@ -195,6 +202,14 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
       throw new Error('API request failed');
     }
     return data.data;
+  } else if (data.student) {
+    // Handle nested student response structure
+    console.log('Found nested student object, returning:', data.student);
+    return data.student as T;
+  } else if (data.students) {
+    // Handle nested students array
+    console.log('Found nested students array, returning:', data.students);
+    return data.students as T;
   } else if (Array.isArray(data)) {
     return data as T;
   } else {
@@ -219,7 +234,17 @@ export const studentsAPI = {
       });
 
       const data = await handleApiResponse<Student[]>(response);
-      return { students: data };
+      console.log('studentsAPI.getAll - data received:', data);
+      console.log('studentsAPI.getAll - data type:', Array.isArray(data) ? 'array' : typeof data);
+      console.log('studentsAPI.getAll - data length:', Array.isArray(data) ? data.length : 'not array');
+      
+      // Ensure we return the correct format
+      if (Array.isArray(data)) {
+        return { students: data };
+      } else {
+        console.error('Expected array but got:', data);
+        return { students: [] };
+      }
     } catch (error) {
       console.error('Error fetching students:', error);
       throw error;
@@ -243,12 +268,19 @@ export const studentsAPI = {
 
   create: async (student: Omit<Student, 'id' | 'createdAt' | 'updatedAt'>): Promise<Student> => {
     try {
+      console.log('studentsAPI.create called with:', student);
+      console.log('Making request to:', `${API_BASE_URL}/admin/students`);
+      console.log('Headers:', getAuthHeaders());
+      
       const response = await fetch(`${API_BASE_URL}/admin/students`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(student),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      
       return await handleApiResponse<Student>(response);
     } catch (error) {
       console.error('Error creating student:', error);
@@ -370,12 +402,21 @@ export const teachersAPI = {
         subjectIds: teacher.subjectIds || [],
         classIds: teacher.classIds || [],
       };
+      
+      console.log('teachersAPI.create called with:', teacher);
+      console.log('Payload to send:', payload);
+      console.log('Making request to:', `${API_BASE_URL}/admin/teachers`);
+      console.log('Headers:', getAuthHeaders());
+      
       const response = await fetch(`${API_BASE_URL}/admin/teachers`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      
       return await handleApiResponse<Teacher>(response);
     } catch (error) {
       console.error('Error creating teacher:', error);

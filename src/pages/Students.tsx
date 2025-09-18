@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { studentsAPI, classesAPI, Student, ClassMapping } from '@/services/api';
 import { Plus, Users, Edit, Trash2, UserPlus } from 'lucide-react';
@@ -16,6 +17,7 @@ const Students = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
+  const [deleteStudent, setDeleteStudent] = useState<Student | null>(null);
   const { toast } = useToast();
 
   const [classes, setClasses] = useState<ClassMapping[]>([]);
@@ -42,9 +44,31 @@ const Students = () => {
 
   const loadStudents = async () => {
     try {
+      console.log('Loading students...');
       const response = await studentsAPI.getAll();
-      setStudents(response.students);
+      console.log('Loaded students response:', response);
+      console.log('Students count:', response.students?.length || 0);
+      
+      // Ensure we have a valid students array
+      const studentsArray = Array.isArray(response.students) ? response.students : [];
+      console.log('Setting students array:', studentsArray);
+      
+      // Validate each student object has required properties
+      const validStudents = studentsArray.filter(student => 
+        student && 
+        typeof student === 'object' && 
+        student.id && 
+        student.name && 
+        student.email
+      );
+      
+      console.log('Valid students after filtering:', validStudents);
+      setStudents(validStudents);
+      console.log('Students state updated successfully');
     } catch (error) {
+      console.error('Error loading students:', error);
+      // Set empty array on error to prevent undefined state
+      setStudents([]);
       toast({
         title: "Error",
         description: "Failed to load students",
@@ -58,8 +82,14 @@ const Students = () => {
   const loadClasses = async () => {
     try {
       const data = await classesAPI.getAll();
-      setClasses(data);
+      console.log('Loaded classes:', data);
+      // Ensure we have a valid classes array
+      const classesArray = Array.isArray(data) ? data : [];
+      setClasses(classesArray);
     } catch (error) {
+      console.error('Error loading classes:', error);
+      // Set empty array on error to prevent undefined state
+      setClasses([]);
       toast({
         title: "Error",
         description: "Failed to load classes",
@@ -89,6 +119,13 @@ const Students = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted!', { formData, selectedClassId, editStudent });
+    console.log('Form validation - required fields:', {
+      email: !!formData.email,
+      password: !!formData.password,
+      name: !!formData.name,
+      classId: !!selectedClassId
+    });
     setIsSubmitting(true);
 
     try {
@@ -97,7 +134,10 @@ const Students = () => {
         classId: selectedClassId,
       };
 
+      console.log('Payload to send:', payload);
+
       if (editStudent) {
+        console.log('Updating student:', editStudent.id);
         const updatedStudent = await studentsAPI.update(editStudent.id, {
           ...payload,
           isActive: editStudent.isActive,
@@ -111,18 +151,38 @@ const Students = () => {
           title: "Success",
           description: "Student updated successfully",
         });
+        
       } else {
+        console.log('Creating new student with payload:', payload);
         const newStudent = await studentsAPI.create({
           ...payload,
           isActive: true,
         });
 
-        setStudents([...students, newStudent]);
+        console.log('Created student:', newStudent);
+        console.log('Current students before adding new one:', students);
+        
+        // Validate the new student has required properties
+        if (newStudent && newStudent.id && newStudent.name && newStudent.email) {
+          console.log('Adding new student to state...');
+          setStudents([...students, newStudent]);
+          console.log('Students state updated with new student');
+        } else {
+          console.error('New student missing required properties:', newStudent);
+          // Still show success but don't add to state
+          console.log('Student created but not added to state due to missing properties');
+        }
 
         toast({
           title: "Success",
           description: "Student created successfully",
         });
+        
+        // Reload students to ensure fresh data
+        setTimeout(() => {
+          console.log('Reloading students after 1 second delay...');
+          loadStudents();
+        }, 1000);
       }
 
       resetForm();
@@ -130,20 +190,27 @@ const Students = () => {
       setShowCreateForm(false);
 
     } catch (error) {
+      console.error('Error in handleSubmit:', error);
       toast({
         title: "Error",
         description: editStudent ? "Failed to update student" : "Failed to create student",
         variant: "destructive",
       });
+      
+      setShowCreateForm(false);
+      setEditStudent(null);
+      resetForm();
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!deleteStudent) return;
+    
     try {
-      await studentsAPI.delete(id);
-      setStudents(students.filter(s => s.id !== id));
+      await studentsAPI.delete(deleteStudent.id);
+      setStudents(students.filter(s => s.id !== deleteStudent.id));
       toast({
         title: "Success",
         description: "Student deleted successfully",
@@ -154,6 +221,8 @@ const Students = () => {
         description: "Failed to delete student",
         variant: "destructive",
       });
+    } finally {
+      setDeleteStudent(null);
     }
   };
 
@@ -174,10 +243,17 @@ const Students = () => {
     setSelectedClassId('');
   };
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = (students || []).filter(student => {
+    // First check if student object exists and has required properties
+    if (!student || !student.name || !student.email) {
+      return false;
+    }
+    
+    // Then check if search term matches name or email
+    const searchLower = searchTerm.toLowerCase();
+    return student.name.toLowerCase().includes(searchLower) || 
+           student.email.toLowerCase().includes(searchLower);
+  });
 
   if (isLoading) {
     return (
@@ -201,17 +277,17 @@ const Students = () => {
             Manage student information and enrollment
           </p>
         </div>
-        <Button
-          onClick={() => {
-            resetForm();
-            setEditStudent(null);
-            setShowCreateForm(true);
-          }}
-          className="bg-primary hover:bg-primary/90"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Student
-        </Button>
+          <Button
+            onClick={() => {
+              resetForm();
+              setEditStudent(null);
+              setShowCreateForm(true);
+            }}
+            className="bg-primary hover:bg-primary/90"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Student
+          </Button>
       </div>
 
       {/* Create/Edit Form */}
@@ -393,22 +469,26 @@ const Students = () => {
                       <div className="space-y-2 flex-1">
                         <div className="flex items-center space-x-4">
                           <h3 className="font-semibold text-lg">{student.name}</h3>
-                          <Badge className="bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30">
-                            Roll No: {student.rollNumber}
-                          </Badge>
-                          <Badge className="bg-secondary/10 text-secondary-foreground border-secondary/20 dark:bg-secondary/20 dark:text-secondary-foreground dark:border-secondary/30">
-                            Class: {student.class?.name}
-                          </Badge>
+                          {student.rollNumber && (
+                            <Badge className="bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30">
+                              Roll No: {student.rollNumber}
+                            </Badge>
+                          )}
+                          {student.class?.name && (
+                            <Badge className="bg-secondary/10 text-secondary-foreground border-secondary/20 dark:bg-secondary/20 dark:text-secondary-foreground dark:border-secondary/30">
+                              Class: {student.class.name}
+                            </Badge>
+                          )}
                           <Badge variant={student.isActive ? "default" : "destructive"}>
                             {student.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </div>
                         <div className="grid gap-2 md:grid-cols-2 text-sm text-muted-foreground">
                           <p><strong>Email:</strong> {student.email}</p>
-                          {student.fatherName && <p><strong>Father:</strong> {student.fatherName}</p>}
-                          {student.motherName && <p><strong>Mother:</strong> {student.motherName}</p>}
+                          {student.fatherName && <p><strong>Father Name:</strong> {student.fatherName}</p>}
+                          {student.motherName && <p><strong>Mother Name:</strong> {student.motherName}</p>}
                           {student.whatsappNumber && <p><strong>Phone:</strong> {student.whatsappNumber}</p>}
-                          <p><strong>Enrolled:</strong> {new Date(student.createdAt).toLocaleDateString()}</p>
+                          <p><strong>Enrolled:</strong> {student.createdAt ? new Date(student.createdAt).toLocaleDateString() : 'N/A'}</p>
                         </div>
                         {student.address && (
                           <p className="text-sm text-muted-foreground">
@@ -420,14 +500,37 @@ const Students = () => {
                         <Button variant="outline" size="sm" onClick={() => handleEditClick(student)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(student.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDeleteStudent(student)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the student "{student.name}" and remove all their data.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => setDeleteStudent(null)}>
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleDelete}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete Student
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   </CardContent>

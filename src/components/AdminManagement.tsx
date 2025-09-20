@@ -24,7 +24,7 @@ const AdminManagement = () => {
     name: '',
     email: '',
     password: '',
-    role: 'admin' as 'admin' | 'super_admin'
+    role: 'ADMIN' as 'ADMIN'
   });
 
   useEffect(() => {
@@ -35,7 +35,14 @@ const AdminManagement = () => {
     try {
       setIsLoading(true);
       const response = await adminsAPI.getAll();
-      setAdmins(response.admins);
+      console.log('API Response:', response);
+      
+      // The API returns { admins: { data: [...] } } where data is the array of admins
+      const adminsData = response.admins.data;
+      console.log('Admins data:', adminsData);
+      console.log('First admin object:', adminsData[0]);
+      
+      setAdmins(adminsData);
     } catch (error) {
       console.error('Error loading admins:', error);
       toast({
@@ -47,12 +54,12 @@ const AdminManagement = () => {
       setIsLoading(false);
     }
   };
-
+console.log(admins,"admins")
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingAdmin) {
-        await adminsAPI.update(editingAdmin.id, formData);
+        await adminsAPI.update(editingAdmin._id, formData);
         toast({
           title: "Success",
           description: "Admin updated successfully",
@@ -66,7 +73,7 @@ const AdminManagement = () => {
       }
       setIsDialogOpen(false);
       setEditingAdmin(null);
-      setFormData({ name: '', email: '', password: '', role: 'admin' });
+      setFormData({ name: '', email: '', password: '', role: 'ADMIN' });
       loadAdmins();
     } catch (error) {
       console.error('Error saving admin:', error);
@@ -84,7 +91,7 @@ const AdminManagement = () => {
       name: admin.name || '',
       email: admin.email,
       password: '', // Don't show existing password
-      role: admin.role || 'admin'
+      role: admin.role || 'ADMIN' as 'ADMIN'
     });
     setIsDialogOpen(true);
   };
@@ -110,7 +117,7 @@ const AdminManagement = () => {
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setEditingAdmin(null);
-    setFormData({ name: '', email: '', password: '', role: 'admin' });
+    setFormData({ name: '', email: '', password: '', role: 'ADMIN' });
   };
 
   const filteredAdmins = admins.filter(admin =>
@@ -119,11 +126,11 @@ const AdminManagement = () => {
   );
 
   const getRoleIcon = (role: string) => {
-    return role === 'super_admin' ? Crown : Shield;
+    return role === 'SUPER_ADMIN' ? Crown : Shield;
   };
 
   const getRoleBadgeVariant = (role: string) => {
-    return role === 'super_admin' ? 'default' : 'secondary';
+    return role === 'SUPER_ADMIN' ? 'default' : 'secondary';
   };
 
   if (isLoading) {
@@ -212,14 +219,13 @@ const AdminManagement = () => {
                 <Label htmlFor="role">Role</Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value: 'admin' | 'super_admin') => setFormData({ ...formData, role: value })}
+                  onValueChange={(value: 'ADMIN' ) => setFormData({ ...formData, role: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -273,15 +279,15 @@ const AdminManagement = () => {
             </TableHeader>
             <TableBody>
               {filteredAdmins.map((admin) => {
-                const RoleIcon = getRoleIcon(admin.role || 'admin');
+                const RoleIcon = getRoleIcon(admin.role || 'ADMIN');
                 return (
                   <TableRow key={admin.id}>
                     <TableCell className="font-medium">{admin.name}</TableCell>
                     <TableCell>{admin.email}</TableCell>
                     <TableCell>
-                      <Badge variant={getRoleBadgeVariant(admin.role || 'admin')} className="flex items-center gap-1 w-fit">
+                      <Badge variant={getRoleBadgeVariant(admin.role || 'ADMIN')} className="flex items-center gap-1 w-fit">
                         <RoleIcon className="w-3 h-3" />
-                        {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                        {admin.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -299,7 +305,7 @@ const AdminManagement = () => {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        {admin.role !== 'super_admin' && (
+                        {admin.role !== 'SUPER_ADMIN' && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">

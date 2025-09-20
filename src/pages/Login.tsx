@@ -128,7 +128,7 @@ const Login = () => {
         {/* Footer */}
         <div className="text-center">
           <p className="text-sm text-muted-foreground">
-            © 2024 EduAdmin. Educational Management System.
+            © 2025 EduAdmin. Educational Management System.
           </p>
         </div>
       </div>

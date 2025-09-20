@@ -519,7 +519,7 @@ export const teachersAPI = {
 
 // Admins API (Super Admin endpoints)
 export const adminsAPI = {
-  getAll: async (params: PaginationParams = {}): Promise<{ admins: User[]; pagination?: any }> => {
+  getAll: async (params: PaginationParams = {}): Promise<{ admins: { data: User[] }; pagination?: any }> => {
     try {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.append('page', params.page.toString());
@@ -532,8 +532,15 @@ export const adminsAPI = {
         headers: getAuthHeaders(),
       });
 
-      const data = await handleApiResponse<User[]>(response);
-      return { admins: data };
+      const data = await handleApiResponse<{ data: any[] }>(response);
+      
+      // Map _id to id for each admin
+      const mappedAdmins = data.data.map((admin: any) => ({
+        ...admin,
+        id: admin._id || admin.id
+      }));
+      
+      return { admins: { data: mappedAdmins } };
     } catch (error) {
       console.error('Error fetching admins:', error);
       throw error;
@@ -548,7 +555,11 @@ export const adminsAPI = {
       });
 
       if (response.status === 404) return null;
-      return await handleApiResponse<User>(response);
+      const admin = await handleApiResponse<any>(response);
+      return {
+        ...admin,
+        id: admin._id || admin.id
+      };
     } catch (error) {
       console.error('Error fetching admin:', error);
       throw error;
@@ -563,7 +574,11 @@ export const adminsAPI = {
         body: JSON.stringify(admin),
       });
 
-      return await handleApiResponse<User>(response);
+      const createdAdmin = await handleApiResponse<any>(response);
+      return {
+        ...createdAdmin,
+        id: createdAdmin._id || createdAdmin.id
+      };
     } catch (error) {
       console.error('Error creating admin:', error);
       throw error;
@@ -578,7 +593,11 @@ export const adminsAPI = {
         body: JSON.stringify(admin),
       });
 
-      return await handleApiResponse<User>(response);
+      const updatedAdmin = await handleApiResponse<any>(response);
+      return {
+        ...updatedAdmin,
+        id: updatedAdmin._id || updatedAdmin.id
+      };
     } catch (error) {
       console.error('Error updating admin:', error);
       throw error;

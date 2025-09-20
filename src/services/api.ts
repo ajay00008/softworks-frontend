@@ -201,15 +201,7 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
     if (!data.success) {
       throw new Error('API request failed');
     }
-    return data.data;
-  } else if (data.student) {
-    // Handle nested student response structure
-    console.log('Found nested student object, returning:', data.student);
-    return data.student as T;
-  } else if (data.students) {
-    // Handle nested students array
-    console.log('Found nested students array, returning:', data.students);
-    return data.students as T;
+    return data;
   } else if (Array.isArray(data)) {
     return data as T;
   } else {
@@ -219,7 +211,7 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
 
 // Students API
 export const studentsAPI = {
-  getAll: async (params: StudentParams = {}): Promise<{ students: Student[]; pagination?: any }> => {
+  getAll: async (params: StudentParams = {}): Promise<{ students: { data: Student[]; pagination?: any } }> => {
     try {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.append('page', params.page.toString());
@@ -233,18 +225,8 @@ export const studentsAPI = {
         headers: getAuthHeaders(),
       });
 
-      const data = await handleApiResponse<Student[]>(response);
-      console.log('studentsAPI.getAll - data received:', data);
-      console.log('studentsAPI.getAll - data type:', Array.isArray(data) ? 'array' : typeof data);
-      console.log('studentsAPI.getAll - data length:', Array.isArray(data) ? data.length : 'not array');
-      
-      // Ensure we return the correct format
-      if (Array.isArray(data)) {
-        return { students: data };
-      } else {
-        console.error('Expected array but got:', data);
-        return { students: [] };
-      }
+      const data = await handleApiResponse<{ data: Student[]; pagination?: any }>(response);
+      return { students: data };
     } catch (error) {
       console.error('Error fetching students:', error);
       throw error;
@@ -353,12 +335,50 @@ export const studentsAPI = {
       console.error('Error fetching students by class:', error);
       throw error;
     }
+  },
+
+  bulkUpload: async (file: File): Promise<{ 
+    success: boolean; 
+    message: string; 
+    data?: { 
+      totalRows: number; 
+      created: number; 
+      errors: number; 
+      students: any[] 
+    } 
+  }> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE_URL}/admin/students/bulk-upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+        },
+        body: formData,
+      });
+
+      return await handleApiResponse<{ 
+        success: boolean; 
+        message: string; 
+        data?: { 
+          totalRows: number; 
+          created: number; 
+          errors: number; 
+          students: any[] 
+        } 
+      }>(response);
+    } catch (error) {
+      console.error('Error uploading students in bulk:', error);
+      throw error;
+    }
   }
 };
 
 // Teachers API
 export const teachersAPI = {
-  getAll: async (params: TeacherParams = {}): Promise<{ teachers: Teacher[]; pagination?: any }> => {
+  getAll: async (params: TeacherParams = {}): Promise<{ teachers: { data: Teacher[]; pagination?: any } }> => {
     try {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.append('page', params.page.toString());
@@ -373,7 +393,7 @@ export const teachersAPI = {
         headers: getAuthHeaders(),
       });
 
-      const data = await handleApiResponse<Teacher[]>(response);
+      const data = await handleApiResponse<{ data: Teacher[]; pagination?: any }>(response);
       return { teachers: data };
     } catch (error) {
       console.error('Error fetching teachers:', error);
@@ -456,6 +476,44 @@ export const teachersAPI = {
       throw error;
     }
   },
+
+  bulkUpload: async (file: File): Promise<{ 
+    success: boolean; 
+    message: string; 
+    data?: { 
+      totalRows: number; 
+      created: number; 
+      errors: number; 
+      teachers: any[] 
+    } 
+  }> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE_URL}/admin/teachers/bulk-upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+        },
+        body: formData,
+      });
+
+      return await handleApiResponse<{ 
+        success: boolean; 
+        message: string; 
+        data?: { 
+          totalRows: number; 
+          created: number; 
+          errors: number; 
+          teachers: any[] 
+        } 
+      }>(response);
+    } catch (error) {
+      console.error('Error uploading teachers in bulk:', error);
+      throw error;
+    }
+  }
 };
 
 
@@ -559,13 +617,13 @@ export const adminsAPI = {
 
 
 export const classesAPI = {
-  getAll: async (): Promise<ClassMapping[]> => {
+  getAll: async (): Promise<{ data: ClassMapping[] }> => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/class-subject-mappings`, {
         method: "GET",
         headers: getAuthHeaders(),
       });
-      return await handleApiResponse<ClassMapping[]>(response);
+      return await handleApiResponse<{ data: ClassMapping[] }>(response);
     } catch (error) {
       console.error("Error fetching classes:", error);
       throw error;

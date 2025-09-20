@@ -35,10 +35,10 @@ const Dashboard = () => {
           studentsAPI.getAll(),
           teachersAPI.getAll()
         ]);
-        
+
         setStats({
-          totalStudents: studentsResponse.students.length,
-          totalTeachers: teachersResponse.teachers.length,
+          totalStudents: studentsResponse.students.pagination.total,
+          totalTeachers: teachersResponse.teachers.pagination.total,
           totalBooks: 45, // Mock data
           totalQuestions: 128 // Mock data
         });

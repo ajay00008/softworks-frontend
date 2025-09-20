@@ -20,6 +20,11 @@ import {
   Edit,
   Trash2,
   UserCheck,
+  Upload,
+  FileText,
+  Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 const Teachers = () => {
@@ -32,6 +37,20 @@ const Teachers = () => {
   const [deleteTeacher, setDeleteTeacher] = useState<Teacher | null>(null);
   const { toast } = useToast();
 
+  // Bulk upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [pagination, setPagination] = useState({
+    total: 0,
+    pages: 0,
+    currentPage: 1
+  });
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -40,17 +59,42 @@ const Teachers = () => {
     phone: "",
     address: "",
     qualification: "",
-    experience: "",
+    experience: 0,
   });
 
   useEffect(() => {
     loadTeachers();
   }, []);
 
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // Reload teachers when pagination or search changes
+  useEffect(() => {
+    if (!isLoading) {
+      loadTeachers();
+    }
+  }, [currentPage, searchTerm]);
+
   const loadTeachers = async () => {
     try {
-      const response = await teachersAPI.getAll();
-      setTeachers(response.teachers);
+      const response = await teachersAPI.getAll({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || undefined
+      });
+      setTeachers(response.teachers.data);
+      
+      // Update pagination info if available
+        if (response.teachers.pagination) {
+        setPagination({
+          total: response.teachers.pagination.total,
+          pages: response.teachers.pagination.pages,
+          currentPage: response.teachers.pagination.page
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -72,7 +116,7 @@ const Teachers = () => {
       phone: teacher.phone || "",
       address: teacher.address || "",
       qualification: teacher.qualification || "",
-      experience: teacher.experience || "",
+      experience: teacher.experience || 0 ,
     });
     setShowForm(true);
   };
@@ -152,6 +196,9 @@ const Teachers = () => {
         title: "Success",
         description: "Teacher removed successfully",
       });
+      
+      // Reload teachers to ensure fresh data
+      await loadTeachers();
     } catch (error) {
       toast({
         title: "Error",
@@ -172,15 +219,164 @@ const Teachers = () => {
       phone: "",
       address: "",
       qualification: "",
-      experience: "",
+      experience: 0,
     });
   };
 
-  const filteredTeachers = teachers.filter(
-    (teacher) =>
-      teacher?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      teacher?.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Server-side pagination - no need for frontend filtering/slicing
+
+  // Bulk upload handlers
+  const handleFileSelect = (file: File) => {
+    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select a CSV file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      toast({
+        title: "File too large",
+        description: "Please select a file smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadedFile(file);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const handleBulkUpload = async () => {
+    if (!uploadedFile) {
+      toast({
+        title: "No file selected",
+        description: "Please select a CSV file to upload",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const result = await teachersAPI.bulkUpload(uploadedFile);
+      
+      // Handle the actual response format
+      if (result.success && result.data) {
+        const { totalRows, created, errors } = result.data;
+        
+        if (errors === 0) {
+          toast({
+            title: "Upload successful",
+            description: `Successfully created ${created} out of ${totalRows} teachers.`,
+          });
+        } else {
+          toast({
+            title: "Upload completed with errors",
+            description: `Created ${created} teachers, ${errors} errors occurred out of ${totalRows} total rows.`,
+            variant: "destructive",
+          });
+        }
+      } else {
+        // Fallback for different response format
+        toast({
+          title: "Upload successful",
+          description: result.message || "Teachers uploaded successfully.",
+        });
+      }
+
+      // Reload teachers list
+      await loadTeachers();
+      
+      // Reset upload state
+      setUploadedFile(null);
+      
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload teachers. Please check your file format and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      // Fetch CSV content from the template file
+      const response = await fetch('/templates/teachers.csv');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch template: ${response.status}`);
+      }
+      
+      const csvContent = await response.text();
+      
+      // Create blob with proper CSV MIME type
+      const blob = new Blob([csvContent], { 
+        type: 'text/csv;charset=utf-8;' 
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'teachers_bulk_upload_template.csv';
+      
+      // Add link to DOM, click it, and remove it
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL object
+      window.URL.revokeObjectURL(url);
+      
+      // Show success toast
+      toast({
+        title: "Template Downloaded",
+        description: "CSV template has been downloaded successfully. You can now fill it with your teacher data.",
+      });
+      
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download the template. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) {
     return <p>Loading teachers...</p>;
@@ -348,14 +544,25 @@ const Teachers = () => {
       {/* Teachers list */}
       <Card>
         <CardHeader>
-          <CardTitle>Teaching Staff ({filteredTeachers.length})</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Teaching Staff ({pagination.total || teachers.length})</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Search teachers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-64"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {filteredTeachers.length === 0 ? (
+          {teachers.length === 0 ? (
             <p>No teachers found</p>
           ) : (
-            <div className="grid gap-4">
-              {filteredTeachers.map((teacher) => (
+            <>
+              <div className="grid gap-4">
+                {teachers.map((teacher) => (
                 <Card
                   key={teacher.id}
                   className="border-l-4 border-l-accent bg-card/50 dark:bg-card/80 dark:border-accent/50 hover:shadow-md transition-all duration-200"
@@ -425,9 +632,172 @@ const Teachers = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {(pagination.pages > 1 || teachers.length >= itemsPerPage) && (
+                <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, pagination.total || teachers.length)} of {pagination.total || teachers.length} teachers
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center"
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: pagination.pages || Math.ceil((pagination.total || teachers.length) / itemsPerPage) }, (_, i) => i + 1).map((page) => (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 p-0 ${
+                            currentPage === page 
+                              ? "bg-accent text-accent-foreground" 
+                              : "hover:bg-accent hover:text-accent-foreground"
+                          }`}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.pages || Math.ceil((pagination.total || teachers.length) / itemsPerPage)))}
+                      disabled={currentPage === (pagination.pages || Math.ceil((pagination.total || teachers.length) / itemsPerPage))}
+                      className="flex items-center"
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Bulk Upload Container */}
+      <Card className="border-accent/20 bg-accent/5">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Upload className="w-5 h-5 mr-2 text-accent" />
+            Bulk Upload Teachers
+          </CardTitle>
+          <CardDescription>
+            Upload a CSV file to add multiple teachers at once. Download the template to see the required format.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Upload Area */}
+            <div 
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 ${
+                dragActive 
+                  ? "border-accent bg-accent/10 dark:bg-accent/20" 
+                  : "border-accent/30 hover:border-accent/50 bg-background/50 dark:bg-background/20"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <div className="flex flex-col items-center space-y-4">
+                <div className="p-4 rounded-full bg-accent/10 dark:bg-accent/20">
+                  <FileText className="w-8 h-8 text-accent" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {uploadedFile ? uploadedFile.name : "Drop your CSV file here"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {uploadedFile ? "File selected and ready to upload" : "or click to browse and select a file"}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <label htmlFor="file-upload">
+                    <Button 
+                      variant="outline" 
+                      className="border-accent/30 text-accent hover:bg-accent/50 hover:border-accent/50 hover:text-accent-foreground cursor-pointer"
+                      asChild
+                    >
+                      <span>
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploadedFile ? "Change File" : "Choose File"}
+                      </span>
+                    </Button>
+                  </label>
+                  <Button 
+                    variant="outline" 
+                    className="border-accent/30 text-accent hover:bg-accent/50 hover:border-accent/50 hover:text-accent-foreground"
+                    onClick={handleDownloadTemplate}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Sample 
+                  </Button>
+                  {uploadedFile && (
+                    <>
+                      <Button 
+                        onClick={handleBulkUpload}
+                        disabled={isUploading}
+                        className="bg-accent hover:bg-accent/90"
+                      >
+                        {isUploading ? (
+                          <>
+                            <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Teachers
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setUploadedFile(null)}
+                        disabled={isUploading}
+                        className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50"
+                      >
+                        Clear
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Upload Instructions */}
+            <div className="bg-muted/50 dark:bg-muted/20 rounded-lg p-4">
+              <h4 className="font-medium text-foreground mb-2">CSV Format Requirements:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Required columns: name, email, password</li>
+                <li>• Optional columns: phone, address, qualification, experience, department</li>
+                <li>• Experience should be a number (years of experience)</li>
+                <li>• Maximum file size: 5MB</li>
+              </ul>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

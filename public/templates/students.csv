@@ -1,0 +1,16 @@
+email,password,name,rollNumber,className,fatherName,motherName,dateOfBirth,parentsPhone,parentsEmail,address
+student1@example.com,password123,Alice Johnson,1001,10B,Robert Johnson,Mary Johnson,2005-03-15,1234567890,robert.johnson@email.com,123 Oak Street
+student2@example.com,password456,Bob Smith,1002,10B,John Smith,Jane Smith,2005-07-22,2345678901,john.smith@email.com,456 Maple Avenue
+student3@example.com,password789,Carol Davis,1003,10B,Michael Davis,Sarah Davis,2005-01-10,3456789012,michael.davis@email.com,789 Pine Road
+student4@example.com,password101,David Wilson,1004,10B,James Wilson,Lisa Wilson,2005-09-05,4567890123,james.wilson@email.com,321 Elm Street
+student5@example.com,password202,Emma Brown,1005,10B,William Brown,Emma Brown,2005-12-18,5678901234,william.brown@email.com,654 Cedar Lane
+student6@example.com,password303,Frank Miller,1006,10B,Thomas Miller,Anna Miller,2005-06-30,6789012345,thomas.miller@email.com,987 Birch Boulevard
+student7@example.com,password404,Grace Garcia,1007,10B,Christopher Garcia,Maria Garcia,2004-04-12,7890123456,chris.garcia@email.com,147 Spruce Drive
+student8@example.com,password505,Henry Martinez,1008,10B,Daniel Martinez,Carmen Martinez,2004-08-25,8901234567,daniel.martinez@email.com,258 Willow Way
+student9@example.com,password606,Ivy Rodriguez,1009,10B,Anthony Rodriguez,Isabella Rodriguez,2004-11-08,9012345678,anthony.rodriguez@email.com,369 Poplar Street
+student10@example.com,password707,Jack Lee,1010,10B,Kevin Lee,Jennifer Lee,2004-02-14,0123456789,kevin.lee@email.com,741 Ash Avenue
+student11@example.com,password808,Kate White,1011,10B,Mark White,Patricia White,2004-10-03,1234567890,mark.white@email.com,852 Hickory Boulevard
+student12@example.com,password909,Liam Taylor,1012,10B,Paul Taylor,Susan Taylor,2004-05-20,2345678901,paul.taylor@email.com,963 Sycamore Street
+student13@example.com,password010,Maya Anderson,1013,10B,Steven Anderson,Linda Anderson,2003-09-15,3456789012,steven.anderson@email.com,174 Dogwood Drive
+student14@example.com,password111,Noah Thomas,1014,10B,Richard Thomas,Barbara Thomas,2003-12-28,4567890123,richard.thomas@email.com,285 Magnolia Lane
+student15@example.com,password222,Olivia Jackson,1015,10B,Charles Jackson,Elizabeth Jackson,2003-07-11,5678901234,charles.jackson@email.com,396 Redwood Road

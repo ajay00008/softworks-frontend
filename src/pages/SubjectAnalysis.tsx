@@ -29,31 +29,158 @@ const SubjectAnalysis = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const subjectsData = await subjectsAPI.getAll(11); // Load subjects for level 11
-        setSubjects(subjectsData);
+        // Use mock data instead of API calls
+        const mockSubjects = [
+          { id: '1', name: 'Mathematics', code: 'MATH', level: [11, 12] },
+          { id: '2', name: 'Physics', code: 'PHY', level: [11, 12] },
+          { id: '3', name: 'Chemistry', code: 'CHEM', level: [11, 12] },
+          { id: '4', name: 'English', code: 'ENG', level: [11, 12] },
+          { id: '5', name: 'Biology', code: 'BIO', level: [11, 12] },
+          { id: '6', name: 'Computer Science', code: 'CS', level: [11, 12] }
+        ];
+        setSubjects(mockSubjects);
         
-        // Mock data for subject analysis
-        const mockAnalysis = subjectsData.map(subject => ({
-          subjectId: subject.id,
-          subjectName: subject.name,
-          subjectCode: subject.code,
-          totalExams: Math.floor(Math.random() * 10) + 5,
-          averagePercentage: Math.floor(Math.random() * 30) + 60,
-          passRate: Math.floor(Math.random() * 20) + 70,
-          excellentStudents: Math.floor(Math.random() * 15) + 5,
-          goodStudents: Math.floor(Math.random() * 12) + 8,
-          averageStudents: Math.floor(Math.random() * 8) + 4,
-          needsImprovement: Math.floor(Math.random() * 5) + 1,
-          highestScore: Math.floor(Math.random() * 10) + 90,
-          lowestScore: Math.floor(Math.random() * 20) + 30,
-          classPerformance: [
-            { className: '11A', average: Math.floor(Math.random() * 20) + 70, students: Math.floor(Math.random() * 10) + 20 },
-            { className: '11B', average: Math.floor(Math.random() * 20) + 70, students: Math.floor(Math.random() * 10) + 20 },
-            { className: '11C', average: Math.floor(Math.random() * 20) + 70, students: Math.floor(Math.random() * 10) + 20 }
-          ],
-          difficulty: Math.random() > 0.5 ? 'High' : Math.random() > 0.3 ? 'Medium' : 'Low',
-          improvement: Math.floor(Math.random() * 10) - 5 // -5 to +5
-        }));
+        // Comprehensive mock data for subject analysis
+        const mockAnalysis = [
+          {
+            subjectId: '1',
+            subjectName: 'Mathematics',
+            subjectCode: 'MATH',
+            totalExams: 8,
+            averagePercentage: 76.5,
+            passRate: 82.3,
+            excellentStudents: 12,
+            goodStudents: 18,
+            averageStudents: 15,
+            needsImprovement: 8,
+            highestScore: 98,
+            lowestScore: 32,
+            classPerformance: [
+              { className: '11A', average: 78.5, students: 28 },
+              { className: '11B', average: 76.2, students: 26 },
+              { className: '11C', average: 72.8, students: 24 },
+              { className: '12A', average: 82.1, students: 30 },
+              { className: '12B', average: 79.4, students: 27 }
+            ],
+            difficulty: 'High',
+            improvement: 3.2
+          },
+          {
+            subjectId: '2',
+            subjectName: 'Physics',
+            subjectCode: 'PHY',
+            totalExams: 7,
+            averagePercentage: 81.2,
+            passRate: 87.5,
+            excellentStudents: 15,
+            goodStudents: 20,
+            averageStudents: 12,
+            needsImprovement: 5,
+            highestScore: 99,
+            lowestScore: 45,
+            classPerformance: [
+              { className: '11A', average: 82.3, students: 28 },
+              { className: '11B', average: 80.1, students: 26 },
+              { className: '11C', average: 77.5, students: 24 },
+              { className: '12A', average: 84.6, students: 30 },
+              { className: '12B', average: 82.7, students: 27 }
+            ],
+            difficulty: 'High',
+            improvement: 2.8
+          },
+          {
+            subjectId: '3',
+            subjectName: 'Chemistry',
+            subjectCode: 'CHEM',
+            totalExams: 6,
+            averagePercentage: 84.7,
+            passRate: 91.2,
+            excellentStudents: 18,
+            goodStudents: 22,
+            averageStudents: 10,
+            needsImprovement: 3,
+            highestScore: 97,
+            lowestScore: 55,
+            classPerformance: [
+              { className: '11A', average: 85.7, students: 28 },
+              { className: '11B', average: 83.4, students: 26 },
+              { className: '11C', average: 80.1, students: 24 },
+              { className: '12A', average: 87.3, students: 30 },
+              { className: '12B', average: 85.2, students: 27 }
+            ],
+            difficulty: 'Medium',
+            improvement: 4.1
+          },
+          {
+            subjectId: '4',
+            subjectName: 'English',
+            subjectCode: 'ENG',
+            totalExams: 9,
+            averagePercentage: 88.3,
+            passRate: 94.6,
+            excellentStudents: 22,
+            goodStudents: 25,
+            averageStudents: 8,
+            needsImprovement: 2,
+            highestScore: 98,
+            lowestScore: 62,
+            classPerformance: [
+              { className: '11A', average: 88.2, students: 28 },
+              { className: '11B', average: 86.8, students: 26 },
+              { className: '11C', average: 84.3, students: 24 },
+              { className: '12A', average: 89.8, students: 30 },
+              { className: '12B', average: 87.9, students: 27 }
+            ],
+            difficulty: 'Low',
+            improvement: 1.5
+          },
+          {
+            subjectId: '5',
+            subjectName: 'Biology',
+            subjectCode: 'BIO',
+            totalExams: 5,
+            averagePercentage: 79.8,
+            passRate: 85.4,
+            excellentStudents: 14,
+            goodStudents: 19,
+            averageStudents: 13,
+            needsImprovement: 6,
+            highestScore: 96,
+            lowestScore: 48,
+            classPerformance: [
+              { className: '11A', average: 81.2, students: 28 },
+              { className: '11B', average: 79.5, students: 26 },
+              { className: '11C', average: 76.8, students: 24 },
+              { className: '12A', average: 83.1, students: 30 },
+              { className: '12B', average: 80.9, students: 27 }
+            ],
+            difficulty: 'Medium',
+            improvement: 2.3
+          },
+          {
+            subjectId: '6',
+            subjectName: 'Computer Science',
+            subjectCode: 'CS',
+            totalExams: 4,
+            averagePercentage: 85.6,
+            passRate: 92.1,
+            excellentStudents: 16,
+            goodStudents: 21,
+            averageStudents: 9,
+            needsImprovement: 4,
+            highestScore: 99,
+            lowestScore: 58,
+            classPerformance: [
+              { className: '11A', average: 86.8, students: 28 },
+              { className: '11B', average: 84.2, students: 26 },
+              { className: '11C', average: 81.5, students: 24 },
+              { className: '12A', average: 88.9, students: 30 },
+              { className: '12B', average: 86.3, students: 27 }
+            ],
+            difficulty: 'Medium',
+            improvement: 3.7
+          }
+        ];
         
         setSubjectAnalysis(mockAnalysis);
       } catch (error) {

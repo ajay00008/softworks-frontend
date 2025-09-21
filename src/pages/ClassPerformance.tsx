@@ -28,32 +28,129 @@ const ClassPerformance = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const classesData = await classesAPI.getAll();
-        setClasses(classesData);
+        // Use mock data instead of API calls
+        const mockClasses = [
+          { classId: '1', className: '11A', level: 11 },
+          { classId: '2', className: '11B', level: 11 },
+          { classId: '3', className: '11C', level: 11 },
+          { classId: '4', className: '12A', level: 12 },
+          { classId: '5', className: '12B', level: 12 }
+        ];
+        setClasses(mockClasses);
         
-        // Mock data for class performance
-        const mockPerformance = classesData.map(cls => ({
-          classId: cls.classId,
-          className: cls.className,
-          totalStudents: Math.floor(Math.random() * 30) + 20,
-          averagePercentage: Math.floor(Math.random() * 30) + 60,
-          passRate: Math.floor(Math.random() * 20) + 70,
-          excellentStudents: Math.floor(Math.random() * 10) + 5,
-          goodStudents: Math.floor(Math.random() * 8) + 5,
-          averageStudents: Math.floor(Math.random() * 6) + 3,
-          needsImprovement: Math.floor(Math.random() * 4) + 1,
-          subjectPerformance: [
-            { subject: 'Mathematics', average: Math.floor(Math.random() * 20) + 70, highest: Math.floor(Math.random() * 10) + 90, lowest: Math.floor(Math.random() * 20) + 40 },
-            { subject: 'Physics', average: Math.floor(Math.random() * 20) + 70, highest: Math.floor(Math.random() * 10) + 90, lowest: Math.floor(Math.random() * 20) + 40 },
-            { subject: 'Chemistry', average: Math.floor(Math.random() * 20) + 70, highest: Math.floor(Math.random() * 10) + 90, lowest: Math.floor(Math.random() * 20) + 40 },
-            { subject: 'English', average: Math.floor(Math.random() * 20) + 70, highest: Math.floor(Math.random() * 10) + 90, lowest: Math.floor(Math.random() * 20) + 40 }
-          ],
-          topPerformers: [
-            { name: 'Student A', percentage: Math.floor(Math.random() * 10) + 90 },
-            { name: 'Student B', percentage: Math.floor(Math.random() * 10) + 85 },
-            { name: 'Student C', percentage: Math.floor(Math.random() * 10) + 80 }
-          ]
-        }));
+        // Comprehensive mock data for class performance
+        const mockPerformance = [
+          {
+            classId: '1',
+            className: '11A',
+            totalStudents: 28,
+            averagePercentage: 82.5,
+            passRate: 89.3,
+            excellentStudents: 8,
+            goodStudents: 12,
+            averageStudents: 6,
+            needsImprovement: 2,
+            subjectPerformance: [
+              { subject: 'Mathematics', average: 78.5, highest: 95, lowest: 45 },
+              { subject: 'Physics', average: 82.3, highest: 98, lowest: 52 },
+              { subject: 'Chemistry', average: 85.7, highest: 96, lowest: 58 },
+              { subject: 'English', average: 88.2, highest: 97, lowest: 65 }
+            ],
+            topPerformers: [
+              { name: 'John Doe', percentage: 92 },
+              { name: 'Jane Smith', percentage: 89 },
+              { name: 'Mike Johnson', percentage: 87 }
+            ]
+          },
+          {
+            classId: '2',
+            className: '11B',
+            totalStudents: 26,
+            averagePercentage: 79.8,
+            passRate: 84.6,
+            excellentStudents: 6,
+            goodStudents: 10,
+            averageStudents: 8,
+            needsImprovement: 2,
+            subjectPerformance: [
+              { subject: 'Mathematics', average: 76.2, highest: 92, lowest: 42 },
+              { subject: 'Physics', average: 80.1, highest: 95, lowest: 48 },
+              { subject: 'Chemistry', average: 83.4, highest: 94, lowest: 55 },
+              { subject: 'English', average: 86.8, highest: 96, lowest: 62 }
+            ],
+            topPerformers: [
+              { name: 'Alice Brown', percentage: 90 },
+              { name: 'Bob Wilson', percentage: 88 },
+              { name: 'Carol Davis', percentage: 85 }
+            ]
+          },
+          {
+            classId: '3',
+            className: '11C',
+            totalStudents: 24,
+            averagePercentage: 75.2,
+            passRate: 79.2,
+            excellentStudents: 4,
+            goodStudents: 8,
+            averageStudents: 9,
+            needsImprovement: 3,
+            subjectPerformance: [
+              { subject: 'Mathematics', average: 72.8, highest: 88, lowest: 38 },
+              { subject: 'Physics', average: 77.5, highest: 91, lowest: 45 },
+              { subject: 'Chemistry', average: 80.1, highest: 89, lowest: 50 },
+              { subject: 'English', average: 84.3, highest: 93, lowest: 58 }
+            ],
+            topPerformers: [
+              { name: 'David Lee', percentage: 87 },
+              { name: 'Emma Taylor', percentage: 84 },
+              { name: 'Frank Miller', percentage: 82 }
+            ]
+          },
+          {
+            classId: '4',
+            className: '12A',
+            totalStudents: 30,
+            averagePercentage: 85.7,
+            passRate: 93.3,
+            excellentStudents: 10,
+            goodStudents: 14,
+            averageStudents: 5,
+            needsImprovement: 1,
+            subjectPerformance: [
+              { subject: 'Mathematics', average: 82.1, highest: 98, lowest: 55 },
+              { subject: 'Physics', average: 84.6, highest: 99, lowest: 60 },
+              { subject: 'Chemistry', average: 87.3, highest: 97, lowest: 65 },
+              { subject: 'English', average: 89.8, highest: 98, lowest: 70 }
+            ],
+            topPerformers: [
+              { name: 'Grace Wilson', percentage: 95 },
+              { name: 'Henry Brown', percentage: 93 },
+              { name: 'Ivy Davis', percentage: 91 }
+            ]
+          },
+          {
+            classId: '5',
+            className: '12B',
+            totalStudents: 27,
+            averagePercentage: 81.3,
+            passRate: 88.9,
+            excellentStudents: 7,
+            goodStudents: 11,
+            averageStudents: 7,
+            needsImprovement: 2,
+            subjectPerformance: [
+              { subject: 'Mathematics', average: 79.4, highest: 94, lowest: 48 },
+              { subject: 'Physics', average: 82.7, highest: 96, lowest: 55 },
+              { subject: 'Chemistry', average: 85.2, highest: 95, lowest: 60 },
+              { subject: 'English', average: 87.9, highest: 97, lowest: 65 }
+            ],
+            topPerformers: [
+              { name: 'Jack Smith', percentage: 92 },
+              { name: 'Kate Johnson', percentage: 89 },
+              { name: 'Leo Wilson', percentage: 86 }
+            ]
+          }
+        ];
         
         setClassPerformance(mockPerformance);
       } catch (error) {

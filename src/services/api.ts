@@ -719,3 +719,90 @@ export const subjectsAPI = {
     }
   },
 };
+
+// Performance API
+export const performanceAPI = {
+  getAnalytics: async (params: any = {}): Promise<any> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.classId) queryParams.append('classId', params.classId);
+      if (params.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params.examType) queryParams.append('examType', params.examType);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      if (params.academicYear) queryParams.append('academicYear', params.academicYear);
+
+      const response = await fetch(`${API_BASE_URL}/admin/performance/analytics?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching performance analytics:', error);
+      throw error;
+    }
+  },
+
+  getClassPerformance: async (classId: string, params: any = {}): Promise<any> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params.examType) queryParams.append('examType', params.examType);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      if (params.academicYear) queryParams.append('academicYear', params.academicYear);
+
+      const response = await fetch(`${API_BASE_URL}/admin/performance/class/${classId}?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching class performance:', error);
+      throw error;
+    }
+  },
+
+  getIndividualPerformance: async (studentId: string, params: any = {}): Promise<any> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params.examType) queryParams.append('examType', params.examType);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      if (params.academicYear) queryParams.append('academicYear', params.academicYear);
+
+      const response = await fetch(`${API_BASE_URL}/admin/performance/individual/${studentId}?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching individual performance:', error);
+      throw error;
+    }
+  },
+
+  getPerformanceReport: async (type: string, params: any = {}): Promise<any> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.studentId) queryParams.append('studentId', params.studentId);
+      if (params.classId) queryParams.append('classId', params.classId);
+      if (params.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params.examId) queryParams.append('examId', params.examId);
+
+      const response = await fetch(`${API_BASE_URL}/admin/performance/reports/${type}?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching performance report:', error);
+      throw error;
+    }
+  }
+};

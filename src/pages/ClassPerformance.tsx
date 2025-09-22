@@ -13,7 +13,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { performanceAPI, classesAPI } from '@/services/api';
+import { dashboardAPI, classesAPI } from '@/services/api';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -24,137 +24,97 @@ const ClassPerformance = () => {
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Use mock data instead of API calls
-        const mockClasses = [
-          { classId: '1', className: '11A', level: 11 },
-          { classId: '2', className: '11B', level: 11 },
-          { classId: '3', className: '11C', level: 11 },
-          { classId: '4', className: '12A', level: 12 },
-          { classId: '5', className: '12B', level: 12 }
-        ];
-        setClasses(mockClasses);
+        setIsLoading(true);
+        setError(null);
         
-        // Comprehensive mock data for class performance
-        const mockPerformance = [
-          {
-            classId: '1',
-            className: '11A',
-            totalStudents: 28,
-            averagePercentage: 82.5,
-            passRate: 89.3,
-            excellentStudents: 8,
-            goodStudents: 12,
-            averageStudents: 6,
-            needsImprovement: 2,
-            subjectPerformance: [
-              { subject: 'Mathematics', average: 78.5, highest: 95, lowest: 45 },
-              { subject: 'Physics', average: 82.3, highest: 98, lowest: 52 },
-              { subject: 'Chemistry', average: 85.7, highest: 96, lowest: 58 },
-              { subject: 'English', average: 88.2, highest: 97, lowest: 65 }
-            ],
-            topPerformers: [
-              { name: 'John Doe', percentage: 92 },
-              { name: 'Jane Smith', percentage: 89 },
-              { name: 'Mike Johnson', percentage: 87 }
-            ]
-          },
-          {
-            classId: '2',
-            className: '11B',
-            totalStudents: 26,
-            averagePercentage: 79.8,
-            passRate: 84.6,
-            excellentStudents: 6,
-            goodStudents: 10,
-            averageStudents: 8,
-            needsImprovement: 2,
-            subjectPerformance: [
-              { subject: 'Mathematics', average: 76.2, highest: 92, lowest: 42 },
-              { subject: 'Physics', average: 80.1, highest: 95, lowest: 48 },
-              { subject: 'Chemistry', average: 83.4, highest: 94, lowest: 55 },
-              { subject: 'English', average: 86.8, highest: 96, lowest: 62 }
-            ],
-            topPerformers: [
-              { name: 'Alice Brown', percentage: 90 },
-              { name: 'Bob Wilson', percentage: 88 },
-              { name: 'Carol Davis', percentage: 85 }
-            ]
-          },
-          {
-            classId: '3',
-            className: '11C',
-            totalStudents: 24,
-            averagePercentage: 75.2,
-            passRate: 79.2,
-            excellentStudents: 4,
-            goodStudents: 8,
-            averageStudents: 9,
-            needsImprovement: 3,
-            subjectPerformance: [
-              { subject: 'Mathematics', average: 72.8, highest: 88, lowest: 38 },
-              { subject: 'Physics', average: 77.5, highest: 91, lowest: 45 },
-              { subject: 'Chemistry', average: 80.1, highest: 89, lowest: 50 },
-              { subject: 'English', average: 84.3, highest: 93, lowest: 58 }
-            ],
-            topPerformers: [
-              { name: 'David Lee', percentage: 87 },
-              { name: 'Emma Taylor', percentage: 84 },
-              { name: 'Frank Miller', percentage: 82 }
-            ]
-          },
-          {
-            classId: '4',
-            className: '12A',
-            totalStudents: 30,
-            averagePercentage: 85.7,
-            passRate: 93.3,
-            excellentStudents: 10,
-            goodStudents: 14,
-            averageStudents: 5,
-            needsImprovement: 1,
-            subjectPerformance: [
-              { subject: 'Mathematics', average: 82.1, highest: 98, lowest: 55 },
-              { subject: 'Physics', average: 84.6, highest: 99, lowest: 60 },
-              { subject: 'Chemistry', average: 87.3, highest: 97, lowest: 65 },
-              { subject: 'English', average: 89.8, highest: 98, lowest: 70 }
-            ],
-            topPerformers: [
-              { name: 'Grace Wilson', percentage: 95 },
-              { name: 'Henry Brown', percentage: 93 },
-              { name: 'Ivy Davis', percentage: 91 }
-            ]
-          },
-          {
-            classId: '5',
-            className: '12B',
-            totalStudents: 27,
-            averagePercentage: 81.3,
-            passRate: 88.9,
-            excellentStudents: 7,
-            goodStudents: 11,
-            averageStudents: 7,
-            needsImprovement: 2,
-            subjectPerformance: [
-              { subject: 'Mathematics', average: 79.4, highest: 94, lowest: 48 },
-              { subject: 'Physics', average: 82.7, highest: 96, lowest: 55 },
-              { subject: 'Chemistry', average: 85.2, highest: 95, lowest: 60 },
-              { subject: 'English', average: 87.9, highest: 97, lowest: 65 }
-            ],
-            topPerformers: [
-              { name: 'Jack Smith', percentage: 92 },
-              { name: 'Kate Johnson', percentage: 89 },
-              { name: 'Leo Wilson', percentage: 86 }
-            ]
-          }
-        ];
+        const dashboardData = await dashboardAPI.getStats();
+        console.log('Dashboard data:', dashboardData);
         
-        setClassPerformance(mockPerformance);
+        // Get class performance data from the correct path
+        const classPerformanceData = dashboardData.data?.classPerformance || [];
+        const subjectPerformanceData = dashboardData.data?.subjectPerformance || [];
+        const topPerformersData = dashboardData.data?.topPerformers || [];
+        const totalStudentsInSystem = dashboardData.data?.overview?.totalStudents || 0;
+        
+        console.log('Class performance data:', classPerformanceData);
+        console.log('Subject performance data:', subjectPerformanceData);
+        console.log('Top performers data:', topPerformersData);
+        console.log('Total students in system:', totalStudentsInSystem);
+        
+        // Set classes for filter dropdown - use classPerformance data
+        const classesForFilter = classPerformanceData.map((cls: any) => ({
+          classId: cls._id,
+          className: cls.className
+        }));
+        setClasses(classesForFilter);
+        
+        // Calculate total results across all classes to distribute students proportionally
+        const totalResultsAcrossClasses = classPerformanceData.reduce((sum: number, cls: any) => sum + (cls.totalResults || 0), 0);
+        
+        // Map the real data to the expected format
+        const performance = classPerformanceData.map((cls: any) => {
+          // Find top performers for this class
+          const classTopPerformers = topPerformersData
+            .filter((performer: any) => performer.className === cls.className)
+            .slice(0, 3)
+            .map((performer: any) => ({
+              name: performer.studentName,
+              percentage: Math.round(performer.averagePercentage)
+            }));
+          
+          // Calculate performance distribution based on pass/fail
+          const totalResults = cls.totalResults || 0;
+          const passedResults = cls.passedResults || 0;
+          const failedResults = totalResults - passedResults;
+          
+          // Calculate students per class based on proportion of results
+          const resultsProportion = totalResultsAcrossClasses > 0 ? totalResults / totalResultsAcrossClasses : 0;
+          const studentsInClass = Math.round(totalStudentsInSystem * resultsProportion);
+          
+          // Ensure minimum of 1 student per class if there are results
+          const totalStudents = totalResults > 0 ? Math.max(studentsInClass, 1) : 0;
+          
+          // Estimate student distribution (this is approximate since we don't have exact student counts)
+          const excellentStudents = Math.floor(passedResults * 0.3);
+          const goodStudents = Math.floor(passedResults * 0.4);
+          const averageStudents = Math.floor(passedResults * 0.2);
+          const needsImprovement = failedResults;
+          
+          return {
+            classId: cls._id,
+            className: cls.className,
+            totalStudents: totalStudents,
+            averagePercentage: Math.round(cls.averagePercentage * 100) / 100,
+            passRate: Math.round(cls.passPercentage * 100) / 100,
+            excellentStudents,
+            goodStudents,
+            averageStudents,
+            needsImprovement,
+            subjectPerformance: subjectPerformanceData.length > 0 
+              ? subjectPerformanceData.map((subject: any) => ({
+                  subject: subject.subjectName,
+                  average: Math.round(subject.averagePercentage * 100) / 100,
+                  highest: subject.highestPercentage,
+                  lowest: subject.lowestPercentage
+                }))
+              : [
+                  { subject: 'No subject data available', average: 0, highest: 0, lowest: 0 }
+                ],
+            topPerformers: classTopPerformers.length > 0 ? classTopPerformers : [
+              { name: 'No data available', percentage: 0 }
+            ]
+          };
+        });
+        
+        setClassPerformance(performance);
       } catch (error) {
         console.error('Error loading class performance:', error);
+        setError('Failed to load class performance data');
       } finally {
         setIsLoading(false);
       }
@@ -193,6 +153,25 @@ const ClassPerformance = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-foreground">Class Performance</h1>
+          <p className="text-destructive">{error}</p>
+        </div>
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="text-muted-foreground mb-4">Failed to load class performance data</p>
+            <Button onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -221,6 +200,41 @@ const ClassPerformance = () => {
           </Button>
         </div>
       </div>
+
+            {/* Summary Stats
+            <Card>
+        <CardHeader>
+          <CardTitle>Overall Performance Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="text-center p-4 bg-primary/5 rounded-lg">
+              <div className="text-2xl font-bold text-primary">
+                {filteredPerformance.length}
+              </div>
+              <div className="text-sm text-muted-foreground">Total Classes</div>
+            </div>
+            <div className="text-center p-4 bg-success/5 rounded-lg">
+              <div className="text-2xl font-bold text-success">
+                {Math.round(filteredPerformance.reduce((sum, cls) => sum + cls.averagePercentage, 0) / filteredPerformance.length)}%
+              </div>
+              <div className="text-sm text-muted-foreground">Overall Average</div>
+            </div>
+            <div className="text-center p-4 bg-warning/5 rounded-lg">
+              <div className="text-2xl font-bold text-warning">
+                {filteredPerformance.reduce((sum, cls) => sum + cls.totalStudents, 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">Total Students</div>
+            </div>
+            <div className="text-center p-4 bg-accent/5 rounded-lg">
+              <div className="text-2xl font-bold text-accent">
+                {Math.round(filteredPerformance.reduce((sum, cls) => sum + cls.passRate, 0) / filteredPerformance.length)}%
+              </div>
+              <div className="text-sm text-muted-foreground">Average Pass Rate</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card> */}
 
       {/* Filters */}
       <Card>
@@ -263,6 +277,8 @@ const ClassPerformance = () => {
           </div>
         </CardContent>
       </Card>
+
+      
 
       {/* Class Performance Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -324,10 +340,17 @@ const ClassPerformance = () => {
               <div className="space-y-2">
                 <div className="text-sm font-medium text-muted-foreground">Subject Averages</div>
                 <div className="space-y-1">
-                  {cls.subjectPerformance.map((subject) => (
+                  {cls.subjectPerformance.slice(0, 4).map((subject) => (
                     <div key={subject.subject} className="flex justify-between text-sm">
-                      <span>{subject.subject}</span>
-                      <span className="font-medium">{subject.average}%</span>
+                      <span className="truncate">{subject.subject}</span>
+                      <div className="flex flex-col items-end">
+                        <span className="font-medium">{subject.average}%</span>
+                        {subject.highest > 0 && subject.lowest > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {subject.highest}% - {subject.lowest}%
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -358,40 +381,7 @@ const ClassPerformance = () => {
         ))}
       </div>
 
-      {/* Summary Stats */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Overall Performance Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="text-center p-4 bg-primary/5 rounded-lg">
-              <div className="text-2xl font-bold text-primary">
-                {filteredPerformance.length}
-              </div>
-              <div className="text-sm text-muted-foreground">Total Classes</div>
-            </div>
-            <div className="text-center p-4 bg-success/5 rounded-lg">
-              <div className="text-2xl font-bold text-success">
-                {Math.round(filteredPerformance.reduce((sum, cls) => sum + cls.averagePercentage, 0) / filteredPerformance.length)}%
-              </div>
-              <div className="text-sm text-muted-foreground">Overall Average</div>
-            </div>
-            <div className="text-center p-4 bg-warning/5 rounded-lg">
-              <div className="text-2xl font-bold text-warning">
-                {filteredPerformance.reduce((sum, cls) => sum + cls.totalStudents, 0)}
-              </div>
-              <div className="text-sm text-muted-foreground">Total Students</div>
-            </div>
-            <div className="text-center p-4 bg-accent/5 rounded-lg">
-              <div className="text-2xl font-bold text-accent">
-                {Math.round(filteredPerformance.reduce((sum, cls) => sum + cls.passRate, 0) / filteredPerformance.length)}%
-              </div>
-              <div className="text-sm text-muted-foreground">Average Pass Rate</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 };

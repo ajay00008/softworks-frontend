@@ -720,6 +720,70 @@ export const subjectsAPI = {
   },
 };
 
+// Dashboard API
+export const dashboardAPI = {
+  getStats: async (params: any = {}): Promise<any> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.classId) queryParams.append('classId', params.classId);
+      if (params.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params.examType) queryParams.append('examType', params.examType);
+      if (params.timeRange) queryParams.append('timeRange', params.timeRange);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+
+      const response = await fetch(`${API_BASE_URL}/admin/dashboard/stats?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      throw error;
+    }
+  },
+
+  getAnalytics: async (params: any = {}): Promise<any> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.classId) queryParams.append('classId', params.classId);
+      if (params.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params.examType) queryParams.append('examType', params.examType);
+      if (params.timeRange) queryParams.append('timeRange', params.timeRange);
+
+      const response = await fetch(`${API_BASE_URL}/admin/dashboard/analytics?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching dashboard analytics:', error);
+      throw error;
+    }
+  },
+
+  getStudentPerformance: async (studentId: string, params: any = {}): Promise<any> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params.examType) queryParams.append('examType', params.examType);
+      if (params.timeRange) queryParams.append('timeRange', params.timeRange);
+
+      const response = await fetch(`${API_BASE_URL}/admin/dashboard/student/${studentId}?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching student performance:', error);
+      throw error;
+    }
+  }
+};
+
 // Performance API
 export const performanceAPI = {
   getAnalytics: async (params: any = {}): Promise<any> => {

@@ -22,107 +22,140 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, Line, LineChart, Pie, PieChart, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
-import { performanceAPI } from '@/services/api';
+import { dashboardAPI, classesAPI, studentsAPI } from '@/services/api';
 
-// Mock data for demonstration - replace with real API calls
-const mockPerformanceData = {
-  individual: [
-    { studentId: '1', studentName: 'John Doe', rollNumber: '001', class: '11A', 
-      subjects: [
-        { name: 'Mathematics', marks: 85, total: 100, percentage: 85 },
-        { name: 'Physics', marks: 78, total: 100, percentage: 78 },
-        { name: 'Chemistry', marks: 92, total: 100, percentage: 92 },
-        { name: 'English', marks: 88, total: 100, percentage: 88 }
-      ],
-      overallPercentage: 85.75,
-      grade: 'A',
-      rank: 3
-    },
-    { studentId: '2', studentName: 'Jane Smith', rollNumber: '002', class: '11A',
-      subjects: [
-        { name: 'Mathematics', marks: 92, total: 100, percentage: 92 },
-        { name: 'Physics', marks: 88, total: 100, percentage: 88 },
-        { name: 'Chemistry', marks: 85, total: 100, percentage: 85 },
-        { name: 'English', marks: 90, total: 100, percentage: 90 }
-      ],
-      overallPercentage: 88.75,
-      grade: 'A+',
-      rank: 1
-    },
-    { studentId: '3', studentName: 'Mike Johnson', rollNumber: '003', class: '11A',
-      subjects: [
-        { name: 'Mathematics', marks: 75, total: 100, percentage: 75 },
-        { name: 'Physics', marks: 82, total: 100, percentage: 82 },
-        { name: 'Chemistry', marks: 78, total: 100, percentage: 78 },
-        { name: 'English', marks: 85, total: 100, percentage: 85 }
-      ],
-      overallPercentage: 80.0,
-      grade: 'A-',
-      rank: 5
-    }
-  ],
-  classPerformance: [
-    { class: '11A', totalStudents: 30, averagePercentage: 82.5, 
-      gradeDistribution: { 'A+': 5, 'A': 12, 'A-': 8, 'B+': 3, 'B': 2 },
-      subjectAverages: [
-        { subject: 'Mathematics', average: 78.5, highest: 95, lowest: 45 },
-        { subject: 'Physics', average: 82.3, highest: 98, lowest: 52 },
-        { subject: 'Chemistry', average: 85.7, highest: 96, lowest: 58 },
-        { subject: 'English', average: 88.2, highest: 97, lowest: 65 }
-      ]
-    },
-    { class: '11B', totalStudents: 28, averagePercentage: 79.8,
-      gradeDistribution: { 'A+': 3, 'A': 10, 'A-': 9, 'B+': 4, 'B': 2 },
-      subjectAverages: [
-        { subject: 'Mathematics', average: 76.2, highest: 92, lowest: 42 },
-        { subject: 'Physics', average: 80.1, highest: 95, lowest: 48 },
-        { subject: 'Chemistry', average: 83.4, highest: 94, lowest: 55 },
-        { subject: 'English', average: 86.8, highest: 96, lowest: 62 }
-      ]
-    }
-  ]
-};
+// Types for dashboard data
+interface DashboardData {
+  overview: {
+    totalStudents: number;
+    totalTeachers: number;
+    totalClasses: number;
+    totalSubjects: number;
+    totalExams: number;
+  };
+  performance: {
+    totalResults: number;
+    averagePercentage: number;
+    highestPercentage: number;
+    lowestPercentage: number;
+    passedResults: number;
+    excellentResults: number;
+    goodResults: number;
+    averageResults: number;
+    failedResults: number;
+    passPercentage: number;
+  };
+  classPerformance: Array<{
+    className: string;
+    totalStudents: number;
+    averagePercentage: number;
+    totalResults: number;
+  }>;
+  subjectPerformance: Array<{
+    subjectName: string;
+    averagePercentage: number;
+    totalResults: number;
+    highestPercentage: number;
+    lowestPercentage: number;
+  }>;
+  topPerformers: Array<{
+    studentName: string;
+    rollNumber: string;
+    className: string;
+    averagePercentage: number;
+    totalExams: number;
+  }>;
+  recentActivity: Array<{
+    title: string;
+    examType: string;
+    scheduledDate: string;
+    status: string;
+    subjectName: string;
+    className: string;
+    totalResults: number;
+    averagePercentage: number;
+  }>;
+  gradeDistribution: Array<{
+    grade: string;
+    count: number;
+  }>;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [selectedClass, setSelectedClass] = useState('11A');
+  const [selectedClass, setSelectedClass] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedStudent, setSelectedStudent] = useState('all');
   const [timeRange, setTimeRange] = useState('current');
   const [viewMode, setViewMode] = useState<'individual' | 'class'>('class');
   const [isLoading, setIsLoading] = useState(false);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const params = {
+        classId: selectedClass !== 'all' ? selectedClass : undefined,
+        subjectId: selectedSubject !== 'all' ? selectedSubject : undefined,
+        timeRange
+      };
+
+      const [statsResponse, classesResponse, studentsResponse] = await Promise.all([
+        dashboardAPI.getStats(params),
+        classesAPI.getAll(),
+        studentsAPI.getAll({ limit: 100 })
+      ]);
+
+      setDashboardData(statsResponse.data);
+      setClasses(classesResponse.data || []);
+      setStudents(studentsResponse.students.data || []);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch data on component mount and when filters change
+  useEffect(() => {
+    fetchDashboardData();
+  }, [selectedClass, selectedSubject, timeRange]);
 
   // Chart data preparation
-  const classChartData = mockPerformanceData.classPerformance
-    .filter(cls => selectedClass === 'all' || cls.class === selectedClass)
+  const classChartData = dashboardData?.classPerformance
+    .filter(cls => selectedClass === 'all' || cls.className === selectedClass)
     .map(cls => ({
-      class: cls.class,
+      class: cls.className,
       average: cls.averagePercentage,
       students: cls.totalStudents
-    }));
-
-  const subjectChartData = mockPerformanceData.classPerformance
-    .find(cls => cls.class === selectedClass)
-    ?.subjectAverages.map(subject => ({
-      subject: subject.subject,
-      average: subject.average,
-      highest: subject.highest,
-      lowest: subject.lowest
     })) || [];
 
-  const individualChartData = mockPerformanceData.individual
-    .filter(student => selectedClass === 'all' || student.class === selectedClass)
-    .map(student => ({
-      name: student.studentName,
-      percentage: student.overallPercentage,
-      rank: student.rank
-    }));
+  const subjectChartData = dashboardData?.subjectPerformance.map(subject => ({
+    subject: subject.subjectName,
+    average: subject.averagePercentage,
+    highest: subject.highestPercentage,
+    lowest: subject.lowestPercentage
+  })) || [];
 
-  const gradeDistributionData = mockPerformanceData.classPerformance
-    .find(cls => cls.class === selectedClass)
-    ?.gradeDistribution ? Object.entries(
-        mockPerformanceData.classPerformance.find(cls => cls.class === selectedClass)?.gradeDistribution || {}
-      ).map(([grade, count]) => ({ grade, count })) : [];
+  const individualChartData = dashboardData?.topPerformers
+    .filter(student => selectedClass === 'all' || student.className === selectedClass)
+    .map((student, index) => ({
+      name: student.studentName,
+      percentage: student.averagePercentage,
+      rank: index + 1
+    })) || [];
+
+  const gradeDistributionData = dashboardData?.gradeDistribution.map(grade => ({
+    grade: grade.grade,
+    count: grade.count
+  })) || [];
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -138,37 +171,35 @@ const Dashboard = () => {
 
   // Clickable performance cards
   const performanceCards = [
-    // {
-    //   title: 'Class Average',
-    //   description: 'View detailed class performance breakdown',
-    //   icon: BarChart3,
-    //   color: 'primary',
-    //   onClick: () => navigate('/dashboard/performance/class-averages'),
-    //   stats: mockPerformanceData.classPerformance.find(cls => cls.class === selectedClass)?.averagePercentage || 0,
-    //   unit: '%',
-    //   badge: 'Overview'
-    // },
+    {
+      title: 'Class Average',
+      description: 'View detailed class performance breakdown',
+      icon: BarChart3,
+      color: 'primary',
+      onClick: () => navigate('/dashboard/performance/class-averages'),
+      stats: dashboardData?.performance.averagePercentage || 0,
+      unit: '%',
+      badge: 'Overview'
+    },
     {
       title: 'Top Performers',
       description: 'See students with highest scores',
       icon: Award,
       color: 'success',
       onClick: () => navigate('/dashboard/performance/top-performers'),
-      stats: mockPerformanceData.individual.reduce((prev, current) => 
-        prev.overallPercentage > current.overallPercentage ? prev : current
-      ).overallPercentage,
+      stats: dashboardData?.topPerformers[0]?.averagePercentage || 0,
       unit: '%',
       badge: 'Excellence'
     },
     {
-      title: 'Class Performance',
-      description: 'Detailed class-wise performance analysis',
+      title: 'Total Students',
+      description: 'Total number of students in system',
       icon: Users,
       color: 'accent',
       onClick: () => navigate('/dashboard/performance/class-performance'),
-      stats: mockPerformanceData.classPerformance.find(cls => cls.class === selectedClass)?.totalStudents || 0,
+      stats: dashboardData?.overview.totalStudents || 0,
       unit: ' students',
-      badge: 'Detailed'
+      badge: 'Total'
     },
     {
       title: 'Subject Analysis',
@@ -176,28 +207,67 @@ const Dashboard = () => {
       icon: BookOpen,
       color: 'warning',
       onClick: () => navigate('/dashboard/performance/subject-analysis'),
-      stats: subjectChartData.length,
+      stats: dashboardData?.subjectPerformance.length || 0,
       unit: ' subjects',
       badge: 'Analysis'
     }
   ];
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <p className="text-destructive mb-4">{error}</p>
+          <Button onClick={fetchDashboardData} variant="outline">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no data
+  if (!dashboardData) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">No dashboard data available</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
             <BarChart3 className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold">Individual and class performance monitoring with graphical representation</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Individual and class performance monitoring with graphical representation</h1>
           </div>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={handleExportReport}>
+        <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+          <Button variant="outline" onClick={handleExportReport} className="w-full sm:w-auto">
             <Download className="w-4 h-4 mr-2" />
             Export Report
           </Button>
-          <Button onClick={handlePrintReport}>
+          <Button onClick={handlePrintReport} className="w-full sm:w-auto">
             <Download className="w-4 h-4 mr-2" />
             Print Report
           </Button>
@@ -213,7 +283,7 @@ const Dashboard = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-2">
               <Label>View Mode</Label>
               <Select value={viewMode} onValueChange={(value: 'individual' | 'class') => setViewMode(value)}>
@@ -234,9 +304,11 @@ const Dashboard = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Classes</SelectItem>
-                  <SelectItem value="11A">Class 11A</SelectItem>
-                  <SelectItem value="11B">Class 11B</SelectItem>
-                  <SelectItem value="11C">Class 11C</SelectItem>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.classId} value={cls.classId}>
+                      {cls.className}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -248,10 +320,11 @@ const Dashboard = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Subjects</SelectItem>
-                  <SelectItem value="mathematics">Mathematics</SelectItem>
-                  <SelectItem value="physics">Physics</SelectItem>
-                  <SelectItem value="chemistry">Chemistry</SelectItem>
-                  <SelectItem value="english">English</SelectItem>
+                  {dashboardData?.subjectPerformance.map((subject) => (
+                    <SelectItem key={subject.subjectName} value={subject.subjectName}>
+                      {subject.subjectName}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -263,9 +336,11 @@ const Dashboard = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Students</SelectItem>
-                  <SelectItem value="john">John Doe</SelectItem>
-                  <SelectItem value="jane">Jane Smith</SelectItem>
-                  <SelectItem value="mike">Mike Johnson</SelectItem>
+                  {students.slice(0, 10).map((student) => (
+                    <SelectItem key={student.id} value={student.id}>
+                      {student.name} ({student.rollNumber})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -289,7 +364,7 @@ const Dashboard = () => {
 
 
       {/* Clickable Performance Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {performanceCards.map((card) => (
           <Card 
             key={card.title} 
@@ -323,7 +398,7 @@ const Dashboard = () => {
       </div>
 
       {/* Charts Section */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Class Performance Chart */}
         <Card>
           <CardHeader>
@@ -345,15 +420,23 @@ const Dashboard = () => {
                   label: "Average %",
                 },
               }}
-              className="h-[300px]"
+              className="h-[250px] sm:h-[300px] w-full"
             >
-              <BarChart data={classChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="class" />
-                <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="average" fill="#8884d8" />
-              </BarChart>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={classChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="class" 
+                    tick={{ fontSize: 12 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="average" fill="#8884d8" />
+                </BarChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -379,15 +462,23 @@ const Dashboard = () => {
                   label: "Average %",
                 },
               }}
-              className="h-[300px]"
+              className="h-[250px] sm:h-[300px] w-full"
             >
-              <LineChart data={subjectChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="subject" />
-                <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Line type="monotone" dataKey="average" stroke="#8884d8" strokeWidth={2} />
-              </LineChart>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={subjectChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="subject" 
+                    tick={{ fontSize: 12 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line type="monotone" dataKey="average" stroke="#8884d8" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -413,15 +504,23 @@ const Dashboard = () => {
                   label: "Percentage %",
                 },
               }}
-              className="h-[300px]"
+              className="h-[250px] sm:h-[300px] w-full"
             >
-              <BarChart data={individualChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="percentage" fill="#82ca9d" />
-              </BarChart>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={individualChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fontSize: 12 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="percentage" fill="#82ca9d" />
+                </BarChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -447,25 +546,28 @@ const Dashboard = () => {
                   label: "Number of Students",
                 },
               }}
-              className="h-[300px]"
+              className="h-[250px] sm:h-[300px] w-full"
             >
-              <PieChart>
-                <Pie
-                  data={gradeDistributionData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ grade, count }) => `${grade}: ${count}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                >
-                  {gradeDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <ChartTooltip content={<ChartTooltipContent />} />
-              </PieChart>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={gradeDistributionData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ grade, count }) => `${grade}: ${count}`}
+                    outerRadius={60}
+                    innerRadius={20}
+                    fill="#8884d8"
+                    dataKey="count"
+                  >
+                    {gradeDistributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </PieChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -485,10 +587,10 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockPerformanceData.individual
-                .filter(student => selectedClass === 'all' || student.class === selectedClass)
-                .map((student) => (
-                <Card key={student.studentId} className="border-l-4 border-l-primary">
+              {dashboardData.topPerformers
+                .filter(student => selectedClass === 'all' || student.className === selectedClass)
+                .map((student, index) => (
+                <Card key={student.studentName} className="border-l-4 border-l-primary">
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start">
                       <div className="space-y-2">
@@ -498,27 +600,22 @@ const Dashboard = () => {
                             Roll: {student.rollNumber}
                           </Badge>
                           <Badge className="bg-secondary/10 text-secondary-foreground border-secondary/20">
-                            Class: {student.class}
+                            Class: {student.className}
                           </Badge>
-                          <Badge variant={student.grade === 'A+' ? 'default' : 'secondary'}>
-                            Grade: {student.grade}
+                          <Badge variant={student.averagePercentage >= 80 ? 'default' : 'secondary'}>
+                            Grade: {student.averagePercentage >= 80 ? 'A+' : student.averagePercentage >= 70 ? 'A' : 'B+'}
                           </Badge>
                           <Badge variant="outline">
-                            Rank: #{student.rank}
+                            Rank: #{index + 1}
                           </Badge>
                         </div>
-                        <div className="grid gap-2 md:grid-cols-4 text-sm">
-                          {student.subjects.map((subject) => (
-                            <div key={subject.name} className="flex justify-between">
-                              <span className="text-muted-foreground">{subject.name}:</span>
-                              <span className="font-medium">{subject.percentage}%</span>
-                            </div>
-                          ))}
+                        <div className="text-sm text-muted-foreground">
+                          Total Exams: {student.totalExams}
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-primary">
-                          {student.overallPercentage}%
+                          {student.averagePercentage}%
                         </div>
                         <p className="text-xs text-muted-foreground">Overall Performance</p>
                       </div>

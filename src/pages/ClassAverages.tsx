@@ -12,46 +12,65 @@ import {
   Search
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { performanceAPI, classesAPI } from '@/services/api';
+import { dashboardAPI } from '@/services/api';
 import { Input } from '@/components/ui/input';
 
 const ClassAverages = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [classAverages, setClassAverages] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [classesData, analyticsData] = await Promise.all([
-          classesAPI.getAll(),
-          performanceAPI.getAnalytics()
-        ]);
+        setIsLoading(true);
+        setError(null);
         
-        setClasses(classesData);
+        // Get dashboard data with class performance statistics
+        const dashboardData = await dashboardAPI.getStats();
+        console.log('Dashboard data:', dashboardData);
         
-        // Calculate class averages from analytics data
-        const averages = classesData.map(cls => ({
-          classId: cls.classId,
-          className: cls.className,
-          totalStudents: Math.floor(Math.random() * 30) + 20, // Mock data
-          averagePercentage: Math.floor(Math.random() * 30) + 60, // Mock data
-          passRate: Math.floor(Math.random() * 20) + 70, // Mock data
-          excellentStudents: Math.floor(Math.random() * 10) + 5, // Mock data
-          gradeDistribution: {
-            'A+': Math.floor(Math.random() * 5) + 2,
-            'A': Math.floor(Math.random() * 8) + 5,
-            'A-': Math.floor(Math.random() * 6) + 3,
-            'B+': Math.floor(Math.random() * 4) + 2,
-            'B': Math.floor(Math.random() * 3) + 1
-          }
-        }));
+        // Get the total number of students from overview
+        const totalStudentsInSystem = dashboardData.data?.overview?.totalStudents || 0;
+        const classPerformanceData = dashboardData.data?.classPerformance || [];
+        
+        // Calculate total results across all classes to distribute students proportionally
+        const totalResultsAcrossClasses = classPerformanceData.reduce((sum: number, cls: any) => sum + (cls.totalResults || 0), 0);
+        
+        // Map the real data to the expected format
+        const averages = classPerformanceData.map((cls: any) => {
+          // Calculate students per class based on proportion of results
+          const resultsProportion = totalResultsAcrossClasses > 0 ? (cls.totalResults || 0) / totalResultsAcrossClasses : 0;
+          const studentsInClass = Math.round(totalStudentsInSystem * resultsProportion);
+          
+          // Ensure minimum of 1 student per class if there are results
+          const totalStudents = cls.totalResults > 0 ? Math.max(studentsInClass, 1) : 0;
+          
+          return {
+            classId: cls._id,
+            className: cls.className,
+            totalStudents: totalStudents,
+            averagePercentage: Math.round(cls.averagePercentage * 100) / 100,
+            passRate: Math.round(cls.passPercentage * 100) / 100,
+            excellentStudents: Math.floor((cls.passedResults * 0.3)), // Estimate excellent students
+            gradeDistribution: {
+              'A+': Math.floor((cls.passedResults * 0.4)),
+              'A': Math.floor((cls.passedResults * 0.3)),
+              'B+': Math.floor((cls.passedResults * 0.2)),
+              'B': Math.floor((cls.passedResults * 0.1)),
+              'C': Math.floor((cls.totalResults - cls.passedResults))
+            }
+          };
+        });
+        console.log(averages,"averages")
         
         setClassAverages(averages);
+        console.log(averages,"averages")
       } catch (error) {
         console.error('Error loading class averages:', error);
+        setError('Failed to load class averages data');
       } finally {
         setIsLoading(false);
       }
@@ -59,11 +78,12 @@ const ClassAverages = () => {
 
     loadData();
   }, []);
+  // console.log(classAverages,"filteredAverages")
 
   const filteredAverages = classAverages.filter(cls =>
     cls.className.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
+// console.log(filteredAverages,"filteredAverages")
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -84,6 +104,25 @@ const ClassAverages = () => {
             </Card>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-foreground">Class Averages</h1>
+          <p className="text-destructive">{error}</p>
+        </div>
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="text-muted-foreground mb-4">Failed to load class averages data</p>
+            <Button onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -142,6 +181,41 @@ const ClassAverages = () => {
         </CardContent>
       </Card>
 
+            {/* Summary Stats */}
+            <Card>
+        <CardHeader>
+          <CardTitle>Summary Statistics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="text-center p-4 bg-primary/5 rounded-lg">
+              <div className="text-2xl font-bold text-primary">
+                {classAverages.length}
+              </div>
+              <div className="text-sm text-muted-foreground">Total Classes</div>
+            </div>
+            <div className="text-center p-4 bg-success/5 rounded-lg">
+              <div className="text-2xl font-bold text-success">
+                {Math.round(classAverages.reduce((sum, cls) => sum + cls.averagePercentage, 0) / classAverages.length)}%
+              </div>
+              <div className="text-sm text-muted-foreground">Overall Average</div>
+            </div>
+            <div className="text-center p-4 bg-warning/5 rounded-lg">
+              <div className="text-2xl font-bold text-warning">
+                {classAverages.reduce((sum, cls) => sum + cls.totalStudents, 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">Total Students</div>
+            </div>
+            <div className="text-center p-4 bg-accent/5 rounded-lg">
+              <div className="text-2xl font-bold text-accent">
+                {classAverages.reduce((sum, cls) => sum + cls.excellentStudents, 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">Excellent Students</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Class Averages Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredAverages.map((cls) => (
@@ -181,7 +255,7 @@ const ClassAverages = () => {
                 <div className="grid grid-cols-5 gap-2">
                   {Object.entries(cls.gradeDistribution).map(([grade, count]) => (
                     <div key={grade} className="text-center">
-                      <div className="text-lg font-bold">{count}</div>
+                      <div className="text-lg font-bold">{count as number}</div>
                       <div className="text-xs text-muted-foreground">{grade}</div>
                     </div>
                   ))}
@@ -200,40 +274,7 @@ const ClassAverages = () => {
         ))}
       </div>
 
-      {/* Summary Stats */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Summary Statistics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="text-center p-4 bg-primary/5 rounded-lg">
-              <div className="text-2xl font-bold text-primary">
-                {classAverages.length}
-              </div>
-              <div className="text-sm text-muted-foreground">Total Classes</div>
-            </div>
-            <div className="text-center p-4 bg-success/5 rounded-lg">
-              <div className="text-2xl font-bold text-success">
-                {Math.round(classAverages.reduce((sum, cls) => sum + cls.averagePercentage, 0) / classAverages.length)}%
-              </div>
-              <div className="text-sm text-muted-foreground">Overall Average</div>
-            </div>
-            <div className="text-center p-4 bg-warning/5 rounded-lg">
-              <div className="text-2xl font-bold text-warning">
-                {classAverages.reduce((sum, cls) => sum + cls.totalStudents, 0)}
-              </div>
-              <div className="text-sm text-muted-foreground">Total Students</div>
-            </div>
-            <div className="text-center p-4 bg-accent/5 rounded-lg">
-              <div className="text-2xl font-bold text-accent">
-                {classAverages.reduce((sum, cls) => sum + cls.excellentStudents, 0)}
-              </div>
-              <div className="text-sm text-muted-foreground">Excellent Students</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 };

@@ -708,7 +708,7 @@ export const classesAPI = {
 export const subjectsAPI = {
   getAll: async (id: Number): Promise<Subject[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/level/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/level/${id}`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -866,6 +866,143 @@ export const performanceAPI = {
       return await handleApiResponse<any>(response);
     } catch (error) {
       console.error('Error fetching performance report:', error);
+      throw error;
+    }
+  }
+};
+
+// Syllabus API
+export const syllabusAPI = {
+  create: async (syllabusData: any): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(syllabusData),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error creating syllabus:', error);
+      throw error;
+    }
+  },
+
+  getAll: async (params: any = {}): Promise<any> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.academicYear) queryParams.append('academicYear', params.academicYear);
+      if (params.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params.classId) queryParams.append('classId', params.classId);
+      if (params.page) queryParams.append('page', params.page);
+      if (params.limit) queryParams.append('limit', params.limit);
+
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching syllabi:', error);
+      throw error;
+    }
+  },
+
+  getById: async (id: string): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching syllabus:', error);
+      throw error;
+    }
+  },
+
+  update: async (id: string, syllabusData: any): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}`, {
+        method: 'PUT',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(syllabusData),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error updating syllabus:', error);
+      throw error;
+    }
+  },
+
+  delete: async (id: string): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error deleting syllabus:', error);
+      throw error;
+    }
+  },
+
+  getBySubjectClass: async (subjectId: string, classId: string): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/subject/${subjectId}/class/${classId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching syllabus by subject and class:', error);
+      throw error;
+    }
+  },
+
+  uploadFile: async (id: string, fileUrl: string): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}/upload`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileUrl }),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error uploading syllabus file:', error);
+      throw error;
+    }
+  },
+
+  getStatistics: async (params: any = {}): Promise<any> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.academicYear) queryParams.append('academicYear', params.academicYear);
+
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/statistics?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching syllabus statistics:', error);
       throw error;
     }
   }

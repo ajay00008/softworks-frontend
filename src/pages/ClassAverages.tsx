@@ -216,7 +216,7 @@ const ClassAverages = () => {
         </CardContent>
       </Card>
 
-      {/* Class Averages Grid */}
+      {/* Class Averages Grid */} 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredAverages.map((cls) => (
           <Card key={cls.classId} className="hover:shadow-lg transition-shadow">

@@ -15,6 +15,9 @@ import ClassPerformance from "./pages/ClassPerformance";
 import SubjectAnalysis from "./pages/SubjectAnalysis";
 import IndividualReports from "./pages/IndividualReports";
 import PerformanceTrends from "./pages/PerformanceTrends";
+import SyllabusUpload from "./pages/SyllabusUpload";
+import SyllabusList from "./pages/SyllabusList";
+import StudentPerformance from "./pages/StudentPerformance";
 import AdminManagement from "./components/AdminManagement";
 import DataMigrationDashboard from "./components/DataMigrationDashboard";
 import DashboardLayout from "./components/Layout/DashboardLayout";
@@ -69,10 +72,11 @@ const App = () => (
               <Route path="performance/class-performance" element={<ClassPerformance />} />
               <Route path="performance/subject-analysis" element={<SubjectAnalysis />} />
               <Route path="performance/individual-reports" element={<IndividualReports />} />
-              <Route path="performance/trends" element={<PerformanceTrends />} />
+              <Route path="performance/trends" element={<PerformanceTrends />} />              <Route path="performance/student" element={<StudentPerformance />} />
               {/* <Route path="teacher-assignment" element={<TeacherAssignment />} /> */}
               {/* <Route path="questions" element={<QuestionManagement />} /> */}
-              {/* <Route path="syllabus" element={<SyllabusManagement />} /> */}
+              <Route path="syllabus" element={<SyllabusList />} />
+              <Route path="syllabus/upload" element={<SyllabusUpload />} />
               {/* <Route path="absenteeism" element={<AbsenteeismTracking />} /> */}
               <Route path="books" element={<div className="p-6">Books Management - Coming Soon</div>} />
               <Route path="access" element={<div className="p-6">Access Privileges - Coming Soon</div>} />

@@ -17,6 +17,8 @@ import IndividualReports from "./pages/IndividualReports";
 import PerformanceTrends from "./pages/PerformanceTrends";
 import SyllabusUpload from "./pages/SyllabusUpload";
 import SyllabusList from "./pages/SyllabusList";
+import SyllabusEdit from "./pages/SyllabusEdit";
+import SyllabusView from "./pages/SyllabusView";
 import StudentPerformance from "./pages/StudentPerformance";
 import AdminManagement from "./components/AdminManagement";
 import DataMigrationDashboard from "./components/DataMigrationDashboard";
@@ -77,6 +79,8 @@ const App = () => (
               {/* <Route path="questions" element={<QuestionManagement />} /> */}
               <Route path="syllabus" element={<SyllabusList />} />
               <Route path="syllabus/upload" element={<SyllabusUpload />} />
+              <Route path="syllabus/edit/:id" element={<SyllabusEdit />} />
+              <Route path="syllabus/view/:id" element={<SyllabusView />} />
               {/* <Route path="absenteeism" element={<AbsenteeismTracking />} /> */}
               <Route path="books" element={<div className="p-6">Books Management - Coming Soon</div>} />
               <Route path="access" element={<div className="p-6">Access Privileges - Coming Soon</div>} />

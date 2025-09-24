@@ -23,6 +23,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { syllabusAPI, classesAPI, subjectsAPI } from '@/services/api';
+import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 
 interface Syllabus {
   _id: string;
@@ -63,6 +64,15 @@ const SyllabusList = () => {
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    syllabus: Syllabus | null;
+  }>({
+    isOpen: false,
+    syllabus: null
+  });
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -121,14 +131,19 @@ const SyllabusList = () => {
   });
 
   // Handle delete
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) {
-      return;
-    }
+  const handleDelete = async (syllabus: Syllabus) => {
+    setDeleteModal({
+      isOpen: true,
+      syllabus
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal.syllabus) return;
 
     try {
-      await syllabusAPI.delete(id);
-      setSyllabi(prev => prev.filter(s => s._id !== id));
+      await syllabusAPI.delete(deleteModal.syllabus._id);
+      setSyllabi(prev => prev.filter(s => s._id !== deleteModal.syllabus!._id));
       toast({
         title: "Success",
         description: "Syllabus deleted successfully",
@@ -140,17 +155,14 @@ const SyllabusList = () => {
         description: "Failed to delete syllabus",
         variant: "destructive"
       });
+    } finally {
+      setDeleteModal({ isOpen: false, syllabus: null });
     }
   };
 
   // Handle view
   const handleView = (syllabus: Syllabus) => {
-    // Navigate to syllabus view page or open modal
-    console.log('View syllabus:', syllabus);
-    toast({
-      title: "View Syllabus",
-      description: `Viewing ${syllabus.title}`,
-    });
+    navigate(`/dashboard/syllabus/view/${syllabus._id}`);
   };
 
   // Handle edit
@@ -441,7 +453,7 @@ console.log(subjects,"subjects" )
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDelete(syllabus._id, syllabus.title)}
+                    onClick={() => handleDelete(syllabus)}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -452,6 +464,16 @@ console.log(subjects,"subjects" )
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, syllabus: null })}
+        onConfirm={confirmDelete}
+        title="Delete Syllabus"
+        description="Are you sure you want to delete this syllabus? This action cannot be undone."
+        itemName={deleteModal.syllabus?.title || ''}
+      />
     </div>
   );
 };

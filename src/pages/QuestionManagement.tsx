@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { 
   HelpCircle, 
@@ -26,8 +27,24 @@ import {
   Download,
   Zap,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  FileText,
+  Play,
+  Save,
+  Layout
 } from 'lucide-react';
+import { 
+  questionPaperTemplatesAPI, 
+  QuestionPaperTemplate, 
+  GeneratedQuestion,
+  QuestionPaperGenerationResponse,
+  questionsAPI,
+  Question,
+  QuestionGenerationRequest,
+  classesAPI,
+  subjectsAPI
+} from '@/services/api';
+import { PDFExportService, QuestionExportData } from '@/utils/pdfExport';
 
 // Blooms Taxonomy Levels
 const BLOOMS_LEVELS = [
@@ -45,62 +62,88 @@ const DIFFICULTY_LEVELS = [
   { id: 'toughest', name: 'Toughest', description: 'Evaluate & Create levels', color: 'bg-red-100 text-red-800' }
 ];
 
-// Mock data
-const mockQuestions = [
-  {
-    id: '1',
-    question: 'What is the formula for calculating the area of a circle?',
-    subject: 'Mathematics',
-    class: '11A',
-    unit: 'Geometry',
-    bloomsLevel: 'remember',
-    difficulty: 'easy',
-    isTwisted: false,
-    options: ['A = πr²', 'A = 2πr', 'A = πd', 'A = r²'],
-    correctAnswer: 0,
-    explanation: 'The area of a circle is calculated using the formula A = πr², where r is the radius.',
-    createdAt: '2024-01-15'
-  },
-  {
-    id: '2',
-    question: 'Explain how Newton\'s second law of motion applies to a car accelerating on a highway.',
-    subject: 'Physics',
-    class: '11A',
-    unit: 'Laws of Motion',
-    bloomsLevel: 'apply',
-    difficulty: 'moderate',
-    isTwisted: false,
-    options: ['F = ma', 'F = mv', 'F = m/a', 'F = ma²'],
-    correctAnswer: 0,
-    explanation: 'Newton\'s second law states that force equals mass times acceleration (F = ma).',
-    createdAt: '2024-01-14'
-  },
-  {
-    id: '3',
-    question: 'Design an experiment to test the effect of temperature on the rate of a chemical reaction.',
-    subject: 'Chemistry',
-    class: '11A',
-    unit: 'Chemical Kinetics',
-    bloomsLevel: 'create',
-    difficulty: 'toughest',
-    isTwisted: true,
-    options: ['Use different temperatures', 'Vary concentration', 'Change pressure', 'Modify pH'],
-    correctAnswer: 0,
-    explanation: 'To test temperature effects, systematically vary temperature while keeping other factors constant.',
-    createdAt: '2024-01-13'
-  }
-];
-
 const QuestionManagement = () => {
-  const [questions, setQuestions] = useState(mockQuestions);
+  const [questions, setQuestions] = useState<any[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAIDialog, setShowAIDialog] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedClass, setSelectedClass] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<QuestionPaperTemplate[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<QuestionPaperTemplate | null>(null);
+  const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
   const { toast } = useToast();
+
+  // Load data on component mount
+  useEffect(() => {
+    loadClasses();
+    loadSubjects();
+  }, []);
+
+  // Load questions after classes and subjects are loaded
+  useEffect(() => {
+    if (classes.length > 0 && subjects.length > 0) {
+      loadQuestions();
+    }
+  }, [classes, subjects]);
+
+  const loadQuestions = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await questionsAPI.getAll();
+      // Convert API questions to UI format
+      const uiQuestions = response.questions.map(q => ({
+        id: q.id,
+        question: q.questionText,
+        subject: subjects.find(s => s.id === q.subjectId)?.name || (q.subjectId && (q.subjectId as any)?.name) || 'Unknown',
+        class: classes.find(c => c.id === q.classId)?.name || (q.classId && (q.classId as any)?.name) || 'Unknown',
+        unit: q.unit,
+        bloomsLevel: q.bloomsTaxonomyLevel.toLowerCase(),
+        difficulty: q.difficulty,
+        isTwisted: q.isTwisted,
+        options: q.options || [],
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation,
+        createdAt: q.createdAt.split('T')[0]
+      }));
+      setQuestions(uiQuestions);
+    } catch (error) {
+      console.error('Error loading questions:', error);
+      setError('Failed to load questions');
+      // Set empty array on error to prevent blank screen
+      setQuestions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadClasses = async () => {
+    try {
+      const response = await classesAPI.getAll();
+      setClasses(response);
+    } catch (error) {
+      console.error('Error loading classes:', error);
+      setError('Failed to load classes');
+    }
+  };
+
+  const loadSubjects = async () => {
+    try {
+      const response = await subjectsAPI.getAll(11); // Assuming level 1
+      setSubjects(response);
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+      setError('Failed to load subjects');
+    }
+  };
 
   // AI Generation Form
   const [aiForm, setAiForm] = useState({
@@ -137,26 +180,55 @@ const QuestionManagement = () => {
   const handleAIGeneration = async () => {
     setIsLoading(true);
     try {
-      // Simulate AI API call
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Get subject and class names for display
+      const selectedSubject = subjects.find(s => s.id === aiForm.subject);
+      const selectedClass = classes.find(c => c.classId === aiForm.class);
+      
+      if (!selectedSubject || !selectedClass) {
+        toast({
+          title: "Error",
+          description: "Please select valid subject and class",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // Generate mock questions based on AI form
-      const generatedQuestions = Array.from({ length: aiForm.totalQuestions }, (_, index) => ({
-        id: `ai-${Date.now()}-${index}`,
-        question: `AI Generated Question ${index + 1} for ${aiForm.subject} - ${aiForm.unit}`,
-        subject: aiForm.subject,
-        class: aiForm.class,
+      // Create question distribution from Blooms taxonomy
+      const questionDistribution = Object.entries(aiForm.bloomsDistribution).map(([level, percentage]) => ({
+        bloomsLevel: level.toUpperCase(),
+        difficulty: level === 'remember' || level === 'understand' ? 'EASY' : 
+                   level === 'apply' || level === 'analyze' ? 'MODERATE' : 'TOUGHEST',
+        percentage: percentage,
+        twistedPercentage: aiForm.twistedPercentage
+      }));
+
+      // Use the questions API for AI generation
+      const generatedQuestions = await questionsAPI.generate({
+        subjectId: aiForm.subject,
+        classId: aiForm.class,
         unit: aiForm.unit,
-        bloomsLevel: Object.keys(aiForm.bloomsDistribution)[index % 6],
-        difficulty: index % 3 === 0 ? 'easy' : index % 3 === 1 ? 'moderate' : 'toughest',
-        isTwisted: Math.random() < (aiForm.twistedPercentage / 100),
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
-        correctAnswer: index % 4,
-        explanation: `Explanation for AI generated question ${index + 1}`,
+        questionDistribution,
+        totalQuestions: aiForm.totalQuestions,
+        language: aiForm.language.toUpperCase()
+      });
+
+      // Convert generated questions to the format expected by the UI
+      const convertedQuestions = generatedQuestions.map((q, index) => ({
+        id: `ai-${Date.now()}-${index}`,
+        question: q.questionText,
+        subject: selectedSubject.name,
+        class: selectedClass.className,
+        unit: aiForm.unit,
+        bloomsLevel: q.bloomsTaxonomyLevel.toLowerCase(),
+        difficulty: q.difficulty.toLowerCase(),
+        isTwisted: q.isTwisted,
+        options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+        correctAnswer: 0,
+        explanation: q.explanation || `Explanation for AI generated question ${index + 1}`,
         createdAt: new Date().toISOString().split('T')[0]
       }));
 
-      setQuestions(prev => [...generatedQuestions, ...prev]);
+      setQuestions(prev => [...convertedQuestions, ...prev]);
       setShowAIDialog(false);
 
       toast({
@@ -164,9 +236,38 @@ const QuestionManagement = () => {
         description: `Successfully generated ${aiForm.totalQuestions} questions using AI`,
       });
     } catch (error) {
+      console.error('AI Generation Error:', error);
       toast({
         title: "Error",
         description: "Failed to generate questions using AI",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTemplateGeneration = async () => {
+    if (!selectedTemplate) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await questionPaperTemplatesAPI.generate({
+        templateId: selectedTemplate.id
+      });
+
+      setGeneratedQuestions(response.questions);
+      setShowGenerateDialog(true);
+
+      toast({
+        title: "Question Paper Generated",
+        description: `Successfully generated ${response.questions.length} questions from template`,
+      });
+    } catch (error) {
+      console.error('Template Generation Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate questions from template",
         variant: "destructive",
       });
     } finally {
@@ -186,13 +287,66 @@ const QuestionManagement = () => {
 
     setIsLoading(true);
     try {
-      const newQuestion = {
-        id: `manual-${Date.now()}`,
-        ...questionForm,
-        createdAt: new Date().toISOString().split('T')[0]
+      // Get subject and class names for display
+      const selectedSubject = subjects.find(s => s.id === questionForm.subject);
+      const selectedClass = classes.find(c => c.classId === questionForm.class);
+      
+      if (!selectedSubject || !selectedClass) {
+        toast({
+          title: "Error",
+          description: "Please select valid subject and class",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create question using the API
+      console.log('Creating question with data:', {
+        questionText: questionForm.question,
+        subjectId: questionForm.subject,
+        classId: questionForm.class,
+        unit: questionForm.unit,
+        bloomsTaxonomyLevel: questionForm.bloomsLevel.toUpperCase(),
+        difficulty: questionForm.difficulty.toUpperCase()
+      });
+      
+      const newQuestion = await questionsAPI.create({
+        questionText: questionForm.question,
+        questionType: 'MULTIPLE_CHOICE',
+        subjectId: questionForm.subject,
+        classId: questionForm.class,
+        unit: questionForm.unit,
+        bloomsTaxonomyLevel: questionForm.bloomsLevel.toUpperCase(),
+        difficulty: questionForm.difficulty.toUpperCase(),
+        isTwisted: questionForm.isTwisted,
+        options: questionForm.options.filter(opt => opt.trim() !== ''),
+        correctAnswer: questionForm.options[questionForm.correctAnswer],
+        explanation: questionForm.explanation,
+        marks: 1,
+        createdBy: '68d194e556fc30334c2c537b', // Use actual user ID from auth
+        isActive: true,
+        language: 'ENGLISH'
+      });
+      
+      console.log('Question created successfully:', newQuestion);
+
+      // Convert to UI format and add to list
+      const uiQuestion = {
+        id: newQuestion.id,
+        question: newQuestion.questionText,
+        subject: selectedSubject.name,
+        class: selectedClass.className,
+        unit: newQuestion.unit,
+        bloomsLevel: newQuestion.bloomsTaxonomyLevel.toLowerCase(),
+        difficulty: newQuestion.difficulty.toLowerCase(),
+        isTwisted: newQuestion.isTwisted,
+        options: newQuestion.options || [],
+        correctAnswer: questionForm.correctAnswer,
+        explanation: newQuestion.explanation,
+        createdAt: newQuestion.createdAt.split('T')[0]
       };
 
-      setQuestions(prev => [newQuestion, ...prev]);
+      setQuestions(prev => [uiQuestion, ...prev]);
       setShowCreateDialog(false);
       setQuestionForm({
         question: '',
@@ -212,6 +366,7 @@ const QuestionManagement = () => {
         description: "Successfully created new question",
       });
     } catch (error) {
+      console.error('Create Question Error:', error);
       toast({
         title: "Error",
         description: "Failed to create question",
@@ -222,15 +377,142 @@ const QuestionManagement = () => {
     }
   };
 
-  const handleDeleteQuestion = (id: string) => {
-    setQuestions(prev => prev.filter(q => q.id !== id));
-    toast({
-      title: "Question Deleted",
-      description: "Question has been removed",
-    });
+  const handleDeleteQuestion = async (id: string) => {
+    try {
+      await questionsAPI.delete(id);
+      setQuestions(prev => prev.filter(q => q.id !== id));
+      toast({
+        title: "Question Deleted",
+        description: "Question has been removed",
+      });
+    } catch (error) {
+      console.error('Delete Question Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete question",
+        variant: "destructive",
+      });
+    }
   };
 
-  const filteredQuestions = questions.filter(question => {
+  const handleExportQuestions = async () => {
+    try {
+      const exportData: QuestionExportData[] = filteredQuestions.map(q => ({
+        id: q.id,
+        question: q.question,
+        subject: q.subject,
+        className: q.class,
+        unit: q.unit,
+        bloomsLevel: q.bloomsLevel,
+        difficulty: q.difficulty,
+        isTwisted: q.isTwisted,
+        options: q.options || [],
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation || '',
+        createdAt: q.createdAt
+      }));
+
+      await PDFExportService.exportQuestionsToPDF(exportData, {
+        title: 'Question Bank Export',
+        includeAnswers: true,
+        includeExplanations: true,
+        subject: exportData[0]?.subject || 'Mathematics',
+        className: exportData[0]?.class || 'Class V',
+        chapter: `Chapter ${exportData[0]?.unit || '1'}`
+      });
+
+      toast({
+        title: "Export Successful",
+        description: "Questions exported to PDF successfully",
+      });
+    } catch (error) {
+      console.error('Export Error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export questions to PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportQuestionPaper = async () => {
+    try {
+      const exportData: QuestionExportData[] = filteredQuestions.map(q => ({
+        id: q.id,
+        question: q.question,
+        subject: q.subject,
+        className: q.class,
+        unit: q.unit,
+        bloomsLevel: q.bloomsLevel,
+        difficulty: q.difficulty,
+        isTwisted: q.isTwisted,
+        options: q.options || [],
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation || '',
+        createdAt: q.createdAt
+      }));
+
+      await PDFExportService.exportQuestionPaper(exportData, {
+        title: 'Question Paper',
+        instructions: 'Answer all questions. Each question carries equal marks.',
+        totalMarks: exportData.length,
+        subject: exportData[0]?.subject || 'Mathematics',
+        className: exportData[0]?.class || 'Class V',
+        chapter: `Chapter ${exportData[0]?.unit || '1'}`
+      });
+
+      toast({
+        title: "Question Paper Generated",
+        description: "Question paper exported to PDF successfully",
+      });
+    } catch (error) {
+      console.error('Export Error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export question paper to PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportAnswerKey = async () => {
+    try {
+      const exportData: QuestionExportData[] = filteredQuestions.map(q => ({
+        id: q.id,
+        question: q.question,
+        subject: q.subject,
+        className: q.class,
+        unit: q.unit,
+        bloomsLevel: q.bloomsLevel,
+        difficulty: q.difficulty,
+        isTwisted: q.isTwisted,
+        options: q.options || [],
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation || '',
+        createdAt: q.createdAt
+      }));
+
+      await PDFExportService.exportAnswerKey(exportData, {
+        subject: exportData[0]?.subject || 'Mathematics',
+        className: exportData[0]?.class || 'Class V',
+        chapter: `Chapter ${exportData[0]?.unit || '1'}`
+      });
+
+      toast({
+        title: "Answer Key Generated",
+        description: "Answer key exported to PDF successfully",
+      });
+    } catch (error) {
+      console.error('Export Error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export answer key to PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const filteredQuestions = (questions || []).filter(question => {
     const matchesSearch = question.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          question.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          question.unit.toLowerCase().includes(searchTerm.toLowerCase());
@@ -249,6 +531,7 @@ const QuestionManagement = () => {
       </Badge>
     );
   };
+  console.log(filteredQuestions,'filteredQuestions')
 
   const getDifficultyBadge = (difficulty: string) => {
     const diffLevel = DIFFICULTY_LEVELS.find(d => d.id === difficulty);
@@ -273,6 +556,14 @@ const QuestionManagement = () => {
           </p>
         </div>
         <div className="flex space-x-2">
+          <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Layout className="w-4 h-4 mr-2" />
+                Templates
+              </Button>
+            </DialogTrigger>
+          </Dialog>
           <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
             <DialogTrigger asChild>
               <Button variant="outline">
@@ -356,10 +647,28 @@ const QuestionManagement = () => {
             <div className="space-y-2">
               <Label>Actions</Label>
               <div className="flex space-x-2">
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={handleExportQuestions}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      Export Questions (with answers)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportQuestionPaper}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      Export Question Paper
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportAnswerKey}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      Export Answer Key
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button variant="outline" size="sm">
                   <Upload className="w-4 h-4 mr-2" />
                   Import
@@ -370,9 +679,44 @@ const QuestionManagement = () => {
         </CardContent>
       </Card>
 
+      {/* Loading State */}
+      {isLoading && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center space-x-2">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <span>Loading questions...</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center space-x-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              <span>{error}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Questions List */}
-      <div className="space-y-4">
-        {filteredQuestions.map((question) => (
+      {!isLoading && !error && (
+        <div className="space-y-4">
+          {filteredQuestions.length === 0 ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center space-x-2 text-muted-foreground">
+                  <HelpCircle className="w-5 h-5" />
+                  <span>No questions found. Create your first question!</span>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredQuestions.map((question) => (
           <Card key={question.id} className="border-l-4 border-l-primary">
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
@@ -402,7 +746,13 @@ const QuestionManagement = () => {
                       </div>
                     </div>
                   </div>
-
+                  {/* question type */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Question Type:</Label>
+                    <Badge className="bg-blue-100 text-blue-800">
+                      {question.questionType || 'Multiple Choice'}
+                    </Badge>
+                  </div>
                   {/* Options */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Options:</Label>
@@ -412,9 +762,9 @@ const QuestionManagement = () => {
                           <span className="text-sm font-medium w-6">
                             {String.fromCharCode(65 + index)}.
                           </span>
-                          <span className={`text-sm ${index === question.correctAnswer ? 'text-green-600 font-semibold' : ''}`}>
+                          <span className={`text-sm ${option === question.correctAnswer ? 'text-green-600 font-semibold' : ''}`}>
                             {option}
-                            {index === question.correctAnswer && (
+                            {option == question.correctAnswer && (
                               <CheckCircle className="w-4 h-4 inline ml-2 text-green-600" />
                             )}
                           </span>
@@ -456,8 +806,10 @@ const QuestionManagement = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* AI Generation Dialog */}
       <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
@@ -482,10 +834,11 @@ const QuestionManagement = () => {
                     <SelectValue placeholder="Select subject" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Mathematics">Mathematics</SelectItem>
-                    <SelectItem value="Physics">Physics</SelectItem>
-                    <SelectItem value="Chemistry">Chemistry</SelectItem>
-                    <SelectItem value="English">English</SelectItem>
+                    {subjects.map((subject) => (
+                      <SelectItem key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -496,9 +849,11 @@ const QuestionManagement = () => {
                     <SelectValue placeholder="Select class" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="11A">Class 11A</SelectItem>
-                    <SelectItem value="11B">Class 11B</SelectItem>
-                    <SelectItem value="11C">Class 11C</SelectItem>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls.classId} value={cls.classId}>
+                        {cls.className}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -634,10 +989,11 @@ const QuestionManagement = () => {
                   <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Mathematics">Mathematics</SelectItem>
-                  <SelectItem value="Physics">Physics</SelectItem>
-                  <SelectItem value="Chemistry">Chemistry</SelectItem>
-                  <SelectItem value="English">English</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -648,9 +1004,11 @@ const QuestionManagement = () => {
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="11A">Class 11A</SelectItem>
-                  <SelectItem value="11B">Class 11B</SelectItem>
-                  <SelectItem value="11C">Class 11C</SelectItem>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.classId} value={cls.classId}>
+                      {cls.className}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -756,6 +1114,161 @@ const QuestionManagement = () => {
               {isLoading ? "Creating..." : "Create Question"}
             </Button>
           </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Question Paper Templates Dialog */}
+    <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center">
+            <Layout className="w-5 h-5 mr-2" />
+            Question Paper Templates
+          </DialogTitle>
+          <DialogDescription>
+            Select a template to generate questions or create a new template
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Template List */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {templates.map((template) => (
+              <Card key={template.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold text-lg">{template.name}</h3>
+                    <Badge variant="outline">{template.gradeLevel}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">{template.description}</p>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span>Total Marks:</span>
+                      <span className="font-medium">{template.totalMarks}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Duration:</span>
+                      <span className="font-medium">{template.duration} min</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Usage Count:</span>
+                      <span className="font-medium">{template.usageCount}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button 
+                      size="sm" 
+                      onClick={() => {
+                        setSelectedTemplate(template);
+                        handleTemplateGeneration();
+                      }}
+                      disabled={isLoading}
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Generate
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Create New Template Button */}
+          <div className="flex justify-center">
+            <Button variant="outline" className="w-full max-w-md">
+              <Plus className="w-4 h-4 mr-2" />
+              Create New Template
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Generated Questions Preview Dialog */}
+    <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center">
+            <FileText className="w-5 h-5 mr-2" />
+            Generated Question Paper
+          </DialogTitle>
+          <DialogDescription>
+            Preview the generated questions from template
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {generatedQuestions.map((question, index) => (
+            <Card key={index} className="border-l-4 border-l-primary">
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-medium">Question {index + 1}</h4>
+                    <Badge variant="outline">{question.questionType}</Badge>
+                  </div>
+                  
+                  <p className="text-sm">{question.questionText}</p>
+                  
+                  {question.options && question.options.length > 0 && (
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Options:</Label>
+                      {question.options.map((option, optIndex) => (
+                        <div key={optIndex} className="text-xs text-muted-foreground">
+                          {String.fromCharCode(65 + optIndex)}. {option}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Marks: {question.marks}</span>
+                    <span>Time: {question.timeLimit} min</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="flex justify-end space-x-2 pt-4 border-t">
+          <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>
+            Close
+          </Button>
+          <Button onClick={() => {
+            // Add generated questions to the main list
+            const convertedQuestions = generatedQuestions.map((q, index) => ({
+              id: `template-${Date.now()}-${index}`,
+              question: q.questionText,
+              subject: selectedTemplate?.subjectId || 'Unknown',
+              class: selectedTemplate?.classId || 'Unknown',
+              unit: 'Template Generated',
+              bloomsLevel: 'remember',
+              difficulty: 'moderate',
+              isTwisted: false,
+              options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+              correctAnswer: 0,
+              explanation: q.explanation || 'Generated from template',
+              createdAt: new Date().toISOString().split('T')[0]
+            }));
+            
+            setQuestions(prev => [...convertedQuestions, ...prev]);
+            setShowGenerateDialog(false);
+            
+            toast({
+              title: "Questions Added",
+              description: `Added ${generatedQuestions.length} questions to your question bank`,
+            });
+          }}>
+            <Save className="w-4 h-4 mr-2" />
+            Add to Question Bank
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

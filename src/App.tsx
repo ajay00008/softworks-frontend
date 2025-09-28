@@ -13,6 +13,7 @@ import PerformanceAnalytics from "./pages/PerformanceAnalytics";
 import TeacherAssignment from "./pages/TeacherAssignment";
 import QuestionManagement from "./pages/QuestionManagement";
 import SyllabusManagement from "./pages/SyllabusManagement";
+import ClassSubjectManagement from "./pages/ClassSubjectManagement";
 import AbsenteeismTracking from "./pages/AbsenteeismTracking";
 import AdminManagement from "./components/AdminManagement";
 import DataMigrationDashboard from "./components/DataMigrationDashboard";
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="teachers" element={<Teachers />} />
               <Route path="performance" element={<PerformanceAnalytics />} />
               <Route path="teacher-assignment" element={<TeacherAssignment />} />
+              <Route path="class-subject-management" element={<ClassSubjectManagement />} />
               <Route path="questions" element={<QuestionManagement />} />
               <Route path="syllabus" element={<SyllabusManagement />} />
               <Route path="absenteeism" element={<AbsenteeismTracking />} />

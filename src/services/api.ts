@@ -602,10 +602,293 @@ export const classesAPI = {
     }
   },
 };
-export const subjectsAPI = {
-  getAll: async (id: Number): Promise<Subject[]> => {
+// Class Management API interfaces
+export interface Class {
+  id: string;
+  name: string;
+  displayName: string;
+  level: number;
+  section: string;
+  academicYear: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateClassRequest {
+  name: string;
+  displayName: string;
+  level: number;
+  section: string;
+  academicYear: string;
+  description?: string;
+}
+
+export interface UpdateClassRequest {
+  name?: string;
+  displayName?: string;
+  level?: number;
+  section?: string;
+  academicYear?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface ClassFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  level?: number;
+  academicYear?: string;
+  isActive?: boolean;
+}
+
+// Subject Management API interfaces
+export interface Subject {
+  id: string;
+  code: string;
+  name: string;
+  shortName: string;
+  category: 'SCIENCE' | 'MATHEMATICS' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'COMMERCE' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'OTHER';
+  classIds: string[]; // Array of class IDs
+  classes: Class[]; // Populated class data from aggregation
+  description?: string;
+  color?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSubjectRequest {
+  code: string;
+  name: string;
+  shortName: string;
+  category: 'SCIENCE' | 'MATHEMATICS' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'COMMERCE' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'OTHER';
+  classIds: string[];
+  description?: string;
+  color?: string;
+}
+
+export interface UpdateSubjectRequest {
+  code?: string;
+  name?: string;
+  shortName?: string;
+  category?: 'SCIENCE' | 'MATHEMATICS' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'COMMERCE' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'OTHER';
+  classIds?: string[];
+  description?: string;
+  color?: string;
+  isActive?: boolean;
+}
+
+export interface SubjectFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  category?: string;
+  level?: number;
+  isActive?: boolean;
+}
+
+// Class Management API
+export const classManagementAPI = {
+  getAll: async (filters?: ClassFilters): Promise<{ classes: Class[]; total: number; page: number; limit: number }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/subjects/level/${id}`, {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.search) params.append('search', filters.search);
+      if (filters?.level) params.append('level', filters.level.toString());
+      if (filters?.academicYear) params.append('academicYear', filters.academicYear);
+      if (filters?.isActive !== undefined) params.append('isActive', filters.isActive.toString());
+
+      const response = await fetch(`${API_BASE_URL}/admin/classes?${params}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ classes: Class[]; total: number; page: number; limit: number }>(response);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      throw error;
+    }
+  },
+
+  getById: async (id: string): Promise<Class> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/classes/${id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Class>(response);
+    } catch (error) {
+      console.error('Error fetching class:', error);
+      throw error;
+    }
+  },
+
+  create: async (data: CreateClassRequest): Promise<Class> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/classes`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<Class>(response);
+    } catch (error) {
+      console.error('Error creating class:', error);
+      throw error;
+    }
+  },
+
+  update: async (id: string, data: UpdateClassRequest): Promise<Class> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/classes/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<Class>(response);
+    } catch (error) {
+      console.error('Error updating class:', error);
+      throw error;
+    }
+  },
+
+  delete: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/classes/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleApiResponse<void>(response);
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      throw error;
+    }
+  },
+
+  getByLevel: async (level: number): Promise<Class[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/classes/level/${level}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Class[]>(response);
+    } catch (error) {
+      console.error('Error fetching classes by level:', error);
+      throw error;
+    }
+  },
+};
+
+// Subject Management API
+export const subjectManagementAPI = {
+  getAll: async (filters?: SubjectFilters): Promise<{ subjects: Subject[]; total: number; page: number; limit: number }> => {
+    try {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.search) params.append('search', filters.search);
+      if (filters?.category) params.append('category', filters.category);
+      if (filters?.level) params.append('level', filters.level.toString());
+      if (filters?.isActive !== undefined) params.append('isActive', filters.isActive.toString());
+
+      const response = await fetch(`${API_BASE_URL}/admin/subjects?${params}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ subjects: Subject[]; total: number; page: number; limit: number }>(response);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      throw error;
+    }
+  },
+
+  getById: async (id: string): Promise<Subject> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Subject>(response);
+    } catch (error) {
+      console.error('Error fetching subject:', error);
+      throw error;
+    }
+  },
+
+  create: async (data: CreateSubjectRequest): Promise<Subject> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<Subject>(response);
+    } catch (error) {
+      console.error('Error creating subject:', error);
+      throw error;
+    }
+  },
+
+  update: async (id: string, data: UpdateSubjectRequest): Promise<Subject> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<Subject>(response);
+    } catch (error) {
+      console.error('Error updating subject:', error);
+      throw error;
+    }
+  },
+
+  delete: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleApiResponse<void>(response);
+    } catch (error) {
+      console.error('Error deleting subject:', error);
+      throw error;
+    }
+  },
+
+  getByCategory: async (category: string): Promise<Subject[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/category/${category}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Subject[]>(response);
+    } catch (error) {
+      console.error('Error fetching subjects by category:', error);
+      throw error;
+    }
+  },
+
+  getByLevel: async (level: number): Promise<Subject[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/level/${level}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Subject[]>(response);
+    } catch (error) {
+      console.error('Error fetching subjects by level:', error);
+      throw error;
+    }
+  },
+};
+
+export const subjectsAPI = {
+  getAll: async (): Promise<Subject[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -975,6 +1258,199 @@ export const questionPaperTemplatesAPI = {
       return await handleApiResponse<QuestionPaperGenerationResponse>(response);
     } catch (error) {
       console.error('Error generating question paper:', error);
+      throw error;
+    }
+  },
+};
+
+// Syllabus API
+export interface Syllabus {
+  id: string;
+  title: string;
+  subjectId: string;
+  classId: string;
+  academicYear: string;
+  term: string;
+  description: string;
+  language: string;
+  fileName?: string;
+  fileSize?: string;
+  fileUrl?: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  version: string;
+  status: 'active' | 'draft' | 'archived';
+  downloadCount: number;
+  lastModified: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSyllabusRequest {
+  title: string;
+  subjectId: string;
+  classId: string;
+  academicYear: string;
+  term: string;
+  description: string;
+  language: string;
+}
+
+export interface UpdateSyllabusRequest {
+  title?: string;
+  subjectId?: string;
+  classId?: string;
+  academicYear?: string;
+  term?: string;
+  description?: string;
+  language?: string;
+  status?: 'active' | 'draft' | 'archived';
+}
+
+export interface SyllabusStatistics {
+  totalSyllabi: number;
+  activeSyllabi: number;
+  draftSyllabi: number;
+  archivedSyllabi: number;
+  totalDownloads: number;
+  subjectsWithSyllabi: number;
+  classesWithSyllabi: number;
+}
+
+export const syllabusAPI = {
+  // Get all syllabi with filtering
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    subjectId?: string;
+    classId?: string;
+    status?: string;
+    academicYear?: string;
+  }): Promise<{ syllabi: Syllabus[]; total: number; page: number; limit: number }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.search) queryParams.append('search', params.search);
+      if (params?.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params?.classId) queryParams.append('classId', params.classId);
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.academicYear) queryParams.append('academicYear', params.academicYear);
+
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ syllabi: Syllabus[]; total: number; page: number; limit: number }>(response);
+    } catch (error) {
+      console.error('Error fetching syllabi:', error);
+      throw error;
+    }
+  },
+
+  // Get single syllabus
+  getById: async (id: string): Promise<Syllabus> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Syllabus>(response);
+    } catch (error) {
+      console.error('Error fetching syllabus:', error);
+      throw error;
+    }
+  },
+
+  // Create syllabus
+  create: async (data: CreateSyllabusRequest): Promise<Syllabus> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<Syllabus>(response);
+    } catch (error) {
+      console.error('Error creating syllabus:', error);
+      throw error;
+    }
+  },
+
+  // Update syllabus
+  update: async (id: string, data: UpdateSyllabusRequest): Promise<Syllabus> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<Syllabus>(response);
+    } catch (error) {
+      console.error('Error updating syllabus:', error);
+      throw error;
+    }
+  },
+
+  // Delete syllabus
+  delete: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleApiResponse<void>(response);
+    } catch (error) {
+      console.error('Error deleting syllabus:', error);
+      throw error;
+    }
+  },
+
+  // Get syllabus by subject and class
+  getBySubjectClass: async (subjectId: string, classId: string): Promise<Syllabus> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/subject/${subjectId}/class/${classId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Syllabus>(response);
+    } catch (error) {
+      console.error('Error fetching syllabus by subject and class:', error);
+      throw error;
+    }
+  },
+
+  // Upload syllabus file
+  uploadFile: async (id: string, file: File): Promise<Syllabus> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getToken()}`,
+        },
+        body: formData,
+      });
+      return await handleApiResponse<Syllabus>(response);
+    } catch (error) {
+      console.error('Error uploading syllabus file:', error);
+      throw error;
+    }
+  },
+
+  // Get syllabus statistics
+  getStatistics: async (): Promise<SyllabusStatistics> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/statistics`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<SyllabusStatistics>(response);
+    } catch (error) {
+      console.error('Error fetching syllabus statistics:', error);
       throw error;
     }
   },

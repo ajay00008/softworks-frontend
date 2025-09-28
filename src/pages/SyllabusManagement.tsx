@@ -22,73 +22,130 @@ import {
   Plus,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
-
-// Mock data
-const mockSyllabi = [
-  {
-    id: '1',
-    title: 'Mathematics Class 11A - Term 1',
-    subject: 'Mathematics',
-    class: '11A',
-    academicYear: '2024-25',
-    term: 'Term 1',
-    description: 'Complete syllabus for Mathematics Class 11A Term 1 including Algebra, Trigonometry, and Calculus basics.',
-    fileName: 'math_11a_term1.pdf',
-    fileSize: '2.4 MB',
-    uploadedBy: 'Dr. Sarah Johnson',
-    uploadedAt: '2024-01-15',
-    version: '1.0',
-    status: 'active',
-    downloadCount: 45,
-    lastModified: '2024-01-15'
-  },
-  {
-    id: '2',
-    title: 'Physics Class 11A - Complete Syllabus',
-    subject: 'Physics',
-    class: '11A',
-    academicYear: '2024-25',
-    term: 'Full Year',
-    description: 'Comprehensive Physics syllabus covering Mechanics, Thermodynamics, and Waves.',
-    fileName: 'physics_11a_complete.pdf',
-    fileSize: '3.1 MB',
-    uploadedBy: 'Prof. Michael Chen',
-    uploadedAt: '2024-01-14',
-    version: '2.1',
-    status: 'active',
-    downloadCount: 32,
-    lastModified: '2024-01-20'
-  },
-  {
-    id: '3',
-    title: 'Chemistry Class 11B - Term 2',
-    subject: 'Chemistry',
-    class: '11B',
-    academicYear: '2024-25',
-    term: 'Term 2',
-    description: 'Chemistry syllabus for Term 2 covering Organic Chemistry and Chemical Bonding.',
-    fileName: 'chemistry_11b_term2.pdf',
-    fileSize: '1.8 MB',
-    uploadedBy: 'Ms. Emily Davis',
-    uploadedAt: '2024-01-13',
-    version: '1.0',
-    status: 'draft',
-    downloadCount: 18,
-    lastModified: '2024-01-13'
-  }
-];
+import { 
+  syllabusAPI, 
+  Syllabus, 
+  CreateSyllabusRequest, 
+  UpdateSyllabusRequest,
+  classManagementAPI,
+  subjectManagementAPI
+} from '@/services/api';
 
 const SyllabusManagement = () => {
-  const [syllabi, setSyllabi] = useState(mockSyllabi);
+  const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedClass, setSelectedClass] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
   const { toast } = useToast();
+
+  // Load data on component mount
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        // Load classes and subjects in parallel
+        await Promise.all([
+          loadClasses(),
+          loadSubjects()
+        ]);
+        
+        // Load syllabi regardless of classes/subjects success
+        await loadSyllabi();
+      } catch (error) {
+        console.error('Error initializing data:', error);
+        // Still try to load syllabi even if classes/subjects fail
+        await loadSyllabi();
+      }
+    };
+    
+    initializeData();
+  }, []);
+
+  // Fallback: Ensure loading state is resolved after a maximum time
+  useEffect(() => {
+    const fallbackTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('Loading timeout reached, stopping loading state');
+        setIsLoading(false);
+        if (syllabi.length === 0) {
+          setError('Loading timeout - please refresh the page');
+        }
+      }
+    }, 15000); // 15 seconds fallback
+
+    return () => clearTimeout(fallbackTimeout);
+  }, [isLoading, syllabi.length]);
+
+  const loadSyllabi = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      const response = await Promise.race([
+        syllabusAPI.getAll({
+          search: searchTerm,
+          subjectId: selectedSubject !== 'all' ? selectedSubject : undefined,
+          classId: selectedClass !== 'all' ? selectedClass : undefined,
+          status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        }),
+        timeoutPromise
+      ]) as any;
+      console.log(response,'responseSyllabi');
+      setSyllabi(response.data || []);
+    } catch (error) {
+      console.error('Error loading syllabi:', error);
+      setError('Failed to load syllabi');
+      setSyllabi([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadClasses = async () => {
+    try {
+      const response = await classManagementAPI.getAll();
+      setClasses(Array.isArray(response) ? response : response.classes || []);
+    } catch (error) {
+      console.error('Error loading classes:', error);
+      setClasses([]);
+    }
+  };
+
+  const loadSubjects = async () => {
+    try {
+      const response = await subjectManagementAPI.getAll();
+      setSubjects(Array.isArray(response) ? response : response.subjects || []);
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+      setSubjects([]);
+    }
+  };
+
+  // Validate if subjects and classes are available before opening upload dialog
+  const handleUploadDialogOpen = () => {
+    if (subjects.length === 0 || classes.length === 0) {
+      toast({
+        title: "Setup Required",
+        description: "Please add subjects and classes first before uploading syllabus.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowUploadDialog(true);
+  };
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
@@ -113,38 +170,33 @@ const SyllabusManagement = () => {
 
     setIsLoading(true);
     try {
-      // Simulate file upload
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const newSyllabus = {
-        id: `syllabus-${Date.now()}`,
+      // First create the syllabus
+      const syllabusData: CreateSyllabusRequest = {
         title: uploadForm.title,
-        subject: uploadForm.subject,
-        class: uploadForm.class,
+        subjectId: uploadForm.subject,
+        classId: uploadForm.class,
         academicYear: uploadForm.academicYear,
         term: uploadForm.term,
         description: uploadForm.description,
-        fileName: uploadForm.file.name,
-        fileSize: `${(uploadForm.file.size / (1024 * 1024)).toFixed(1)} MB`,
-        uploadedBy: 'Current User', // Replace with actual user
-        uploadedAt: new Date().toISOString().split('T')[0],
-        version: '1.0',
-        status: 'active',
-        downloadCount: 0,
-        lastModified: new Date().toISOString().split('T')[0]
+        language: 'ENGLISH' // Default language
       };
 
-      setSyllabi(prev => [newSyllabus, ...prev]);
+      const createdSyllabus = await syllabusAPI.create(syllabusData);
+      
+      // Then upload the file
+      const updatedSyllabus = await syllabusAPI.uploadFile(createdSyllabus.id, uploadForm.file);
+
+      setSyllabi(prev => [updatedSyllabus, ...prev]);
       setShowUploadDialog(false);
-      setUploadForm({
-        title: '',
-        subject: '',
-        class: '',
-        academicYear: '2024-25',
-        term: '',
-        description: '',
-        file: null
-      });
+    setUploadForm({
+      title: '',
+      subject: '',
+      class: '',
+      academicYear: '2024-25',
+      term: '',
+      description: '',
+      file: null
+    });
 
       toast({
         title: "Syllabus Uploaded",
@@ -161,12 +213,22 @@ const SyllabusManagement = () => {
     }
   };
 
-  const handleDeleteSyllabus = (id: string) => {
+  const handleDeleteSyllabus = async (id: string) => {
+    try {
+      await syllabusAPI.delete(id);
     setSyllabi(prev => prev.filter(s => s.id !== id));
     toast({
       title: "Syllabus Deleted",
       description: "Syllabus has been removed",
     });
+    } catch (error) {
+      console.error('Error deleting syllabus:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete syllabus",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownloadSyllabus = (syllabus: any) => {
@@ -178,15 +240,41 @@ const SyllabusManagement = () => {
   };
 
   const filteredSyllabi = syllabi.filter(syllabus => {
-    const matchesSearch = syllabus.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = searchTerm === '' || 
+                         syllabus.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          syllabus.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         syllabus.uploadedBy.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSubject = selectedSubject === 'all' || syllabus.subject === selectedSubject;
-    const matchesClass = selectedClass === 'all' || syllabus.class === selectedClass;
-    const matchesStatus = selectedStatus === 'all' || syllabus.status === selectedStatus;
+                         (syllabus.uploadedBy as any)?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSubject = selectedSubject === 'all' || 
+                          (typeof syllabus.subjectId === 'string' ? syllabus.subjectId === selectedSubject : 
+                           (syllabus.subjectId as any)?._id === selectedSubject);
+    const matchesClass = selectedClass === 'all' || 
+                        (typeof syllabus.classId === 'string' ? syllabus.classId === selectedClass : 
+                         (syllabus.classId as any)?._id === selectedClass);
+    const matchesStatus = selectedStatus === 'all' || 
+                         (selectedStatus === 'active' ? (syllabus as any).isActive === true : 
+                          selectedStatus === 'inactive' ? (syllabus as any).isActive === false : true);
+
+    // Debug logging
+    console.log('Filtering syllabus:', {
+      title: syllabus.title,
+      subjectId: syllabus.subjectId,
+      classId: syllabus.classId,
+      isActive: (syllabus as any).isActive,
+      selectedSubject,
+      selectedClass,
+      selectedStatus,
+      matchesSearch,
+      matchesSubject,
+      matchesClass,
+      matchesStatus,
+      finalMatch: matchesSearch && matchesSubject && matchesClass && matchesStatus
+    });
 
     return matchesSearch && matchesSubject && matchesClass && matchesStatus;
   });
+  console.log('Filter values:', { searchTerm, selectedSubject, selectedClass, selectedStatus });
+  console.log('Total syllabi:', syllabi.length);
+  console.log('Filtered syllabi:', filteredSyllabi.length);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -216,84 +304,36 @@ const SyllabusManagement = () => {
         </div>
         <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
           <DialogTrigger asChild>
-            <Button>
+            <Button 
+              onClick={handleUploadDialogOpen}
+              className={subjects.length === 0 || classes.length === 0 ? "opacity-60" : ""}
+              title={subjects.length === 0 || classes.length === 0 ? "Add subjects and classes first" : ""}
+            >
               <Upload className="w-4 h-4 mr-2" />
               Upload Syllabus
+              {(subjects.length === 0 || classes.length === 0) && (
+                <AlertTriangle className="w-4 h-4 ml-2 text-amber-500" />
+              )}
             </Button>
           </DialogTrigger>
         </Dialog>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/20 border-primary/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Syllabi</CardTitle>
-            <BookOpen className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{syllabi.length}</div>
-            <p className="text-xs text-muted-foreground">Uploaded documents</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-success/10 to-success/20 border-success/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Syllabi</CardTitle>
-            <CheckCircle className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">
-              {syllabi.filter(s => s.status === 'active').length}
-            </div>
-            <p className="text-xs text-muted-foreground">Currently active</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-warning/10 to-warning/20 border-warning/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Downloads</CardTitle>
-            <Download className="h-4 w-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-warning">
-              {syllabi.reduce((sum, s) => sum + s.downloadCount, 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">All time downloads</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-accent/10 to-accent/20 border-accent/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Subjects Covered</CardTitle>
-            <FileText className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-accent">
-              {new Set(syllabi.map(s => s.subject)).size}
-            </div>
-            <p className="text-xs text-muted-foreground">Different subjects</p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Search className="w-5 h-5 mr-2" />
-            Search & Filter Syllabi
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <CardContent className="p-6">
+          <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
               <Label>Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Search syllabi..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
               />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Subject</Label>
@@ -303,10 +343,11 @@ const SyllabusManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Subjects</SelectItem>
-                  <SelectItem value="Mathematics">Mathematics</SelectItem>
-                  <SelectItem value="Physics">Physics</SelectItem>
-                  <SelectItem value="Chemistry">Chemistry</SelectItem>
-                  <SelectItem value="English">English</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -318,9 +359,11 @@ const SyllabusManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Classes</SelectItem>
-                  <SelectItem value="11A">Class 11A</SelectItem>
-                  <SelectItem value="11B">Class 11B</SelectItem>
-                  <SelectItem value="11C">Class 11C</SelectItem>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.classId} value={cls.classId}>
+                      {cls.className}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -342,10 +385,82 @@ const SyllabusManagement = () => {
         </CardContent>
       </Card>
 
+      {/* Loading State */}
+      {isLoading && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center space-x-2">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <span>Loading syllabi...</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center space-x-4 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              <span>{error}</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  loadSyllabi();
+                }}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                    Retrying...
+                  </>
+                ) : (
+                  'Retry'
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Syllabi List */}
+      {!isLoading && !error && (
       <div className="space-y-4">
-        {filteredSyllabi.map((syllabus) => (
-          <Card key={syllabus.id} className="border-l-4 border-l-primary">
+          {filteredSyllabi.length === 0 ? (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-center space-x-4 text-muted-foreground">
+                  <BookOpen className="w-5 h-5" />
+                  <span>No syllabi found. Upload your first syllabus!</span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setIsLoading(true);
+                      loadSyllabi();
+                    }}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        Refreshing...
+                      </>
+                    ) : (
+                      'Refresh'
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredSyllabi.map((syllabus) => (
+          <Card key={(syllabus as any)._id || syllabus.id} className="border-l-4 border-l-primary">
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
                 <div className="space-y-4 flex-1">
@@ -355,18 +470,18 @@ const SyllabusManagement = () => {
                       <h3 className="text-lg font-semibold">{syllabus.title}</h3>
                       <div className="flex items-center space-x-4">
                         <Badge className="bg-blue-100 text-blue-800">
-                          {syllabus.subject}
+                              {(syllabus.subjectId as any)?.name || subjects.find(s => s.id === (syllabus.subjectId as any)?._id)?.name || 'Unknown Subject'}
                         </Badge>
                         <Badge className="bg-green-100 text-green-800">
-                          {syllabus.class}
+                              {(syllabus.classId as any)?.displayName || classes.find(c => c.id === (syllabus.classId as any)?._id)?.name || 'Unknown Class'}
                         </Badge>
                         <Badge className="bg-purple-100 text-purple-800">
-                          {syllabus.term}
+                          {(syllabus as any).language || 'ENGLISH'}
                         </Badge>
                         <Badge className="bg-orange-100 text-orange-800">
                           {syllabus.academicYear}
                         </Badge>
-                        {getStatusBadge(syllabus.status)}
+                        {getStatusBadge((syllabus as any).isActive ? 'active' : 'inactive')}
                       </div>
                     </div>
                   </div>
@@ -379,24 +494,29 @@ const SyllabusManagement = () => {
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <FileText className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">File Information:</span>
+                            <span className="text-sm font-medium">{(syllabus as any).fileName || 'No file uploaded'}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Uploaded: {(syllabus as any).createdAt ? new Date((syllabus as any).createdAt).toLocaleDateString() : 'Unknown'}</span>
                       </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <p><strong>File:</strong> {syllabus.fileName}</p>
-                        <p><strong>Size:</strong> {syllabus.fileSize}</p>
-                        <p><strong>Version:</strong> {syllabus.version}</p>
-                        <p><strong>Downloads:</strong> {syllabus.downloadCount}</p>
+                          <div className="flex items-center space-x-2">
+                            <User className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">By: {(syllabus.uploadedBy as any)?.name || 'Unknown'}</span>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Upload Information:</span>
+                            <Download className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Downloads: {(syllabus as any).downloadCount || 0}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Clock className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Version: {syllabus.version}</span>
                       </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <p><strong>Uploaded by:</strong> {syllabus.uploadedBy}</p>
-                        <p><strong>Uploaded:</strong> {syllabus.uploadedAt}</p>
-                        <p><strong>Last modified:</strong> {syllabus.lastModified}</p>
+                          <div className="flex items-center space-x-2">
+                            <FileText className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Size: {(syllabus as any).fileSize || 'Unknown'}</span>
                       </div>
                     </div>
                   </div>
@@ -421,7 +541,7 @@ const SyllabusManagement = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDeleteSyllabus(syllabus.id)}
+                    onClick={() => handleDeleteSyllabus((syllabus as any)._id || syllabus.id)}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -430,8 +550,10 @@ const SyllabusManagement = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
+            ))
+          )}
       </div>
+      )}
 
       {/* Upload Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
@@ -447,6 +569,26 @@ const SyllabusManagement = () => {
           </DialogHeader>
 
           <div className="space-y-6">
+            {/* Setup Required Message */}
+            {(subjects.length === 0 || classes.length === 0) && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-amber-800">
+                  <AlertTriangle className="w-5 h-5" />
+                  <div>
+                    <p className="font-medium">Setup Required</p>
+                    <p className="text-sm">
+                      {subjects.length === 0 && classes.length === 0 
+                        ? "Please add subjects and classes first before uploading syllabus."
+                        : subjects.length === 0 
+                        ? "Please add subjects first."
+                        : "Please add classes first."
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Syllabus Title *</Label>
               <Input
@@ -459,33 +601,39 @@ const SyllabusManagement = () => {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Subject *</Label>
-                <Select value={uploadForm.subject} onValueChange={(value) => setUploadForm(prev => ({ ...prev, subject: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select subject" />
+                <Select 
+                  value={uploadForm.subject} 
+                  onValueChange={(value) => setUploadForm(prev => ({ ...prev, subject: value }))}
+                  disabled={subjects.length === 0}
+                >
+                  <SelectTrigger className={subjects.length === 0 ? "opacity-50" : ""}>
+                    <SelectValue placeholder={subjects.length === 0 ? "No subjects available" : "Select subject"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Mathematics">Mathematics</SelectItem>
-                    <SelectItem value="Physics">Physics</SelectItem>
-                    <SelectItem value="Chemistry">Chemistry</SelectItem>
-                    <SelectItem value="English">English</SelectItem>
-                    <SelectItem value="Biology">Biology</SelectItem>
-                    <SelectItem value="History">History</SelectItem>
-                    <SelectItem value="Geography">Geography</SelectItem>
+                    {subjects.map((subject) => (
+                      <SelectItem key={subject._id || subject.id} value={subject._id || subject.id}>
+                        {subject.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Class *</Label>
-                <Select value={uploadForm.class} onValueChange={(value) => setUploadForm(prev => ({ ...prev, class: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
+                <Select 
+                  value={uploadForm.class} 
+                  onValueChange={(value) => setUploadForm(prev => ({ ...prev, class: value }))}
+                  disabled={classes.length === 0}
+                >
+                  <SelectTrigger className={classes.length === 0 ? "opacity-50" : ""}>
+                    <SelectValue placeholder={classes.length === 0 ? "No classes available" : "Select class"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="11A">Class 11A</SelectItem>
-                    <SelectItem value="11B">Class 11B</SelectItem>
-                    <SelectItem value="11C">Class 11C</SelectItem>
-                    <SelectItem value="12A">Class 12A</SelectItem>
-                    <SelectItem value="12B">Class 12B</SelectItem>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls._id || cls.id} value={cls._id || cls.id}>
+                        {cls.displayName || cls.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -509,7 +657,7 @@ const SyllabusManagement = () => {
                 <Label>Term</Label>
                 <Select value={uploadForm.term} onValueChange={(value) => setUploadForm(prev => ({ ...prev, term: value }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select term" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Term 1">Term 1</SelectItem>
@@ -532,12 +680,13 @@ const SyllabusManagement = () => {
               />
             </div>
 
+
             <div className="space-y-2">
               <Label>Upload File *</Label>
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept=".pdf,.doc,.docx"
                   onChange={(e) => setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
                   className="hidden"
                   id="file-upload"
@@ -548,7 +697,7 @@ const SyllabusManagement = () => {
                     Click to upload or drag and drop
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    PDF, DOC, DOCX, TXT (Max 10MB)
+                    PDF, DOC, DOCX up to 10MB
                   </p>
                 </label>
                 {uploadForm.file && (
@@ -568,7 +717,7 @@ const SyllabusManagement = () => {
               </Button>
               <Button
                 onClick={handleFileUpload}
-                disabled={isLoading || !uploadForm.file || !uploadForm.title || !uploadForm.subject || !uploadForm.class}
+                disabled={isLoading || !uploadForm.file || !uploadForm.title || !uploadForm.subject || !uploadForm.class || subjects.length === 0 || classes.length === 0}
               >
                 {isLoading ? "Uploading..." : "Upload Syllabus"}
               </Button>
@@ -581,4 +730,3 @@ const SyllabusManagement = () => {
 };
 
 export default SyllabusManagement;
-

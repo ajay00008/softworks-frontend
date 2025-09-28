@@ -17,7 +17,8 @@ import {
   Shield,
   Crown,
   Database,
-  AlertTriangle
+  AlertTriangle,
+  BookMarked
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { authAPI, User } from '@/services/api';
@@ -43,10 +44,10 @@ const getNavigation = (userRole?: string) => {
     { name: 'Teachers', href: '/dashboard/teachers', icon: GraduationCap, section: 'MAIN' },
     { name: 'Performance Analytics', href: '/dashboard/performance', icon: BarChart3, section: 'ANALYTICS' },
     { name: 'Teacher Assignment', href: '/dashboard/teacher-assignment', icon: Settings, section: 'MANAGEMENT' },
+    { name: 'Class & Subject Management', href: '/dashboard/class-subject-management', icon: BookMarked, section: 'MANAGEMENT' },
     { name: 'Questions', href: '/dashboard/questions', icon: HelpCircle, section: 'CONTENT' },
     { name: 'Syllabus Management', href: '/dashboard/syllabus', icon: BookOpen, section: 'CONTENT' },
     { name: 'Absenteeism Tracking', href: '/dashboard/absenteeism', icon: AlertTriangle, section: 'TRACKING' },
-    { name: 'Upload Books', href: '/dashboard/books', icon: BookOpen, section: 'CONTENT' },
     { name: 'Access Privileges', href: '/dashboard/access', icon: Settings, section: 'SYSTEM' },
     { name: 'Mirror Login', href: '/dashboard/mirror', icon: UserCheck, section: 'SYSTEM' },
   ];

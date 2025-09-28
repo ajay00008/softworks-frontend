@@ -58,11 +58,12 @@ const AdminManagement = () => {
           description: "Admin updated successfully",
         });
       } else {
-        await adminsAPI.create(formData);
+        const response = await adminsAPI.create(formData);
         toast({
           title: "Success",
           description: "Admin created successfully",
         });
+        console.log(response,'responseCreate');
       }
       setIsDialogOpen(false);
       setEditingAdmin(null);
@@ -299,7 +300,7 @@ const AdminManagement = () => {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        {admin.role !== 'super_admin' && (
+                        {admin.role !== 'super_admin' && admin.isActive && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
@@ -316,7 +317,7 @@ const AdminManagement = () => {
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => handleDelete(admin.id)}
+                                  onClick={() => handleDelete(admin._id)}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
                                   Delete

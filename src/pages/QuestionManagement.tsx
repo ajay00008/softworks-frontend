@@ -31,7 +31,8 @@ import {
   FileText,
   Play,
   Save,
-  Layout
+  Layout,
+  X
 } from 'lucide-react';
 import { 
   questionPaperTemplatesAPI, 
@@ -62,17 +63,47 @@ const DIFFICULTY_LEVELS = [
   { id: 'toughest', name: 'Toughest', description: 'Evaluate & Create levels', color: 'bg-red-100 text-red-800' }
 ];
 
+const QUESTION_TYPES = [
+  { id: 'MULTIPLE_CHOICE', name: 'Multiple Choice', description: 'Select one correct answer from options' },
+  { id: 'SHORT_ANSWER', name: 'Short Answer', description: 'Brief text response' },
+  { id: 'LONG_ANSWER', name: 'Long Answer', description: 'Detailed text response' },
+  { id: 'TRUE_FALSE', name: 'True/False', description: 'Select true or false' },
+  { id: 'FILL_BLANKS', name: 'Fill in the Blanks', description: 'Complete missing words or phrases' }
+];
+
 const QuestionManagement = () => {
   const [questions, setQuestions] = useState<any[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<any>(null);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    id: '',
+    question: '',
+    explanation: '',
+    subject: '',
+    class: '',
+    difficulty: '',
+    bloomsLevel: '',
+    questionType: '',
+    options: [] as string[],
+    correctAnswer: 0
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedClass, setSelectedClass] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<QuestionPaperTemplate[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
@@ -83,28 +114,135 @@ const QuestionManagement = () => {
 
   // Load data on component mount
   useEffect(() => {
-    loadClasses();
-    loadSubjects();
+    const initializeData = async () => {
+      try {
+        // Load classes and subjects in parallel
+        await Promise.all([
+          loadClasses(),
+          loadSubjects()
+        ]);
+        
+        // Load questions regardless of classes/subjects success
+        // This prevents infinite loading if classes/subjects fail
+        await loadQuestions();
+      } catch (error) {
+        console.error('Error initializing data:', error);
+        // Still try to load questions even if classes/subjects fail
+        await loadQuestions();
+      }
+    };
+    
+    initializeData();
   }, []);
 
-  // Load questions after classes and subjects are loaded
+  // Fallback: Ensure loading state is resolved after a maximum time
   useEffect(() => {
-    if (classes.length > 0 && subjects.length > 0) {
-      loadQuestions();
-    }
-  }, [classes, subjects]);
+    const fallbackTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('Loading timeout reached, stopping loading state');
+        setIsLoading(false);
+        if (questions.length === 0) {
+          setError('Loading timeout - please refresh the page');
+        }
+      }
+    }, 15000); // 15 seconds fallback
 
-  const loadQuestions = async () => {
+    return () => clearTimeout(fallbackTimeout);
+  }, [isLoading, questions.length]);
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    loadQuestions(page, pageSize);
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1);
+    loadQuestions(1, newPageSize);
+  };
+
+  const loadQuestions = async (page: number = currentPage, limit: number = pageSize, 
+    filters?: {
+    search?: string;
+    subject?: string;
+    class?: string;
+    difficulty?: string;
+  }) => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await questionsAPI.getAll();
+      
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      // Build query parameters
+      const queryParams: any = {
+        page,
+        limit
+      };
+      
+      // Use passed filters or fall back to state
+      const search = filters?.search ?? searchTerm;
+      const subject = filters?.subject ?? selectedSubject;
+      const classFilter = filters?.class ?? selectedClass;
+      const difficulty = filters?.difficulty ?? selectedDifficulty;
+      
+      console.log('Filter values:', { search, subject, classFilter, difficulty });
+      console.log('Passed filters:', filters);
+      console.log('Current state:', { searchTerm, selectedSubject, selectedClass, selectedDifficulty });
+      
+      // Add search term if provided
+      if (search.trim()) {
+        queryParams.search = search.trim();
+      }
+      
+      // Add filters if not 'all'
+      if (subject !== 'all') {
+        queryParams.subjectId = subject;
+        console.log('Subject filter applied:', subject);
+      }
+      if (classFilter !== 'all') {
+        queryParams.classId = classFilter;
+        console.log('Class filter applied:', classFilter);
+      }
+      if (difficulty !== 'all') {
+        queryParams.difficulty = difficulty.toUpperCase();
+        console.log('Difficulty filter applied:', difficulty);
+      }
+      
+      console.log('Filter parameters being sent to API:', queryParams);
+      
+      const response = await Promise.race([
+        questionsAPI.getAll(queryParams),
+        timeoutPromise
+      ]) as any;
+      
+      console.log(response,'responseQuestions');
+      
+      // Handle case where response.questions might be undefined or null
+      const questionsData = response?.questions || [];
+      
+      // Update pagination info
+      if (response?.pagination) {
+        setTotalPages(response.pagination.totalPages || 1);
+        setTotalQuestions(response.pagination.total || 0);
+      } else {
+        // Fallback if pagination info is not available
+        setTotalPages(1);
+        setTotalQuestions(questionsData.length);
+      }
+      
       // Convert API questions to UI format
-      const uiQuestions = response.questions.map(q => ({
-        id: q.id,
+      const uiQuestions = questionsData.map((q: any) => ({
+        id: q._id,
         question: q.questionText,
         subject: subjects.find(s => s.id === q.subjectId)?.name || (q.subjectId && (q.subjectId as any)?.name) || 'Unknown',
-        class: classes.find(c => c.id === q.classId)?.name || (q.classId && (q.classId as any)?.name) || 'Unknown',
+        subjectId: q.subjectId,
+        class: classes.find(c => c.classId === q.classId)?.name || (q.classId && (q.classId as any)?.name) || 'Unknown',
+        classId: q.classId,
         unit: q.unit,
         bloomsLevel: q.bloomsTaxonomyLevel.toLowerCase(),
         difficulty: q.difficulty,
@@ -131,17 +269,21 @@ const QuestionManagement = () => {
       setClasses(response);
     } catch (error) {
       console.error('Error loading classes:', error);
-      setError('Failed to load classes');
+      // Don't set global error for classes, just log it
+      // Questions can still be loaded without classes
+      setClasses([]);
     }
   };
 
   const loadSubjects = async () => {
     try {
-      const response = await subjectsAPI.getAll(11); // Assuming level 1
+      const response = await subjectsAPI.getAll(); // Remove the parameter
       setSubjects(response);
     } catch (error) {
       console.error('Error loading subjects:', error);
-      setError('Failed to load subjects');
+      // Don't set global error for subjects, just log it
+      // Questions can still be loaded without subjects
+      setSubjects([]);
     }
   };
 
@@ -177,11 +319,55 @@ const QuestionManagement = () => {
     explanation: ''
   });
 
+  // Validate if subjects and classes are available before opening AI dialog
+  const handleAIDialogOpen = () => {
+    if (subjects.length === 0 || classes.length === 0) {
+      toast({
+        title: "Setup Required",
+        description: "Please upload syllabus first to add subjects and classes before using AI generation.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Reset form to clean state
+    setAiForm({
+      subject: '',
+      class: '',
+      unit: '',
+      totalQuestions: 10,
+      bloomsDistribution: {
+        remember: 20,
+        understand: 20,
+        apply: 20,
+        analyze: 20,
+        evaluate: 10,
+        create: 10
+      },
+      twistedPercentage: 10,
+      language: 'english'
+    });
+    setShowAIDialog(true);
+  };
+
+  // Validate if subjects and classes are available before opening Create Question dialog
+  const handleCreateDialogOpen = () => {
+    if (subjects.length === 0 || classes.length === 0) {
+      toast({
+        title: "Setup Required",
+        description: "Please upload syllabus first to add subjects and classes before creating questions.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowCreateDialog(true);
+  };
+
   const handleAIGeneration = async () => {
     setIsLoading(true);
     try {
+      console.log(aiForm,'aiForm');
       // Get subject and class names for display
-      const selectedSubject = subjects.find(s => s.id === aiForm.subject);
+      const selectedSubject = subjects.find(s => s._id === aiForm.subject);
       const selectedClass = classes.find(c => c.classId === aiForm.class);
       
       if (!selectedSubject || !selectedClass) {
@@ -381,6 +567,8 @@ const QuestionManagement = () => {
     try {
       await questionsAPI.delete(id);
       setQuestions(prev => prev.filter(q => q.id !== id));
+      setShowDeleteDialog(false);
+      setDeletingQuestionId(null);
       toast({
         title: "Question Deleted",
         description: "Question has been removed",
@@ -395,21 +583,238 @@ const QuestionManagement = () => {
     }
   };
 
+  const handleDeleteClick = (id: string) => {
+    setDeletingQuestionId(id);
+    setShowDeleteDialog(true);
+  };
+
+  const handleEditClick = (question: any) => {
+    setEditingQuestion(question);
+    
+    // Debug: Log the question data
+    console.log('Question data:', question);
+    console.log('Question ID fields:', {
+      id: question.id,
+      _id: question._id,
+      subjectId: question.subjectId,
+      classId: question.classId
+    });
+    console.log('Available subjects:', subjects);
+    console.log('Available classes:', classes);
+    
+    // Find the correct subject and class IDs
+    const subjectId = question.subjectId || subjects.find(s => s.name === question.subject)?.id || 
+                     subjects.find(s => s.name === question.subject)?._id || '';
+    const classId = question.classId || classes.find(c => c.className === question.class)?._id || 
+                   classes.find(c => c.name === question.class)?._id || '';
+    
+    console.log('Found subjectId:', subjectId, 'Type:', typeof subjectId);
+    console.log('Found classId:', classId, 'Type:', typeof classId);
+    
+    // Ensure IDs are strings
+    const validSubjectId = subjectId ? String(subjectId) : '';
+    const validClassId = classId ? String(classId) : '';
+    
+    console.log('Valid subjectId:', validSubjectId, 'Type:', typeof validSubjectId);
+    console.log('Valid classId:', validClassId, 'Type:', typeof validClassId);
+    
+    setEditFormData({
+      id: question.id || question._id || '',
+      question: question.question || '',
+      explanation: question.explanation || '',
+      subject: validSubjectId,
+      class: validClassId,
+      difficulty: question.difficulty || '',
+      bloomsLevel: question.bloomsLevel || '',
+      questionType: question.questionType || 'MULTIPLE_CHOICE',
+      options: question.options || [],
+      correctAnswer: question.correctAnswer || 0
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateQuestion = async () => {
+    console.log('Edit form data:', editFormData);
+    console.log('Edit form ID:', editFormData.id);
+    
+    if (!editFormData.id) {
+      toast({
+        title: "Error",
+        description: "Question ID not found. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate required fields
+    if (!editFormData.question.trim()) {
+      toast({
+        title: "Error",
+        description: "Question text is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editFormData.subject) {
+      toast({
+        title: "Error",
+        description: "Subject is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editFormData.class) {
+      toast({
+        title: "Error",
+        description: "Class is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editFormData.difficulty) {
+      toast({
+        title: "Error",
+        description: "Difficulty is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editFormData.questionType) {
+      toast({
+        title: "Error",
+        description: "Question type is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate correct answer
+    if (editFormData.options && editFormData.options.length > 0) {
+      const correctAnswerText = editFormData.options[editFormData.correctAnswer];
+      if (!correctAnswerText || correctAnswerText.trim() === '') {
+        toast({
+          title: "Error",
+          description: "Please select a valid correct answer.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate that subject and class are strings (not objects)
+    if (typeof editFormData.subject !== 'string' || typeof editFormData.class !== 'string') {
+      console.error('Subject or class is not a string:', {
+        subject: editFormData.subject,
+        class: editFormData.class,
+        subjectType: typeof editFormData.subject,
+        classType: typeof editFormData.class
+      });
+      toast({
+        title: "Error",
+        description: "Invalid subject or class selection. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate that subject and class IDs are not empty
+    if (!editFormData.subject || !editFormData.class) {
+      toast({
+        title: "Error",
+        description: "Please select both subject and class.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Map form data to API format
+      const correctAnswerText = editFormData.options && editFormData.options[editFormData.correctAnswer] 
+        ? editFormData.options[editFormData.correctAnswer] 
+        : editingQuestion.correctAnswer || 'No answer provided';
+      
+      const updateData = {
+        questionText: editFormData.question,
+        subjectId: String(editFormData.subject),
+        classId: String(editFormData.class),
+        difficulty: editFormData.difficulty.toUpperCase(),
+        options: editFormData.options,
+        correctAnswer: correctAnswerText,
+        explanation: editFormData.explanation,
+        // Keep existing fields that aren't being edited
+        questionType: editFormData.questionType || 'MULTIPLE_CHOICE',
+        unit: editingQuestion.unit || 'General',
+        bloomsTaxonomyLevel: editFormData.bloomsLevel.toUpperCase() || 'REMEMBER',
+        isTwisted: editingQuestion.isTwisted || false,
+        marks: editingQuestion.marks || 1,
+        language: editingQuestion.language || 'ENGLISH'
+      };
+
+      console.log('Updating question with ID:', editFormData.id);
+      console.log('Edit form data:', editFormData);
+      console.log('Subject ID type:', typeof editFormData.subject, editFormData.subject);
+      console.log('Class ID type:', typeof editFormData.class, editFormData.class);
+      console.log('Updating question with data:', updateData);
+      
+      const updatedQuestion = await questionsAPI.update(editFormData.id, updateData);
+      
+      // Update the questions list
+      setQuestions(prev => prev.map(q => 
+        (q._id === editFormData.id || q.id === editFormData.id) ? { ...q, ...updatedQuestion } : q
+      ));
+      
+      setShowEditDialog(false);
+      setEditingQuestion(null);
+      
+      toast({
+        title: "Question Updated",
+        description: "The question has been successfully updated.",
+      });
+      
+    } catch (error) {
+      console.error('Error updating question:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update the question. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleExportQuestions = async () => {
     try {
-      const exportData: QuestionExportData[] = filteredQuestions.map(q => ({
-        id: q.id,
-        question: q.question,
-        subject: q.subject,
-        className: q.class,
+      // For export, we need to get all questions, not just the current page
+      const allQuestionsResponse = await questionsAPI.getAll({
+        page: 1,
+        limit: 1000, // Large limit to get all questions
+        search: searchTerm.trim() || undefined,
+        subjectId: selectedSubject !== 'all' ? selectedSubject : undefined,
+        classId: selectedClass !== 'all' ? selectedClass : undefined,
+        difficulty: selectedDifficulty !== 'all' ? selectedDifficulty.toUpperCase() : undefined
+      });
+      
+      const allQuestions = allQuestionsResponse.questions || [];
+      const exportData: QuestionExportData[] = allQuestions.map((q: any) => ({
+        id: q._id || q.id,
+        question: q.questionText,
+        subject: subjects.find(s => s.id === q.subjectId)?.name || 'Unknown',
+        className: classes.find(c => c.classId === q.classId)?.name || 'Unknown',
         unit: q.unit,
-        bloomsLevel: q.bloomsLevel,
+        bloomsLevel: q.bloomsTaxonomyLevel?.toLowerCase() || 'remember',
         difficulty: q.difficulty,
         isTwisted: q.isTwisted,
         options: q.options || [],
-        correctAnswer: q.correctAnswer,
+        correctAnswer: 0, // Default value for export
         explanation: q.explanation || '',
-        createdAt: q.createdAt
+        createdAt: q.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0]
       }));
 
       await PDFExportService.exportQuestionsToPDF(exportData, {
@@ -417,7 +822,7 @@ const QuestionManagement = () => {
         includeAnswers: true,
         includeExplanations: true,
         subject: exportData[0]?.subject || 'Mathematics',
-        className: exportData[0]?.class || 'Class V',
+        className: exportData[0]?.className || 'Class V',
         chapter: `Chapter ${exportData[0]?.unit || '1'}`
       });
 
@@ -437,19 +842,30 @@ const QuestionManagement = () => {
 
   const handleExportQuestionPaper = async () => {
     try {
-      const exportData: QuestionExportData[] = filteredQuestions.map(q => ({
-        id: q.id,
-        question: q.question,
-        subject: q.subject,
-        className: q.class,
+      // For export, we need to get all questions, not just the current page
+      const allQuestionsResponse = await questionsAPI.getAll({
+        page: 1,
+        limit: 1000, // Large limit to get all questions
+        search: searchTerm.trim() || undefined,
+        subjectId: selectedSubject !== 'all' ? selectedSubject : undefined,
+        classId: selectedClass !== 'all' ? selectedClass : undefined,
+        difficulty: selectedDifficulty !== 'all' ? selectedDifficulty.toUpperCase() : undefined
+      });
+      
+      const allQuestions = allQuestionsResponse.questions || [];
+      const exportData: QuestionExportData[] = allQuestions.map((q: any) => ({
+        id: q._id || q.id,
+        question: q.questionText,
+        subject: subjects.find(s => s.id === q.subjectId)?.name || 'Unknown',
+        className: classes.find(c => c.classId === q.classId)?.name || 'Unknown',
         unit: q.unit,
-        bloomsLevel: q.bloomsLevel,
+        bloomsLevel: q.bloomsTaxonomyLevel?.toLowerCase() || 'remember',
         difficulty: q.difficulty,
         isTwisted: q.isTwisted,
         options: q.options || [],
-        correctAnswer: q.correctAnswer,
+        correctAnswer: 0, // Default value for export
         explanation: q.explanation || '',
-        createdAt: q.createdAt
+        createdAt: q.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0]
       }));
 
       await PDFExportService.exportQuestionPaper(exportData, {
@@ -457,7 +873,7 @@ const QuestionManagement = () => {
         instructions: 'Answer all questions. Each question carries equal marks.',
         totalMarks: exportData.length,
         subject: exportData[0]?.subject || 'Mathematics',
-        className: exportData[0]?.class || 'Class V',
+        className: exportData[0]?.className || 'Class V',
         chapter: `Chapter ${exportData[0]?.unit || '1'}`
       });
 
@@ -477,24 +893,35 @@ const QuestionManagement = () => {
 
   const handleExportAnswerKey = async () => {
     try {
-      const exportData: QuestionExportData[] = filteredQuestions.map(q => ({
-        id: q.id,
-        question: q.question,
-        subject: q.subject,
-        className: q.class,
+      // For export, we need to get all questions, not just the current page
+      const allQuestionsResponse = await questionsAPI.getAll({
+        page: 1,
+        limit: 1000, // Large limit to get all questions
+        search: searchTerm.trim() || undefined,
+        subjectId: selectedSubject !== 'all' ? selectedSubject : undefined,
+        classId: selectedClass !== 'all' ? selectedClass : undefined,
+        difficulty: selectedDifficulty !== 'all' ? selectedDifficulty.toUpperCase() : undefined
+      });
+      
+      const allQuestions = allQuestionsResponse.questions || [];
+      const exportData: QuestionExportData[] = allQuestions.map((q: any) => ({
+        id: q._id || q.id,
+        question: q.questionText,
+        subject: subjects.find(s => s.id === q.subjectId)?.name || 'Unknown',
+        className: classes.find(c => c.classId === q.classId)?.name || 'Unknown',
         unit: q.unit,
-        bloomsLevel: q.bloomsLevel,
+        bloomsLevel: q.bloomsTaxonomyLevel?.toLowerCase() || 'remember',
         difficulty: q.difficulty,
         isTwisted: q.isTwisted,
         options: q.options || [],
-        correctAnswer: q.correctAnswer,
+        correctAnswer: 0, // Default value for export
         explanation: q.explanation || '',
-        createdAt: q.createdAt
+        createdAt: q.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0]
       }));
 
       await PDFExportService.exportAnswerKey(exportData, {
         subject: exportData[0]?.subject || 'Mathematics',
-        className: exportData[0]?.class || 'Class V',
+        className: exportData[0]?.className || 'Class V',
         chapter: `Chapter ${exportData[0]?.unit || '1'}`
       });
 
@@ -512,16 +939,9 @@ const QuestionManagement = () => {
     }
   };
 
-  const filteredQuestions = (questions || []).filter(question => {
-    const matchesSearch = question.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         question.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         question.unit.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSubject = selectedSubject === 'all' || question.subject === selectedSubject;
-    const matchesClass = selectedClass === 'all' || question.class === selectedClass;
-    const matchesDifficulty = selectedDifficulty === 'all' || question.difficulty === selectedDifficulty;
-
-    return matchesSearch && matchesSubject && matchesClass && matchesDifficulty;
-  });
+  // Since we're using server-side pagination, we don't need client-side filtering
+  // The questions array already contains the filtered results from the server
+  const filteredQuestions = questions || [];
 
   const getBloomsBadge = (level: string) => {
     const bloomsLevel = BLOOMS_LEVELS.find(l => l.id === level);
@@ -543,40 +963,58 @@ const QuestionManagement = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <HelpCircle className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold">Question Management</h1>
+            <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Question Management</h1>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Create questions based on Blooms Taxonomy with AI assistance
           </p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-col gap-2 min-[375px]:flex-row">
           <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline">
-                <Layout className="w-4 h-4 mr-2" />
-                Templates
+              <Button variant="outline" className="w-full min-[375px]:w-auto text-xs sm:text-sm">
+                <Layout className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden min-[375px]:inline">Templates</span>
+                <span className="min-[375px]:hidden">Templates</span>
               </Button>
             </DialogTrigger>
           </Dialog>
           <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline">
-                <Brain className="w-4 h-4 mr-2" />
-                AI Generate
+              <Button 
+                variant="outline" 
+                onClick={handleAIDialogOpen}
+                className={`w-full min-[375px]:w-auto text-xs sm:text-sm ${subjects.length === 0 || classes.length === 0 ? "opacity-60" : ""}`}
+                title={subjects.length === 0 || classes.length === 0 ? "Upload syllabus first to add subjects and classes" : ""}
+              >
+                <Brain className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden min-[375px]:inline">AI Generate</span>
+                <span className="min-[375px]:hidden">AI</span>
+                {(subjects.length === 0 || classes.length === 0) && (
+                  <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2 text-amber-500" />
+                )}
               </Button>
             </DialogTrigger>
           </Dialog>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Question
+              <Button 
+                onClick={handleCreateDialogOpen}
+                className={`w-full min-[375px]:w-auto text-xs sm:text-sm ${subjects.length === 0 || classes.length === 0 ? "opacity-60" : ""}`}
+                title={subjects.length === 0 || classes.length === 0 ? "Upload syllabus first to add subjects and classes" : ""}
+              >
+                <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden min-[375px]:inline">Create Question</span>
+                <span className="min-[375px]:hidden">Create</span>
+                {(subjects.length === 0 || classes.length === 0) && (
+                  <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2 text-amber-500" />
+                )}
               </Button>
             </DialogTrigger>
           </Dialog>
@@ -592,48 +1030,71 @@ const QuestionManagement = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <div className="space-y-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8">
+            <div className="space-y-2 sm:col-span-2 md:col-span-1 xl:col-span-2">
               <Label>Search</Label>
               <Input
                 placeholder="Search questions..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                  loadQuestions(1, pageSize, { search: e.target.value });
+                }}
+                className="w-full"
               />
             </div>
             <div className="space-y-2">
               <Label>Subject</Label>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger>
+              <Select value={selectedSubject} onValueChange={(value) => {
+                console.log('Subject selected:', value);
+                console.log('Available subjects:', subjects);
+                setSelectedSubject(value);
+                setCurrentPage(1);
+                loadQuestions(1, pageSize, { subject: value });
+              }}>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Subjects</SelectItem>
-                  <SelectItem value="Mathematics">Mathematics</SelectItem>
-                  <SelectItem value="Physics">Physics</SelectItem>
-                  <SelectItem value="Chemistry">Chemistry</SelectItem>
-                  <SelectItem value="English">English</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject._id} value={subject._id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Class</Label>
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger>
+              <Select value={selectedClass} onValueChange={(value) => {
+                console.log('Class selected:', value);
+                setSelectedClass(value);
+                setCurrentPage(1);
+                loadQuestions(1, pageSize, { class: value });
+              }}>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Classes</SelectItem>
-                  <SelectItem value="11A">Class 11A</SelectItem>
-                  <SelectItem value="11B">Class 11B</SelectItem>
-                  <SelectItem value="11C">Class 11C</SelectItem>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.classId} value={cls.classId}>
+                      {cls.className}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Difficulty</Label>
-              <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-                <SelectTrigger>
+              <Select value={selectedDifficulty} onValueChange={(value) => {
+                setSelectedDifficulty(value);
+                setCurrentPage(1);
+                loadQuestions(1, pageSize, { difficulty: value });
+              }}>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -644,14 +1105,32 @@ const QuestionManagement = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 sm:col-span-2 md:col-span-1 lg:col-span-1 xl:col-span-2">
               <Label>Actions</Label>
-              <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedSubject('all');
+                    setSelectedClass('all');
+                    setSelectedDifficulty('all');
+                    setCurrentPage(1);
+                    loadQuestions(1, pageSize);
+                  }}
+                  className="w-full sm:w-auto xl:flex-1"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Clear Filters</span>
+                  <span className="sm:hidden">Clear</span>
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto xl:flex-1">
                       <Download className="w-4 h-4 mr-2" />
-                      Export
+                      <span className="hidden sm:inline">Export</span>
+                      <span className="sm:hidden">Export</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
@@ -669,9 +1148,10 @@ const QuestionManagement = () => {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="w-full sm:w-auto xl:flex-1">
                   <Upload className="w-4 h-4 mr-2" />
-                  Import
+                  <span className="hidden sm:inline">Import</span>
+                  <span className="sm:hidden">Import</span>
                 </Button>
               </div>
             </div>
@@ -695,9 +1175,28 @@ const QuestionManagement = () => {
       {error && (
         <Card>
           <CardContent className="p-6">
-            <div className="flex items-center justify-center space-x-2 text-destructive">
+            <div className="flex items-center justify-center space-x-4 text-destructive">
               <AlertTriangle className="w-5 h-5" />
               <span>{error}</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  loadQuestions();
+                }}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                    Retrying...
+                  </>
+                ) : (
+                  'Retry'
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -705,109 +1204,214 @@ const QuestionManagement = () => {
 
       {/* Questions List */}
       {!isLoading && !error && (
-        <div className="space-y-4">
+        <div className="space-y-4 max-w-none">
           {filteredQuestions.length === 0 ? (
             <Card>
               <CardContent className="p-6">
-                <div className="flex items-center justify-center space-x-2 text-muted-foreground">
+                <div className="flex items-center justify-center space-x-4 text-muted-foreground">
                   <HelpCircle className="w-5 h-5" />
                   <span>No questions found. Create your first question!</span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setIsLoading(true);
+                      loadQuestions();
+                    }}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        Refreshing...
+                      </>
+                    ) : (
+                      'Refresh'
+                    )}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ) : (
             filteredQuestions.map((question) => (
-          <Card key={question.id} className="border-l-4 border-l-primary">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
-                <div className="space-y-4 flex-1">
-                  {/* Question Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold">{question.question}</h3>
-                      <div className="flex items-center space-x-4">
-                        <Badge className="bg-blue-100 text-blue-800">
-                          {question.subject}
-                        </Badge>
-                        <Badge className="bg-green-100 text-green-800">
-                          {question.class}
-                        </Badge>
-                        <Badge className="bg-purple-100 text-purple-800">
-                          {question.unit}
-                        </Badge>
-                        {getBloomsBadge(question.bloomsLevel)}
-                        {getDifficultyBadge(question.difficulty)}
-                        {question.isTwisted && (
-                          <Badge className="bg-orange-100 text-orange-800">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            Twisted
+              <Card key={question._id} className="border-l-4 border-l-primary hover:shadow-md transition-shadow">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+                    <div className="space-y-4 flex-1">
+                      {/* Question Header */}
+                      <div className="space-y-2">
+                        <h3 className="text-base sm:text-lg font-semibold break-words leading-relaxed">{question.question}</h3>
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                          <Badge className="bg-blue-100 text-blue-800">
+                            {question.subject}
                           </Badge>
-                        )}
+                          <Badge className="bg-green-100 text-green-800">
+                            {question.class}
+                          </Badge>
+                          <Badge className="bg-purple-100 text-purple-800">
+                            {question.unit}
+                          </Badge>
+                          {getBloomsBadge(question.bloomsLevel)}
+                          {getDifficultyBadge(question.difficulty)}
+                          {question.isTwisted && (
+                            <Badge className="bg-orange-100 text-orange-800">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Twisted
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* question type */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Question Type:</Label>
+                        <Badge className="bg-blue-100 text-blue-800">
+                          {question.questionType || 'Multiple Choice'}
+                        </Badge>
+                      </div>
+                      
+                      {/* Options */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Options:</Label>
+                        <div className="grid gap-2">
+                          {question.options.map((option, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <span className="text-sm font-medium w-6">
+                                {String.fromCharCode(65 + index)}.
+                              </span>
+                              <span className={`text-sm ${option === question.correctAnswer ? 'text-green-600 font-semibold' : ''}`}>
+                                {option}
+                                {option == question.correctAnswer && (
+                                  <CheckCircle className="w-4 h-4 inline ml-2 text-green-600" />
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Explanation */}
+                      {question.explanation && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Explanation:</Label>
+                          <p className="text-sm text-muted-foreground bg-muted p-3 rounded">
+                            {question.explanation}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Metadata */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
+                        <span>Created: {question.createdAt}</span>
+                        <span className="break-all">ID: {question._id}</span>
                       </div>
                     </div>
-                  </div>
-                  {/* question type */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Question Type:</Label>
-                    <Badge className="bg-blue-100 text-blue-800">
-                      {question.questionType || 'Multiple Choice'}
-                    </Badge>
-                  </div>
-                  {/* Options */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Options:</Label>
-                    <div className="grid gap-2">
-                      {question.options.map((option, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                          <span className="text-sm font-medium w-6">
-                            {String.fromCharCode(65 + index)}.
-                          </span>
-                          <span className={`text-sm ${option === question.correctAnswer ? 'text-green-600 font-semibold' : ''}`}>
-                            {option}
-                            {option == question.correctAnswer && (
-                              <CheckCircle className="w-4 h-4 inline ml-2 text-green-600" />
-                            )}
-                          </span>
-                        </div>
-                      ))}
+
+                    <div className="flex flex-col sm:flex-row gap-2 lg:ml-4 lg:flex-shrink-0">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditClick(question)}
+                        className="w-full sm:w-auto hover:bg-blue-50"
+                      >
+                        <Edit className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Edit</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteClick(question._id)}
+                        className="text-destructive hover:text-destructive hover:bg-red-50 w-full sm:w-auto"
+                      >
+                        <Trash2 className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Delete</span>
+                      </Button>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
 
-                  {/* Explanation */}
-                  {question.explanation && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Explanation:</Label>
-                      <p className="text-sm text-muted-foreground bg-muted p-3 rounded">
-                        {question.explanation}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Metadata */}
-                  <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                    <span>Created: {question.createdAt}</span>
-                    <span>ID: {question.id}</span>
-                  </div>
+      {/* Pagination Controls */}
+      {!isLoading && !error && totalQuestions > 0 && (
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex items-center space-x-2">
+            <p className="text-sm text-muted-foreground">
+              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalQuestions)} of {totalQuestions} questions
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="page-size" className="text-sm whitespace-nowrap">Rows per page:</Label>
+              <Select value={pageSize.toString()} onValueChange={(value) => handlePageSizeChange(Number(value))}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center space-x-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              
+              <div className="flex items-center space-x-1">
+                {/* Show page numbers on larger screens */}
+                <div className="hidden sm:flex items-center space-x-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                    if (pageNum > totalPages) return null;
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
                 </div>
-
-                <div className="flex space-x-2 ml-4">
-                  <Button variant="outline" size="sm">
-                    <Edit className="w-4 h-4" />
-                  </Button>
+                {/* Show current page on mobile */}
+                <div className="sm:hidden">
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
-                    onClick={() => handleDeleteQuestion(question.id)}
-                    className="text-destructive hover:text-destructive"
+                    className="w-8 h-8 p-0"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {currentPage}
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-            ))
-          )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -825,17 +1429,41 @@ const QuestionManagement = () => {
           </DialogHeader>
 
           <div className="space-y-6">
+            {/* Setup Required Message */}
+            {(subjects.length === 0 || classes.length === 0) && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-amber-800">
+                  <AlertTriangle className="w-5 h-5" />
+                  <div>
+                    <p className="font-medium">Setup Required</p>
+                    <p className="text-sm">
+                      {subjects.length === 0 && classes.length === 0 
+                        ? "Please upload syllabus first to add subjects and classes."
+                        : subjects.length === 0 
+                        ? "Please upload syllabus to add subjects."
+                        : "Please upload syllabus to add classes."
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Basic Settings */}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Subject *</Label>
-                <Select value={aiForm.subject} onValueChange={(value) => setAiForm(prev => ({ ...prev, subject: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select subject" />
+                <Select 
+                  value={aiForm.subject} 
+                  onValueChange={(value) => setAiForm(prev => ({ ...prev, subject: value }))}
+                  disabled={subjects.length === 0}
+                >
+                  <SelectTrigger className={subjects.length === 0 ? "opacity-50" : ""}>
+                    <SelectValue placeholder={subjects.length === 0 ? "No subjects available" : "Select subject"} />
                   </SelectTrigger>
                   <SelectContent>
                     {subjects.map((subject) => (
-                      <SelectItem key={subject.id} value={subject.id}>
+                      <SelectItem key={subject._id} value={subject._id}>
                         {subject.name}
                       </SelectItem>
                     ))}
@@ -844,9 +1472,13 @@ const QuestionManagement = () => {
               </div>
               <div className="space-y-2">
                 <Label>Class *</Label>
-                <Select value={aiForm.class} onValueChange={(value) => setAiForm(prev => ({ ...prev, class: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
+                <Select 
+                  value={aiForm.class || ""} 
+                  onValueChange={(value) => setAiForm(prev => ({ ...prev, class: value }))}
+                  disabled={classes.length === 0}
+                >
+                  <SelectTrigger className={classes.length === 0 ? "opacity-50" : ""}>
+                    <SelectValue placeholder={classes.length === 0 ? "No classes available" : "Select class"} />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.map((cls) => (
@@ -937,7 +1569,7 @@ const QuestionManagement = () => {
             </Button>
             <Button
               onClick={handleAIGeneration}
-              disabled={isLoading || !aiForm.subject || !aiForm.class || !aiForm.unit}
+              disabled={isLoading || !aiForm.subject || !aiForm.class || !aiForm.unit || subjects.length === 0 || classes.length === 0}
             >
               {isLoading ? (
                 <>
@@ -971,6 +1603,26 @@ const QuestionManagement = () => {
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Setup Required Message */}
+          {(subjects.length === 0 || classes.length === 0) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2 text-amber-800">
+                <AlertTriangle className="w-5 h-5" />
+                <div>
+                  <p className="font-medium">Setup Required</p>
+                  <p className="text-sm">
+                    {subjects.length === 0 && classes.length === 0 
+                      ? "Please upload syllabus first to add subjects and classes."
+                      : subjects.length === 0 
+                      ? "Please upload syllabus to add subjects."
+                      : "Please upload syllabus to add classes."
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Question *</Label>
             <Textarea
@@ -984,9 +1636,13 @@ const QuestionManagement = () => {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Subject *</Label>
-              <Select value={questionForm.subject} onValueChange={(value) => setQuestionForm(prev => ({ ...prev, subject: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
+              <Select 
+                value={questionForm.subject} 
+                onValueChange={(value) => setQuestionForm(prev => ({ ...prev, subject: value }))}
+                disabled={subjects.length === 0}
+              >
+                <SelectTrigger className={subjects.length === 0 ? "opacity-50" : ""}>
+                  <SelectValue placeholder={subjects.length === 0 ? "No subjects available" : "Select subject"} />
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.map((subject) => (
@@ -999,9 +1655,13 @@ const QuestionManagement = () => {
             </div>
             <div className="space-y-2">
               <Label>Class *</Label>
-              <Select value={questionForm.class} onValueChange={(value) => setQuestionForm(prev => ({ ...prev, class: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select class" />
+              <Select 
+                value={questionForm.class} 
+                onValueChange={(value) => setQuestionForm(prev => ({ ...prev, class: value }))}
+                disabled={classes.length === 0}
+              >
+                <SelectTrigger className={classes.length === 0 ? "opacity-50" : ""}>
+                  <SelectValue placeholder={classes.length === 0 ? "No classes available" : "Select class"} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((cls) => (
@@ -1109,7 +1769,7 @@ const QuestionManagement = () => {
             </Button>
             <Button
               onClick={handleCreateQuestion}
-              disabled={isLoading}
+              disabled={isLoading || subjects.length === 0 || classes.length === 0}
             >
               {isLoading ? "Creating..." : "Create Question"}
             </Button>
@@ -1270,6 +1930,213 @@ const QuestionManagement = () => {
             Add to Question Bank
           </Button>
         </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Delete Confirmation Modal */}
+    <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-destructive" />
+            Delete Question
+          </DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete this question? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end space-x-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowDeleteDialog(false)}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={() => deletingQuestionId && handleDeleteQuestion(deletingQuestionId)}
+          >
+            Delete
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Edit Question Modal */}
+    <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Question</DialogTitle>
+          <DialogDescription>
+            Update the question details below.
+          </DialogDescription>
+        </DialogHeader>
+        {editingQuestion && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-question">Question</Label>
+                <Textarea
+                  id="edit-question"
+                  value={editFormData.question}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, question: e.target.value }))}
+                  className="min-h-[100px]"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-explanation">Explanation</Label>
+                <Textarea
+                  id="edit-explanation"
+                  value={editFormData.explanation}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, explanation: e.target.value }))}
+                  className="min-h-[100px]"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label>Options</Label>
+              <div className="space-y-2">
+                {editFormData.options?.map((option: string, index: number) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <span className="w-6 text-sm font-medium">
+                      {String.fromCharCode(65 + index)}.
+                    </span>
+                    <Input 
+                      value={option} 
+                      onChange={(e) => {
+                        const newOptions = [...editFormData.options];
+                        newOptions[index] = e.target.value;
+                        setEditFormData(prev => ({ ...prev, options: newOptions }));
+                      }}
+                    />
+                    <Checkbox 
+                      checked={index === editFormData.correctAnswer}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setEditFormData(prev => ({ ...prev, correctAnswer: index }));
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="edit-subject">Subject</Label>
+                <Select 
+                  value={editFormData.subject || ''} 
+                  onValueChange={(value) => setEditFormData(prev => ({ ...prev, subject: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjects.map((subject) => (
+                      <SelectItem key={subject._id || subject.id} value={subject._id || subject.id}>
+                        {subject.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-class">Class</Label>
+                <Select 
+                  value={editFormData.class || ''} 
+                  onValueChange={(value) => setEditFormData(prev => ({ ...prev, class: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls.classId} value={cls.classId}>
+                        {cls.className}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-difficulty">Difficulty</Label>
+                <Select 
+                  value={editFormData.difficulty || ''} 
+                  onValueChange={(value) => setEditFormData(prev => ({ ...prev, difficulty: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select difficulty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIFFICULTY_LEVELS.map((level) => (
+                      <SelectItem key={level.id} value={level.id}>
+                        {level.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-blooms">Blooms Level</Label>
+                <Select 
+                  value={editFormData.bloomsLevel || ''} 
+                  onValueChange={(value) => setEditFormData(prev => ({ ...prev, bloomsLevel: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Blooms level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BLOOMS_LEVELS.map((level) => (
+                      <SelectItem key={level.id} value={level.id}>
+                        {level.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-question-type">Question Type</Label>
+                <Select 
+                  value={editFormData.questionType || ''} 
+                  onValueChange={(value) => setEditFormData(prev => ({ ...prev, questionType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select question type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {QUESTION_TYPES.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowEditDialog(false)}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpdateQuestion}
+                disabled={isLoading}
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {isLoading ? 'Updating...' : 'Update Question'}
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   </div>

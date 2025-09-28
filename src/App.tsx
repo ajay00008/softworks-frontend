@@ -6,6 +6,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import PerformanceDashboard from "./pages/PerformanceDashboard";
+import MinimalPerformanceDashboard from "./pages/MinimalPerformanceDashboard";
+import ClassPerformance from "./pages/ClassPerformance";
+import SubjectPerformance from "./pages/SubjectPerformance";
+import StudentPerformance from "./pages/StudentPerformance";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
@@ -56,10 +61,13 @@ const App = () => (
             <Route path="analytics" element={<div className="p-6">System Analytics - Super Admin Only</div>} />
               
               {/* Regular Admin Routes */}
-              <Route index element={<Dashboard />} />
+              <Route index element={<PerformanceDashboard />} />
               <Route path="students" element={<Students />} />
               <Route path="teachers" element={<Teachers />} />
               <Route path="performance" element={<PerformanceAnalytics />} />
+              <Route path="performance/class/:classId" element={<ClassPerformance />} />
+              <Route path="performance/subject/:subjectId" element={<SubjectPerformance />} />
+              <Route path="performance/students" element={<StudentPerformance />} />
               <Route path="teacher-assignment" element={<TeacherAssignment />} />
               <Route path="class-subject-management" element={<ClassSubjectManagement />} />
               <Route path="questions" element={<QuestionManagement />} />

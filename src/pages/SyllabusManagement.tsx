@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Pagination } from '@/components/ui/pagination';
 import { 
   BookOpen, 
   Upload, 
@@ -45,6 +46,8 @@ const SyllabusManagement = () => {
   const [error, setError] = useState<string | null>(null);
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
   const { toast } = useToast();
 
   // Load data on component mount
@@ -104,7 +107,16 @@ const SyllabusManagement = () => {
         timeoutPromise
       ]) as any;
       console.log(response,'responseSyllabi');
-      setSyllabi(response.data || []);
+      
+      // Handle the API response structure: { success: true, data: [...], pagination: {...} }
+      if (response.success && response.data) {
+        setSyllabi(response.data);
+      } else if (Array.isArray(response)) {
+        // Fallback for direct array response
+        setSyllabi(response);
+      } else {
+        setSyllabi([]);
+      }
     } catch (error) {
       console.error('Error loading syllabi:', error);
       setError('Failed to load syllabi');
@@ -275,6 +287,16 @@ const SyllabusManagement = () => {
   console.log('Filter values:', { searchTerm, selectedSubject, selectedClass, selectedStatus });
   console.log('Total syllabi:', syllabi.length);
   console.log('Filtered syllabi:', filteredSyllabi.length);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredSyllabi.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedSyllabi = filteredSyllabi.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -459,7 +481,7 @@ const SyllabusManagement = () => {
               </CardContent>
             </Card>
           ) : (
-            filteredSyllabi.map((syllabus) => (
+            paginatedSyllabi.map((syllabus) => (
           <Card key={(syllabus as any)._id || syllabus.id} className="border-l-4 border-l-primary">
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
@@ -470,10 +492,10 @@ const SyllabusManagement = () => {
                       <h3 className="text-lg font-semibold">{syllabus.title}</h3>
                       <div className="flex items-center space-x-4">
                         <Badge className="bg-blue-100 text-blue-800">
-                              {(syllabus.subjectId as any)?.name || subjects.find(s => s.id === (syllabus.subjectId as any)?._id)?.name || 'Unknown Subject'}
+                              {(syllabus.subjectId as any)?.name || 'Unknown Subject'}
                         </Badge>
                         <Badge className="bg-green-100 text-green-800">
-                              {(syllabus.classId as any)?.displayName || classes.find(c => c.id === (syllabus.classId as any)?._id)?.name || 'Unknown Class'}
+                              {(syllabus.classId as any)?.displayName || (syllabus.classId as any)?.name || 'Unknown Class'}
                         </Badge>
                         <Badge className="bg-purple-100 text-purple-800">
                           {(syllabus as any).language || 'ENGLISH'}
@@ -553,6 +575,19 @@ const SyllabusManagement = () => {
             ))
           )}
       </div>
+      )}
+
+      {/* Pagination */}
+      {filteredSyllabi.length >= 10 && (
+        <div className="mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredSyllabi.length}
+          />
+        </div>
       )}
 
       {/* Upload Dialog */}

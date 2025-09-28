@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { studentsAPI, classesAPI, Student, ClassMapping } from '@/services/api';
+import { Pagination } from '@/components/ui/pagination';
 import { Plus, Users, Edit, Trash2, UserPlus } from 'lucide-react';
 
 const Students = () => {
@@ -16,6 +17,10 @@ const Students = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
   const { toast } = useToast();
 
   const [classes, setClasses] = useState<ClassMapping[]>([]);
@@ -83,7 +88,7 @@ const Students = () => {
       address: student.address || '',
       whatsappNumber: student.whatsappNumber || ''
     });
-    setSelectedClassId(student.class?.classId || '');
+    setSelectedClassId(student.class?.id || '');
     setShowCreateForm(true);
   };
 
@@ -95,6 +100,9 @@ const Students = () => {
       const payload = {
         ...formData,
         classId: selectedClassId,
+        userId: '',
+        student: {},
+        class: [],
       };
 
       if (editStudent) {
@@ -140,10 +148,17 @@ const Students = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteClick = (student: Student) => {
+    setStudentToDelete(student);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!studentToDelete) return;
+    
     try {
-      await studentsAPI.delete(id);
-      setStudents(students.filter(s => s.id !== id));
+      await studentsAPI.delete(studentToDelete.id);
+      setStudents(students.filter(s => s.id !== studentToDelete.id));
       toast({
         title: "Success",
         description: "Student deleted successfully",
@@ -154,7 +169,15 @@ const Students = () => {
         description: "Failed to delete student",
         variant: "destructive",
       });
+    } finally {
+      setShowDeleteModal(false);
+      setStudentToDelete(null);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setStudentToDelete(null);
   };
 
   const resetForm = () => {
@@ -178,6 +201,16 @@ const Students = () => {
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedStudents = filteredStudents.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   if (isLoading) {
     return (
@@ -386,7 +419,7 @@ const Students = () => {
             <p>No students found</p>
           ) : (
             <div className="grid gap-4">
-              {filteredStudents.map((student) => (
+              {paginatedStudents.map((student) => (
                 <Card key={student.id} className="border-l-4 border-l-primary bg-card/50 dark:bg-card/80 dark:border-primary/50 hover:shadow-md transition-all duration-200">
                   <CardContent className="p-4">
                     <div className="flex justify-between">
@@ -423,7 +456,7 @@ const Students = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDelete(student.id)}
+                          onClick={() => handleDeleteClick(student)}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -437,6 +470,109 @@ const Students = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && studentToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md border-2 border-red-200 bg-white dark:bg-gray-900 shadow-2xl">
+            <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-950/20 dark:to-pink-950/20 border-b">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                  <Trash2 className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-gray-900 dark:text-white">
+                    Delete Student
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-gray-300">
+                    This action cannot be undone
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Users className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      {studentToDelete.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {studentToDelete.email}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Roll No: {studentToDelete.rollNumber} | Class: {studentToDelete.class?.name}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mt-0.5">
+                      <span className="text-red-600 text-xs font-bold">!</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-red-800 dark:text-red-200 mb-1">
+                        Warning
+                      </h4>
+                      <p className="text-sm text-red-700 dark:text-red-300">
+                        Are you sure you want to delete this student? This will permanently remove 
+                        the student and all their enrollment data. This action cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDeleteCancel}
+                  className="px-6"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleDeleteConfirm}
+                  disabled={isSubmitting}
+                  className="px-6 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Student
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {filteredStudents.length >= 10 && (
+        <div className="mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredStudents.length}
+          />
+        </div>
+      )}
     </div>
   );
 };

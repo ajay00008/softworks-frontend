@@ -42,8 +42,6 @@ const getNavigation = (userRole?: string) => {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, section: 'MAIN' },
     { name: 'Students', href: '/dashboard/students', icon: Users, section: 'MAIN' },
     { name: 'Teachers', href: '/dashboard/teachers', icon: GraduationCap, section: 'MAIN' },
-    { name: 'Performance Analytics', href: '/dashboard/performance', icon: BarChart3, section: 'ANALYTICS' },
-    { name: 'Teacher Assignment', href: '/dashboard/teacher-assignment', icon: Settings, section: 'MANAGEMENT' },
     { name: 'Class & Subject Management', href: '/dashboard/class-subject-management', icon: BookMarked, section: 'MANAGEMENT' },
     { name: 'Questions', href: '/dashboard/questions', icon: HelpCircle, section: 'CONTENT' },
     { name: 'Syllabus Management', href: '/dashboard/syllabus', icon: BookOpen, section: 'CONTENT' },

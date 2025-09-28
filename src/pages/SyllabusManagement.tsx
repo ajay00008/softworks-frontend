@@ -196,9 +196,9 @@ const SyllabusManagement = () => {
       const createdSyllabus = await syllabusAPI.create(syllabusData);
       
       // Then upload the file
-      const updatedSyllabus = await syllabusAPI.uploadFile(createdSyllabus.id, uploadForm.file);
+      // const updatedSyllabus = await syllabusAPI.uploadFile(createdSyllabus.syllabus._id, uploadForm.file);
 
-      setSyllabi(prev => [updatedSyllabus, ...prev]);
+      setSyllabi(prev => [createdSyllabus.syllabus, ...prev]);
       setShowUploadDialog(false);
     setUploadForm({
       title: '',
@@ -228,7 +228,7 @@ const SyllabusManagement = () => {
   const handleDeleteSyllabus = async (id: string) => {
     try {
       await syllabusAPI.delete(id);
-    setSyllabi(prev => prev.filter(s => s.id !== id));
+    setSyllabi(prev => prev.filter(s => s._id !== id));
     toast({
       title: "Syllabus Deleted",
       description: "Syllabus has been removed",

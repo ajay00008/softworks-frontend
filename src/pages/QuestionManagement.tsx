@@ -250,7 +250,8 @@ const QuestionManagement = () => {
         options: q.options || [],
         correctAnswer: q.correctAnswer,
         explanation: q.explanation,
-        createdAt: q.createdAt.split('T')[0]
+        createdAt: q.createdAt.split('T')[0],
+        questionType: q.questionType
       }));
       setQuestions(uiQuestions);
     } catch (error) {
@@ -626,7 +627,7 @@ const QuestionManagement = () => {
       class: validClassId,
       difficulty: question.difficulty || '',
       bloomsLevel: question.bloomsLevel || '',
-      questionType: question.questionType || 'MULTIPLE_CHOICE',
+      questionType: question.questionType || '',
       options: question.options || [],
       correctAnswer: question.correctAnswer || 0
     });
@@ -748,7 +749,7 @@ const QuestionManagement = () => {
         correctAnswer: correctAnswerText,
         explanation: editFormData.explanation,
         // Keep existing fields that aren't being edited
-        questionType: editFormData.questionType || 'MULTIPLE_CHOICE',
+        questionType: editFormData.questionType || '',
         unit: editingQuestion.unit || 'General',
         bloomsTaxonomyLevel: editFormData.bloomsLevel.toUpperCase() || 'REMEMBER',
         isTwisted: editingQuestion.isTwisted || false,
@@ -942,6 +943,7 @@ const QuestionManagement = () => {
   // Since we're using server-side pagination, we don't need client-side filtering
   // The questions array already contains the filtered results from the server
   const filteredQuestions = questions || [];
+  console.log(filteredQuestions,'filteredQuestions')
 
   const getBloomsBadge = (level: string) => {
     const bloomsLevel = BLOOMS_LEVELS.find(l => l.id === level);
@@ -1234,7 +1236,7 @@ const QuestionManagement = () => {
             </Card>
           ) : (
             filteredQuestions.map((question) => (
-              <Card key={question._id} className="border-l-4 border-l-primary hover:shadow-md transition-shadow">
+              <Card key={question.id} className="border-l-4 border-l-primary hover:shadow-md transition-shadow">
                 <CardContent className="p-4 sm:p-6">
                   <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
                     <div className="space-y-4 flex-1">
@@ -1266,7 +1268,7 @@ const QuestionManagement = () => {
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Question Type:</Label>
                         <Badge className="bg-blue-100 text-blue-800">
-                          {question.questionType || 'Multiple Choice'}
+                          {question.questionType || ''}
                         </Badge>
                       </div>
                       
@@ -1303,7 +1305,7 @@ const QuestionManagement = () => {
                       {/* Metadata */}
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
                         <span>Created: {question.createdAt}</span>
-                        <span className="break-all">ID: {question._id}</span>
+                        <span className="break-all">ID: {question.id}</span>
                       </div>
                     </div>
 
@@ -1320,7 +1322,7 @@ const QuestionManagement = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteClick(question._id)}
+                        onClick={() => handleDeleteClick(question.id)}
                         className="text-destructive hover:text-destructive hover:bg-red-50 w-full sm:w-auto"
                       >
                         <Trash2 className="w-4 h-4 sm:mr-2" />

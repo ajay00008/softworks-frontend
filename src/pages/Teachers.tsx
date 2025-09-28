@@ -181,7 +181,7 @@ const Teachers = () => {
 
         setTeachers(
           teachers.map((t) =>
-            t.id === editTeacher.id ? { ...t, ...updatedTeacher } : t
+            t.id === editTeacher.id ? { ...t, ...updatedTeacher.teacher } : t
           )
         );
 
@@ -213,7 +213,7 @@ const Teachers = () => {
         
         const newTeacher = await teachersAPI.create(createPayload as any);
         
-        console.log('Backend response:', newTeacher);
+        console.log('Backend response:', newTeacher.teacher);
 
         // Always reload teachers to get the complete data with assignments
         await loadTeachers();

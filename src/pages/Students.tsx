@@ -112,7 +112,7 @@ const Students = () => {
         });
 
         setStudents(students.map(s =>
-          s.id === editStudent.id ? { ...s, ...updatedStudent } : s
+          s.id === editStudent.id ? { ...s, ...updatedStudent.student } : s
         ));
 
         toast({
@@ -125,7 +125,7 @@ const Students = () => {
           isActive: true,
         });
 
-        setStudents([...students, newStudent]);
+        setStudents([...students, newStudent.student]);
 
         toast({
           title: "Success",

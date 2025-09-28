@@ -134,7 +134,7 @@ const ClassSubjectManagement = () => {
       setIsLoading(true);
       const newClass = await classManagementAPI.create(classForm);
       console.log(newClass,"newClass");
-      setClasses(prev => [newClass, ...prev]);
+      setClasses(prev => [newClass.class, ...prev]);
       setShowClassDialog(false);
       resetClassForm();
       toast({
@@ -159,7 +159,7 @@ const ClassSubjectManagement = () => {
     try {
       setIsLoading(true);
       const updatedClass = await classManagementAPI.update(editingClass._id, classForm);
-      setClasses(prev => prev.map(c => c._id === editingClass._id ? updatedClass : c));
+      setClasses(prev => prev.map(c => c._id === editingClass._id ? updatedClass.class : c));
       setShowClassDialog(false);
       setEditingClass(null);
       resetClassForm();
@@ -246,7 +246,7 @@ const ClassSubjectManagement = () => {
       setIsLoading(true);
       const newSubject = await subjectManagementAPI.create(subjectForm);
       console.log(newSubject,"newSubject")
-      setSubjects(prev => [newSubject, ...prev]);
+      setSubjects(prev => [newSubject.subject, ...prev]);
       setShowSubjectDialog(false);
       resetSubjectForm();
       toast({
@@ -271,7 +271,7 @@ const ClassSubjectManagement = () => {
     try {
       setIsLoading(true);
       const updatedSubject = await subjectManagementAPI.update(editingSubject._id, subjectForm);
-      setSubjects(prev => prev.map(s => s._id === editingSubject._id ? updatedSubject : s));
+      setSubjects(prev => prev.map(s => s._id === editingSubject._id ? updatedSubject.subject : s));
       setShowSubjectDialog(false);
       setEditingSubject(null);
       resetSubjectForm();
@@ -463,20 +463,6 @@ console.log(classes,'classes')
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Academic Year</Label>
-              <Select value={selectedAcademicYear} onValueChange={setSelectedAcademicYear}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Years</SelectItem>
-                  <SelectItem value="2024-25">2024-25</SelectItem>
-                  <SelectItem value="2023-24">2023-24</SelectItem>
-                  <SelectItem value="2025-26">2025-26</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -558,7 +544,6 @@ console.log(classes,'classes')
                             <div className="flex items-center space-x-2">
                               <Badge variant="outline">{cls.name}</Badge>
                               <Badge variant="outline">Level {cls.level}</Badge>
-                              <Badge variant="outline">{cls.academicYear}</Badge>
                             </div>
                           </div>
                           {getStatusBadge(cls.isActive)}

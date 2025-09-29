@@ -43,7 +43,8 @@ import {
   Question,
   QuestionGenerationRequest,
   classesAPI,
-  subjectsAPI
+  subjectsAPI,
+  syllabusAPI
 } from '@/services/api';
 import { PDFExportService, QuestionExportData } from '@/utils/pdfExport';
 
@@ -108,6 +109,7 @@ const QuestionManagement = () => {
   const [templates, setTemplates] = useState<QuestionPaperTemplate[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [syllabi, setSyllabi] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<QuestionPaperTemplate | null>(null);
   const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
   const { toast } = useToast();
@@ -116,10 +118,11 @@ const QuestionManagement = () => {
   useEffect(() => {
     const initializeData = async () => {
       try {
-        // Load classes and subjects in parallel
+        // Load classes, subjects, and syllabi in parallel
         await Promise.all([
           loadClasses(),
-          loadSubjects()
+          loadSubjects(),
+          loadSyllabi()
         ]);
         
         // Load questions regardless of classes/subjects success
@@ -288,6 +291,18 @@ const QuestionManagement = () => {
     }
   };
 
+  const loadSyllabi = async () => {
+    try {
+      const response = await syllabusAPI.getAll();
+      console.log(response,'responseSyllabi');
+      setSyllabi(response || []);
+    } catch (error) {
+      console.error('Error loading syllabi:', error);
+      // Don't set global error for syllabi, just log it
+      setSyllabi([]);
+    }
+  };
+
   // AI Generation Form
   const [aiForm, setAiForm] = useState({
     subject: '',
@@ -320,9 +335,9 @@ const QuestionManagement = () => {
     explanation: ''
   });
 
-  // Validate if subjects and classes are available before opening AI dialog
+  // Validate if subjects, classes, and syllabi are available before opening AI dialog
   const handleAIDialogOpen = () => {
-    if (subjects.length === 0 || classes.length === 0) {
+    if (subjects.length === 0 || classes.length === 0 || syllabi.length === 0) {
       toast({
         title: "Setup Required",
         description: "Please upload syllabus first to add subjects and classes before using AI generation.",
@@ -350,9 +365,9 @@ const QuestionManagement = () => {
     setShowAIDialog(true);
   };
 
-  // Validate if subjects and classes are available before opening Create Question dialog
+  // Validate if subjects, classes, and syllabi are available before opening Create Question dialog
   const handleCreateDialogOpen = () => {
-    if (subjects.length === 0 || classes.length === 0) {
+    if (subjects.length === 0 || classes.length === 0 || syllabi.length === 0) {
       toast({
         title: "Setup Required",
         description: "Please upload syllabus first to add subjects and classes before creating questions.",
@@ -510,30 +525,34 @@ const QuestionManagement = () => {
         correctAnswer: questionForm.options[questionForm.correctAnswer],
         explanation: questionForm.explanation,
         marks: 1,
-        createdBy: '68d194e556fc30334c2c537b', // Use actual user ID from auth
+        createdBy: '', // Use actual user ID from auth
         isActive: true,
         language: 'ENGLISH'
       });
       
       console.log('Question created successfully:', newQuestion);
 
+      // Handle both single question and array of questions
+      const questionsToAdd = Array.isArray(newQuestion.questions) ? newQuestion.questions : [newQuestion.questions];
+      
       // Convert to UI format and add to list
-      const uiQuestion = {
-        id: newQuestion.id,
-        question: newQuestion.questionText,
+      const uiQuestions = questionsToAdd.map(question => ({
+        id: question.id || question._id,
+        question: question.questionText,
         subject: selectedSubject.name,
         class: selectedClass.className,
-        unit: newQuestion.unit,
-        bloomsLevel: newQuestion.bloomsTaxonomyLevel.toLowerCase(),
-        difficulty: newQuestion.difficulty.toLowerCase(),
-        isTwisted: newQuestion.isTwisted,
-        options: newQuestion.options || [],
+        unit: question.unit,
+        bloomsLevel: question.bloomsTaxonomyLevel?.toLowerCase() || 'remember',
+        difficulty: question.difficulty?.toLowerCase() || 'moderate',
+        isTwisted: question.isTwisted || false,
+        options: question.options || [],
         correctAnswer: questionForm.correctAnswer,
-        explanation: newQuestion.explanation,
-        createdAt: newQuestion.createdAt.split('T')[0]
-      };
+        questionType: question.questionType,
+        explanation: question.explanation || '',
+        createdAt: question.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0]
+      }));
 
-      setQuestions(prev => [uiQuestion, ...prev]);
+      setQuestions(prev => [...uiQuestions, ...prev]);
       setShowCreateDialog(false);
       setQuestionForm({
         question: '',
@@ -978,27 +997,18 @@ const QuestionManagement = () => {
           </p>
         </div>
         <div className="flex flex-col gap-2 min-[375px]:flex-row">
-          <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="w-full min-[375px]:w-auto text-xs sm:text-sm">
-                <Layout className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden min-[375px]:inline">Templates</span>
-                <span className="min-[375px]:hidden">Templates</span>
-              </Button>
-            </DialogTrigger>
-          </Dialog>
           <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
             <DialogTrigger asChild>
               <Button 
                 variant="outline" 
                 onClick={handleAIDialogOpen}
-                className={`w-full min-[375px]:w-auto text-xs sm:text-sm ${subjects.length === 0 || classes.length === 0 ? "opacity-60" : ""}`}
-                title={subjects.length === 0 || classes.length === 0 ? "Upload syllabus first to add subjects and classes" : ""}
+                className={`w-full min-[375px]:w-auto text-xs sm:text-sm ${subjects.length === 0 || classes.length === 0 || syllabi.length === 0 ? "opacity-60" : ""}`}
+                title={subjects.length === 0 || classes.length === 0 || syllabi.length === 0 ? "Upload syllabus first to add subjects and classes" : ""}
               >
                 <Brain className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 <span className="hidden min-[375px]:inline">AI Generate</span>
                 <span className="min-[375px]:hidden">AI</span>
-                {(subjects.length === 0 || classes.length === 0) && (
+                {(subjects.length === 0 || classes.length === 0 || syllabi.length === 0) && (
                   <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2 text-amber-500" />
                 )}
               </Button>
@@ -1008,13 +1018,13 @@ const QuestionManagement = () => {
             <DialogTrigger asChild>
               <Button 
                 onClick={handleCreateDialogOpen}
-                className={`w-full min-[375px]:w-auto text-xs sm:text-sm ${subjects.length === 0 || classes.length === 0 ? "opacity-60" : ""}`}
-                title={subjects.length === 0 || classes.length === 0 ? "Upload syllabus first to add subjects and classes" : ""}
+                className={`w-full min-[375px]:w-auto text-xs sm:text-sm ${subjects.length === 0 || classes.length === 0 || syllabi.length === 0 ? "opacity-60" : ""}`}
+                title={subjects.length === 0 || classes.length === 0 || syllabi.length === 0 ? "Upload syllabus first to add subjects and classes" : ""}
               >
                 <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 <span className="hidden min-[375px]:inline">Create Question</span>
                 <span className="min-[375px]:hidden">Create</span>
-                {(subjects.length === 0 || classes.length === 0) && (
+                {(subjects.length === 0 || classes.length === 0 || syllabi.length === 0) && (
                   <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2 text-amber-500" />
                 )}
               </Button>
@@ -1272,25 +1282,27 @@ const QuestionManagement = () => {
                         </Badge>
                       </div>
                       
-                      {/* Options */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Options:</Label>
-                        <div className="grid gap-2">
-                          {question.options.map((option, index) => (
-                            <div key={index} className="flex items-center space-x-2">
-                              <span className="text-sm font-medium w-6">
-                                {String.fromCharCode(65 + index)}.
-                              </span>
-                              <span className={`text-sm ${option === question.correctAnswer ? 'text-green-600 font-semibold' : ''}`}>
-                                {option}
-                                {option == question.correctAnswer && (
-                                  <CheckCircle className="w-4 h-4 inline ml-2 text-green-600" />
-                                )}
-                              </span>
-                            </div>
-                          ))}
+                      {/* Options - Only show if question has options */}
+                      {question.options && question.options.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Options:</Label>
+                          <div className="grid gap-2">
+                            {question.options.map((option, index) => (
+                              <div key={index} className="flex items-center space-x-2">
+                                <span className="text-sm font-medium w-6">
+                                  {String.fromCharCode(65 + index)}.
+                                </span>
+                                <span className={`text-sm ${option === question.correctAnswer ? 'text-green-600 font-semibold' : ''}`}>
+                                  {option}
+                                  {option == question.correctAnswer && (
+                                    <CheckCircle className="w-4 h-4 inline ml-2 text-green-600" />
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Explanation */}
                       {question.explanation && (
@@ -1432,14 +1444,16 @@ const QuestionManagement = () => {
 
           <div className="space-y-6">
             {/* Setup Required Message */}
-            {(subjects.length === 0 || classes.length === 0) && (
+            {(subjects.length === 0 || classes.length === 0 || syllabi.length === 0) && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2 text-amber-800">
                   <AlertTriangle className="w-5 h-5" />
                   <div>
                     <p className="font-medium">Setup Required</p>
                     <p className="text-sm">
-                      {subjects.length === 0 && classes.length === 0 
+                      {syllabi.length === 0 
+                        ? "Please upload syllabus first to add subjects and classes."
+                        : subjects.length === 0 && classes.length === 0 
                         ? "Please upload syllabus first to add subjects and classes."
                         : subjects.length === 0 
                         ? "Please upload syllabus to add subjects."
@@ -1458,10 +1472,10 @@ const QuestionManagement = () => {
                 <Select 
                   value={aiForm.subject} 
                   onValueChange={(value) => setAiForm(prev => ({ ...prev, subject: value }))}
-                  disabled={subjects.length === 0}
+                  disabled={subjects.length === 0 || syllabi.length === 0}
                 >
-                  <SelectTrigger className={subjects.length === 0 ? "opacity-50" : ""}>
-                    <SelectValue placeholder={subjects.length === 0 ? "No subjects available" : "Select subject"} />
+                  <SelectTrigger className={subjects.length === 0 || syllabi.length === 0 ? "opacity-50" : ""}>
+                    <SelectValue placeholder={subjects.length === 0 || syllabi.length === 0 ? "No subjects available" : "Select subject"} />
                   </SelectTrigger>
                   <SelectContent>
                     {subjects.map((subject) => (
@@ -1477,10 +1491,10 @@ const QuestionManagement = () => {
                 <Select 
                   value={aiForm.class || ""} 
                   onValueChange={(value) => setAiForm(prev => ({ ...prev, class: value }))}
-                  disabled={classes.length === 0}
+                  disabled={classes.length === 0 || syllabi.length === 0}
                 >
-                  <SelectTrigger className={classes.length === 0 ? "opacity-50" : ""}>
-                    <SelectValue placeholder={classes.length === 0 ? "No classes available" : "Select class"} />
+                  <SelectTrigger className={classes.length === 0 || syllabi.length === 0 ? "opacity-50" : ""}>
+                    <SelectValue placeholder={classes.length === 0 || syllabi.length === 0 ? "No classes available" : "Select class"} />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.map((cls) => (
@@ -1571,7 +1585,7 @@ const QuestionManagement = () => {
             </Button>
             <Button
               onClick={handleAIGeneration}
-              disabled={isLoading || !aiForm.subject || !aiForm.class || !aiForm.unit || subjects.length === 0 || classes.length === 0}
+              disabled={isLoading || !aiForm.subject || !aiForm.class || !aiForm.unit || subjects.length === 0 || classes.length === 0 || syllabi.length === 0}
             >
               {isLoading ? (
                 <>
@@ -1606,14 +1620,16 @@ const QuestionManagement = () => {
 
         <div className="space-y-6">
           {/* Setup Required Message */}
-          {(subjects.length === 0 || classes.length === 0) && (
+          {(subjects.length === 0 || classes.length === 0 || syllabi.length === 0) && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <div className="flex items-center space-x-2 text-amber-800">
                 <AlertTriangle className="w-5 h-5" />
                 <div>
                   <p className="font-medium">Setup Required</p>
                   <p className="text-sm">
-                    {subjects.length === 0 && classes.length === 0 
+                    {syllabi.length === 0 
+                      ? "Please upload syllabus first to add subjects and classes."
+                      : subjects.length === 0 && classes.length === 0 
                       ? "Please upload syllabus first to add subjects and classes."
                       : subjects.length === 0 
                       ? "Please upload syllabus to add subjects."
@@ -1641,10 +1657,10 @@ const QuestionManagement = () => {
               <Select 
                 value={questionForm.subject} 
                 onValueChange={(value) => setQuestionForm(prev => ({ ...prev, subject: value }))}
-                disabled={subjects.length === 0}
+                disabled={subjects.length === 0 || syllabi.length === 0}
               >
-                <SelectTrigger className={subjects.length === 0 ? "opacity-50" : ""}>
-                  <SelectValue placeholder={subjects.length === 0 ? "No subjects available" : "Select subject"} />
+                <SelectTrigger className={subjects.length === 0 || syllabi.length === 0 ? "opacity-50" : ""}>
+                  <SelectValue placeholder={subjects.length === 0 || syllabi.length === 0 ? "No subjects available" : "Select subject"} />
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.map((subject) => (
@@ -1660,10 +1676,10 @@ const QuestionManagement = () => {
               <Select 
                 value={questionForm.class} 
                 onValueChange={(value) => setQuestionForm(prev => ({ ...prev, class: value }))}
-                disabled={classes.length === 0}
+                disabled={classes.length === 0 || syllabi.length === 0}
               >
-                <SelectTrigger className={classes.length === 0 ? "opacity-50" : ""}>
-                  <SelectValue placeholder={classes.length === 0 ? "No classes available" : "Select class"} />
+                <SelectTrigger className={classes.length === 0 || syllabi.length === 0 ? "opacity-50" : ""}>
+                  <SelectValue placeholder={classes.length === 0 || syllabi.length === 0 ? "No classes available" : "Select class"} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((cls) => (
@@ -1771,7 +1787,7 @@ const QuestionManagement = () => {
             </Button>
             <Button
               onClick={handleCreateQuestion}
-              disabled={isLoading || subjects.length === 0 || classes.length === 0}
+              disabled={isLoading || subjects.length === 0 || classes.length === 0 || syllabi.length === 0}
             >
               {isLoading ? "Creating..." : "Create Question"}
             </Button>

@@ -54,6 +54,16 @@ const Teachers = () => {
     experience: 0,
   });
 
+  const [formErrors, setFormErrors] = useState({
+    email: "",
+    password: "",
+    name: "",
+    phone: "",
+    address: "",
+    qualification: "",
+    experience: "",
+  });
+
   // Assignment form state for create teacher
   const [createFormAssignments, setCreateFormAssignments] = useState({
     selectedSubjects: [] as string[],
@@ -65,6 +75,81 @@ const Teachers = () => {
     loadSubjects();
     loadClasses();
   }, []);
+
+  // Validation functions
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string) => {
+    const phoneRegex = /^\+?[\d\s\-\(\)]+$/;
+    return phoneRegex.test(phone);
+  };
+
+  const validateExperience = (experience: number) => {
+    return experience >= 0 && experience <= 50; // Reasonable range
+  };
+
+  const validateField = (field: string, value: string | number) => {
+    let error = '';
+    
+    switch (field) {
+      case 'email':
+        if (value && typeof value === 'string' && !validateEmail(value)) {
+          error = 'Please enter a valid email address';
+        }
+        break;
+      case 'password':
+        if (value && typeof value === 'string' && value.length < 8) {
+          error = 'Password must be at least 8 characters long';
+        }
+        break;
+      case 'name':
+        if (value && typeof value === 'string' && value.length < 2) {
+          error = 'Name must be at least 2 characters long';
+        }
+        break;
+      case 'phone':
+        if (value && typeof value === 'string' && !validatePhone(value)) {
+          error = 'Please enter a valid phone number (numbers, spaces, hyphens, parentheses, and + allowed)';
+        }
+        break;
+      case 'experience':
+        if (value !== undefined && typeof value === 'number' && !validateExperience(value)) {
+          error = 'Experience must be between 0 and 50 years';
+        }
+        break;
+    }
+    
+    return error;
+  };
+
+  const handleFieldChange = (field: string, value: string | number) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Validate the field
+    const error = validateField(field, value);
+    setFormErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  const validateForm = () => {
+    const errors = {
+      email: validateField('email', formData.email),
+      password: validateField('password', formData.password),
+      name: validateField('name', formData.name),
+      phone: validateField('phone', formData.phone),
+      address: validateField('address', formData.address),
+      qualification: validateField('qualification', formData.qualification),
+      experience: validateField('experience', formData.experience)
+    };
+    
+    setFormErrors(errors);
+    
+    // Check if there are any errors
+    const hasErrors = Object.values(errors).some(error => error !== '');
+    return !hasErrors;
+  };
 
   const loadTeachers = async () => {
     try {
@@ -99,17 +184,24 @@ const Teachers = () => {
   const loadSubjects = async () => {
     try {
       const response = await subjectsAPI.getAll();
+      console.log(response,"responseSubjects");
       setSubjects(response);
     } catch (error) {
       console.error('Error loading subjects:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load subjects",
+        variant: "destructive",
+      });
     }
   };
 
   const loadClasses = async () => {
     try {
       const response = await classesAPI.getAll();
+      console.log(response,"response");
       // Convert ClassMapping to Class format
-      const classData = response.map((cls: any) => ({
+      const classData = response?.map((cls: any) => ({
         id: cls.classId,
         name: cls.className,
         displayName: cls.className,
@@ -144,6 +236,17 @@ const Teachers = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    if (!validateForm()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fix the errors in the form before submitting",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -181,7 +284,7 @@ const Teachers = () => {
 
         setTeachers(
           teachers.map((t) =>
-            t.id === editTeacher.id ? { ...t, ...updatedTeacher.teacher } : t
+            t.id === editTeacher.id ? { ...t, ...updatedTeacher } : t
           )
         );
 
@@ -213,7 +316,7 @@ const Teachers = () => {
         
         const newTeacher = await teachersAPI.create(createPayload as any);
         
-        console.log('Backend response:', newTeacher.teacher);
+        console.log('Backend response:', newTeacher);
 
         // Always reload teachers to get the complete data with assignments
         await loadTeachers();
@@ -284,10 +387,10 @@ const Teachers = () => {
     const subjectIds = teacher.subjectIds || teacher.subjects?.map(s => s.id) || [];
     
     // Try different class data structures
-    let classIds = teacher.classIds || teacher.classes.map(c => c.id);
-    if (!classIds.length && teacher.classes) {
+    let classIds = teacher.classIds || teacher.classes || [];
+    if (teacher.classes && teacher.classes.length > 0) {
       // Try different possible class ID fields
-      classIds = teacher.classes.map(c => c.classId).filter(Boolean);
+      classIds = teacher.classes.map(c => c.id).filter(Boolean);
     }
     
     setSelectedSubjects(subjectIds);
@@ -374,6 +477,15 @@ const Teachers = () => {
       qualification: "",
       experience: 0,
     });
+    setFormErrors({
+      email: "",
+      password: "",
+      name: "",
+      phone: "",
+      address: "",
+      qualification: "",
+      experience: "",
+    });
     setCreateFormAssignments({
       selectedSubjects: [],
       selectedClasses: [],
@@ -403,13 +515,13 @@ const Teachers = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <GraduationCap className="w-8 h-8 text-accent" />
-            <h1 className="text-3xl font-bold">Teacher Management</h1>
+            <GraduationCap className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Teacher Management</h1>
           </div>
-          <p className="text-muted-foreground">Add and manage teaching staff</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Add and manage teaching staff</p>
         </div>
         <Button
           onClick={() => {
@@ -417,7 +529,7 @@ const Teachers = () => {
             setEditTeacher(null);
             setShowForm(true);
           }}
-          className="bg-accent hover:bg-accent/90"
+          className="bg-accent hover:bg-accent/90 w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Teacher
@@ -442,90 +554,110 @@ const Teachers = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* email + password */}
               <div className="grid gap-4 md:grid-cols-2">
-                <div>
+                <div className="space-y-2">
                   <Label>Email *</Label>
                   <Input
                     type="email"
                     value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
+                    onChange={(e) => handleFieldChange('email', e.target.value)}
                     required
+                    className={formErrors.email ? 'border-red-500' : ''}
                   />
+                  {formErrors.email && (
+                    <p className="text-sm text-red-500">{formErrors.email}</p>
+                  )}
                 </div>
                 {!editTeacher && (
-                  <div>
+                  <div className="space-y-2">
                     <Label>Password *</Label>
                     <Input
                       type="password"
                       value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
+                      onChange={(e) => handleFieldChange('password', e.target.value)}
                       required
+                      className={formErrors.password ? 'border-red-500' : ''}
                     />
+                    {formErrors.password && (
+                      <p className="text-sm text-red-500">{formErrors.password}</p>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* name */}
-              <div>
+              <div className="space-y-2">
                 <Label>Name *</Label>
                 <Input
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
                   required
+                  className={formErrors.name ? 'border-red-500' : ''}
                 />
+                {formErrors.name && (
+                  <p className="text-sm text-red-500">{formErrors.name}</p>
+                )}
               </div>
 
               {/* phone + experience */}
               <div className="grid gap-4 md:grid-cols-2">
-                <div>
+                <div className="space-y-2">
                   <Label>Phone</Label>
                   <Input
                     value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
+                    onChange={(e) => handleFieldChange('phone', e.target.value)}
+                    className={formErrors.phone ? 'border-red-500' : ''}
+                    placeholder="e.g., +1234567890 or (123) 456-7890"
                   />
+                  {formErrors.phone && (
+                    <p className="text-sm text-red-500">{formErrors.phone}</p>
+                  )}
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label>Experience (years)</Label>
                   <Input
                     type="number"
                     min="0"
+                    max="50"
                     value={formData.experience}
                     onChange={(e) => {
                       const value = e.target.value;
                       if (/^\d*$/.test(value)) {
                         // allow only digits
-                        setFormData({ ...formData, experience: Number(value) });
+                        handleFieldChange('experience', Number(value));
                       }
                     }}
+                    className={formErrors.experience ? 'border-red-500' : ''}
                   />
+                  {formErrors.experience && (
+                    <p className="text-sm text-red-500">{formErrors.experience}</p>
+                  )}
                 </div>
               </div>
 
               {/* qualification */}
-              <div>
+              <div className="space-y-2">
                 <Label>Qualification</Label>
                 <Input
                   value={formData.qualification}
-                  onChange={(e) =>
-                    setFormData({ ...formData, qualification: e.target.value })
-                  }
+                  onChange={(e) => handleFieldChange('qualification', e.target.value)}
+                  className={formErrors.qualification ? 'border-red-500' : ''}
                 />
+                {formErrors.qualification && (
+                  <p className="text-sm text-red-500">{formErrors.qualification}</p>
+                )}
               </div>
 
               {/* address */}
-              <div>
+              <div className="space-y-2">
                 <Label>Address</Label>
                 <Input
                   value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
+                  onChange={(e) => handleFieldChange('address', e.target.value)}
+                  className={formErrors.address ? 'border-red-500' : ''}
                 />
+                {formErrors.address && (
+                  <p className="text-sm text-red-500">{formErrors.address}</p>
+                )}
               </div>
 
               {/* Assignment Section - Only show for create, not edit */}
@@ -964,7 +1096,7 @@ const Teachers = () => {
                       {teacherToDelete.classes?.length > 0 && (
                         <div>
                           <span className="text-sm text-yellow-700 dark:text-yellow-300">
-                            Classes: {teacherToDelete.classes.map(c => c.name).join(', ')}
+                            Classes: {teacherToDelete.classes.map(c => c.className).join(', ')}
                           </span>
                         </div>
                       )}
@@ -1006,152 +1138,164 @@ const Teachers = () => {
         </div>
       )}
 
+      {/* Search Bar */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Search teachers by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div className="text-sm text-muted-foreground flex items-center">
+              {filteredTeachers.length} teacher{filteredTeachers.length !== 1 ? 's' : ''} found
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Teachers list */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Teaching Staff ({filteredTeachers.length})</h2>
-          <div className="flex items-center space-x-2">
-            <Search className="w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search teachers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-64"
-            />
-          </div>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg sm:text-xl">Teaching Staff ({filteredTeachers.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 sm:p-6">
 
-        {filteredTeachers.length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <GraduationCap className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No teachers found</h3>
-              <p className="text-muted-foreground">Try adjusting your search criteria</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-6">
-            {paginatedTeachers.map((teacher) => (
-              <Card key={teacher.id} className="border-l-4 border-l-primary hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-4 flex-1">
-                      {/* Teacher Info */}
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                          <GraduationCap className="w-6 h-6 text-primary" />
+          {filteredTeachers.length === 0 ? (
+            <div className="p-6 text-center">
+              <GraduationCap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No teachers found</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {paginatedTeachers.map((teacher) => (
+                <Card key={teacher.id} className="border-l-4 border-l-primary hover:shadow-lg transition-all duration-200">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+                      <div className="space-y-3 flex-1">
+                        {/* Teacher Header */}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                              <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-base sm:text-lg break-words">{teacher.name}</h3>
+                              <p className="text-sm text-muted-foreground break-all">{teacher.email}</p>
+                            </div>
+                            <Badge variant={teacher.isActive ? "default" : "destructive"} className="text-xs">
+                              {teacher.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-lg font-semibold">{teacher.name}</h3>
-                          <p className="text-sm text-muted-foreground">{teacher.email}</p>
+
+                        {/* Assigned Classes */}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Users className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">Assigned Classes:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {teacher.classes && teacher.classes.length > 0 ? (
+                              teacher.classes.map((classItem, index) => (
+                                <Badge key={index} className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
+                                  {classItem.name}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-sm text-muted-foreground italic">No classes assigned</span>
+                            )}
+                          </div>
                         </div>
-                        <Badge variant={teacher.isActive ? "default" : "destructive"}>
-                          {teacher.isActive ? "Active" : "Inactive"}
-                        </Badge>
+
+                        {/* Assigned Subjects */}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <BookOpen className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">Assigned Subjects:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {teacher.subjects && teacher.subjects.length > 0 ? (
+                              teacher.subjects.map((subject, index) => (
+                                <Badge key={index} className="bg-green-100 text-green-800 border-green-200 text-xs">
+                                  {subject.name}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-sm text-muted-foreground italic">No subjects assigned</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Additional Info */}
+                        {(teacher.phone || teacher.qualification || teacher.experience) && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2 border-t text-sm">
+                            {teacher.phone && (
+                              <div>
+                                <span className="text-muted-foreground">Phone:</span>
+                                <span className="ml-2 font-medium break-all">{teacher.phone}</span>
+                              </div>
+                            )}
+                            {teacher.qualification && (
+                              <div>
+                                <span className="text-muted-foreground">Qualification:</span>
+                                <span className="ml-2 font-medium break-words">{teacher.qualification}</span>
+                              </div>
+                            )}
+                            {teacher.experience && teacher.experience > 0 && (
+                              <div>
+                                <span className="text-muted-foreground">Experience:</span>
+                                <span className="ml-2 font-medium">{teacher.experience} years</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Assigned Classes */}
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Users className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">Assigned Classes:</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {teacher.classes && teacher.classes.length > 0 ? (
-                            teacher.classes.map((classItem, index) => (
-                              <Badge key={index} className="bg-blue-100 text-blue-800 border-blue-200">
-                                {classItem.name}
-                              </Badge>
-                            ))
-                          ) : (
-                            <span className="text-sm text-muted-foreground italic">No classes assigned</span>
-                          )}
-                        </div>
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 lg:flex-col lg:gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAssignmentClick(teacher)}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 w-full sm:w-auto"
+                        >
+                          <Users className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Assign</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditClick(teacher)}
+                          className="hover:bg-gray-50 w-full sm:w-auto"
+                        >
+                          <Edit className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteClick(teacher)}
+                          className="text-destructive hover:text-destructive hover:bg-red-50 w-full sm:w-auto"
+                        >
+                          <Trash2 className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Delete</span>
+                        </Button>
                       </div>
-
-                      {/* Assigned Subjects */}
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <BookOpen className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">Assigned Subjects:</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {teacher.subjects && teacher.subjects.length > 0 ? (
-                            teacher.subjects.map((subject, index) => (
-                              <Badge key={index} className={` bg-${subject.color}-100 text-${subject.color}-800 border-${subject.color}-200 hover:text-white hover:bg-black`}>
-                                {subject.name}
-                              </Badge>
-                            ))
-                          ) : (
-                            <span className="text-sm text-muted-foreground italic">No subjects assigned</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Additional Info */}
-                      {(teacher.phone || teacher.qualification || teacher.experience) && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t">
-                          {teacher.phone && (
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">Phone:</span>
-                              <span className="ml-2 font-medium">{teacher.phone}</span>
-                            </div>
-                          )}
-                          {teacher.qualification && (
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">Qualification:</span>
-                              <span className="ml-2 font-medium">{teacher.qualification}</span>
-                            </div>
-                          )}
-                          {teacher.experience && teacher.experience > 0 && (
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">Experience:</span>
-                              <span className="ml-2 font-medium">{teacher.experience} years</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
-
-                    <div className="flex flex-col space-y-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAssignmentClick(teacher)}
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                      >
-                        <Users className="w-4 h-4 mr-2" />
-                        Assign
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditClick(teacher)}
-                        className="hover:bg-gray-50"
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClick(teacher)}
-                        className="text-destructive hover:text-destructive hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Pagination */}
-      {filteredTeachers.length >= 10 && (
+      {filteredTeachers.length > itemsPerPage && (
         <div className="mt-6">
           <Pagination
             currentPage={currentPage}

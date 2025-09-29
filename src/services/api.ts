@@ -21,6 +21,7 @@ const testBackendConnection = async () => {
 // Test connection on module load
 testBackendConnection();
 
+// Updated Student interface with correct class type
 export interface Student {
   userId: any;
   student: any;
@@ -29,7 +30,10 @@ export interface Student {
   password: string;
   name: string;
   rollNumber: string;
-  class:Array<any>;
+  class: {
+    id: string;
+    name: string;
+  };
   fatherName?: string;
   motherName?: string;
   dateOfBirth?: string;
@@ -931,7 +935,8 @@ export const subjectsAPI = {
         method: 'GET',
         headers: getAuthHeaders(),
       });
-      return await handleApiResponse<Subject[]>(response);
+      const result = await handleApiResponse<{ data: Subject[]; pagination: any }>(response);
+      return result; // Extract the data array from the response
     } catch (error) {
       console.error('Error fetching subjects:', error);
       throw error;

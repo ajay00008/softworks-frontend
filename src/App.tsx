@@ -16,8 +16,8 @@ import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import PerformanceAnalytics from "./pages/PerformanceAnalytics";
 import TeacherAssignment from "./pages/TeacherAssignment";
-import QuestionManagement from "./pages/QuestionManagement";
-import SyllabusManagement from "./pages/SyllabusManagement";
+import QuestionPaperManagement from "./pages/QuestionPaperManagement";
+import ExamManagement from "./pages/ExamManagement";
 import ClassSubjectManagement from "./pages/ClassSubjectManagement";
 import AbsenteeismTracking from "./pages/AbsenteeismTracking";
 import AdminManagement from "./components/AdminManagement";
@@ -70,8 +70,8 @@ const App = () => (
               <Route path="performance/students" element={<StudentPerformance />} />
               <Route path="teacher-assignment" element={<TeacherAssignment />} />
               <Route path="class-subject-management" element={<ClassSubjectManagement />} />
-              <Route path="questions" element={<QuestionManagement />} />
-              <Route path="syllabus" element={<SyllabusManagement />} />
+              <Route path="question-papers" element={<QuestionPaperManagement />} />
+              <Route path="exams" element={<ExamManagement />} />
               <Route path="absenteeism" element={<AbsenteeismTracking />} />
               <Route path="books" element={<div className="p-6">Books Management - Coming Soon</div>} />
               <Route path="access" element={<div className="p-6">Access Privileges - Coming Soon</div>} />

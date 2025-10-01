@@ -1,5 +1,5 @@
 // API service for EduAdmin System
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 console.log(API_BASE_URL,"API_BASE_URL");
 
 // Test if backend is reachable
@@ -23,16 +23,20 @@ testBackendConnection();
 
 // Updated Student interface with correct class type
 export interface Student {
-  userId: any;
-  student: any;
+  userId?: any;
+  student?: any;
   id: string;
-  email: string;
-  password: string;
-  name: string;
-  rollNumber: string;
-  class: {
+  email?: string;
+  password?: string;
+  name?: string;
+  rollNumber?: string;
+  class?: {
     id: string;
     name: string;
+    displayName?: string;
+    level?: number;
+    section?: string;
+    academicYear?: string;
   };
   fatherName?: string;
   motherName?: string;
@@ -41,19 +45,19 @@ export interface Student {
   parentsEmail?: string;
   address?: string;
   whatsappNumber?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Subject {
   _id: string;
-  id?: string;
+  id: string;
   code: string;
   name: string;
-  shortName?: string;
-  category?: string;
-  level?: number[];
+  shortName: string;
+  category: 'SCIENCE' | 'MATHEMATICS' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'COMMERCE' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'OTHER';
+  level: number[];
 }
 
 export interface Teacher {
@@ -203,13 +207,25 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
     // Handle different response structures
     if (data.data) {
       console.log('Returning data.data:', data.data);
-      return data.data;
+      return data as T;
     } else if (data.question) {
       console.log('Returning data.question:', data.question);
       return data.question;
     } else if (data.questions) {
       console.log('Returning data.questions:', data.questions);
       return data.questions;
+    } else if (data.student) {
+      console.log('Returning data.student:', data.student);
+      return data.student;
+    } else if (data.teacher) {
+      console.log('Returning data.teacher:', data.teacher);
+      return data.teacher;
+    } else if (data.class) {
+      console.log('Returning data.class:', data.class);
+      return data.class;
+    } else if (data.subject) {
+      console.log('Returning data.subject:', data.subject);
+      return data.subject;
     } else {
       console.log('Returning data as T:', data);
       return data as T;
@@ -239,8 +255,8 @@ export const studentsAPI = {
         headers: getAuthHeaders(),
       });
 
-      const data = await handleApiResponse<Student[]>(response);
-      return { students: data };
+      const result = await handleApiResponse<{ data: Student[]; pagination?: any }>(response);
+      return { students: result.data || [], pagination: result.pagination };
     } catch (error) {
       console.error('Error fetching students:', error);
       throw error;
@@ -363,7 +379,7 @@ export const teachersAPI = {
       });
 
       const result = await handleApiResponse<{ data: Teacher[]; pagination?: any }>(response);
-      return { teachers: result.data || result, pagination: result.pagination };
+      return { teachers: result.data || [], pagination: result.pagination };
     } catch (error) {
       console.error('Error fetching teachers:', error);
       throw error;
@@ -578,11 +594,12 @@ export const adminsAPI = {
 export const classesAPI = {
   getAll: async (): Promise<ClassMapping[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/class-subject-mappings`, {
+      const response = await fetch(`${API_BASE_URL}/admin/classes`, {
         method: "GET",
         headers: getAuthHeaders(),
       });
-      return await handleApiResponse<ClassMapping[]>(response);
+      const result = await handleApiResponse<{ data: ClassMapping[]; pagination?: any }>(response);
+      return result.data || [];
     } catch (error) {
       console.error("Error fetching classes:", error);
       throw error;
@@ -647,6 +664,7 @@ export const classesAPI = {
 };
 // Class Management API interfaces
 export interface Class {
+  _id: string;
   id: string;
   name: string;
   displayName: string;
@@ -689,6 +707,7 @@ export interface ClassFilters {
 
 // Subject Management API interfaces
 export interface Subject {
+  _id: string;
   id: string;
   code: string;
   name: string;
@@ -696,9 +715,18 @@ export interface Subject {
   category: 'SCIENCE' | 'MATHEMATICS' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'COMMERCE' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'OTHER';
   classIds: string[]; // Array of class IDs
   classes: Class[]; // Populated class data from aggregation
+  level: number[]; // Array of levels from associated classes
   description?: string;
   color?: string;
   isActive: boolean;
+  referenceBook?: {
+    fileName: string;
+    originalName: string;
+    filePath: string;
+    fileSize: number;
+    uploadedAt: string;
+    uploadedBy: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -749,7 +777,13 @@ export const classManagementAPI = {
         method: 'GET',
         headers: getAuthHeaders(),
       });
-      return await handleApiResponse<{ classes: Class[]; total: number; page: number; limit: number }>(response);
+      const result = await handleApiResponse<{ data: Class[]; pagination?: any }>(response);
+      return { 
+        classes: result.data || [], 
+        total: result.pagination?.total || 0, 
+        page: result.pagination?.page || 1, 
+        limit: result.pagination?.limit || 10 
+      };
     } catch (error) {
       console.error('Error fetching classes:', error);
       throw error;
@@ -840,7 +874,13 @@ export const subjectManagementAPI = {
         method: 'GET',
         headers: getAuthHeaders(),
       });
-      return await handleApiResponse<{ subjects: Subject[]; total: number; page: number; limit: number }>(response);
+      const result = await handleApiResponse<{ data: Subject[]; pagination?: any }>(response);
+      return { 
+        subjects: result.data || [], 
+        total: result.pagination?.total || 0, 
+        page: result.pagination?.page || 1, 
+        limit: result.pagination?.limit || 10 
+      };
     } catch (error) {
       console.error('Error fetching subjects:', error);
       throw error;
@@ -926,6 +966,57 @@ export const subjectManagementAPI = {
       throw error;
     }
   },
+
+  // Upload reference book
+  uploadReferenceBook: async (id: string, file: File): Promise<Subject> => {
+    try {
+      const formData = new FormData();
+      formData.append('referenceBook', file);
+
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: formData,
+      });
+      return await handleApiResponse<Subject>(response);
+    } catch (error) {
+      console.error('Error uploading reference book:', error);
+      throw error;
+    }
+  },
+
+  // Download reference book
+  downloadReferenceBook: async (id: string): Promise<Blob> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download reference book');
+      }
+      
+      return await response.blob();
+    } catch (error) {
+      console.error('Error downloading reference book:', error);
+      throw error;
+    }
+  },
+
+  // Delete reference book
+  deleteReferenceBook: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleApiResponse<void>(response);
+    } catch (error) {
+      console.error('Error deleting reference book:', error);
+      throw error;
+    }
+  },
 };
 
 export const subjectsAPI = {
@@ -935,8 +1026,8 @@ export const subjectsAPI = {
         method: 'GET',
         headers: getAuthHeaders(),
       });
-      const result = await handleApiResponse<{ data: Subject[]; pagination: any }>(response);
-      return result; // Extract the data array from the response
+      const result = await handleApiResponse<{ data: Subject[]; pagination?: any }>(response);
+      return result.data || []; // Extract the data array from the response
     } catch (error) {
       console.error('Error fetching subjects:', error);
       throw error;
@@ -1006,8 +1097,8 @@ export const questionsAPI = {
         method: 'GET',
         headers: getAuthHeaders(),
       });
-      const data = await handleApiResponse<{ questions: Question[]; pagination?: any }>(response);
-      return { questions: Array.isArray(data) ? data : data.questions, pagination: data.pagination };
+      const result = await handleApiResponse<{ data: Question[]; pagination?: any }>(response);
+      return { questions: result.data || [], pagination: result.pagination };
     } catch (error) {
       console.error('Error fetching questions:', error);
       throw error;
@@ -1307,6 +1398,504 @@ export const questionPaperTemplatesAPI = {
   },
 };
 
+// Enhanced Question Paper Management API interfaces
+export interface QuestionPaper {
+  _id: string;
+  id: string;
+  title: string;
+  description?: string;
+  examId: string;
+  subjectId: string;
+  classId: string;
+  type: 'AI_GENERATED' | 'PDF_UPLOADED' | 'MANUAL';
+  status: 'DRAFT' | 'GENERATED' | 'PUBLISHED' | 'ARCHIVED';
+  markDistribution: {
+    oneMark: number;
+    twoMark: number;
+    threeMark: number;
+    fiveMark: number;
+    totalQuestions: number;
+    totalMarks: number;
+  };
+  bloomsDistribution: {
+    level: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYZE' | 'EVALUATE' | 'CREATE';
+    percentage: number;
+  }[];
+  questionTypeDistribution: {
+    type: 'CHOOSE_BEST_ANSWER' | 'FILL_BLANKS' | 'ONE_WORD_ANSWER' | 'TRUE_FALSE' | 'CHOOSE_MULTIPLE_ANSWERS' | 'MATCHING_PAIRS' | 'DRAWING_DIAGRAM' | 'MARKING_PARTS' | 'SHORT_ANSWER' | 'LONG_ANSWER';
+    percentage: number;
+  }[];
+  generatedPdf?: {
+    fileName: string;
+    filePath: string;
+    fileSize: number;
+    generatedAt: string;
+    downloadUrl: string;
+  };
+  aiSettings?: {
+    useSubjectBook: boolean;
+    customInstructions?: string;
+    difficultyLevel: 'EASY' | 'MODERATE' | 'TOUGHEST';
+    twistedQuestionsPercentage: number;
+  };
+  createdBy: string;
+  isActive: boolean;
+  generatedAt?: string;
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  questions: string[]; // Array of question IDs
+  uploadedPdf?: {
+    fileName: string;
+    originalName: string;
+    filePath: string;
+    fileSize: number;
+    uploadedAt: string;
+  };
+  aiSettings?: {
+    referenceBookUsed: boolean;
+    customInstructions?: string;
+    difficultyLevel: 'EASY' | 'MODERATE' | 'TOUGHEST';
+    twistedQuestionsPercentage: number;
+  };
+  createdBy: string;
+  isActive: boolean;
+  generatedAt?: string;
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateQuestionPaperRequest {
+  title: string;
+  description?: string;
+  examId: string;
+  subjectId: string;
+  classId: string;
+  markDistribution: {
+    oneMark: number;
+    twoMark: number;
+    threeMark: number;
+    fiveMark: number;
+    totalQuestions: number;
+    totalMarks: number;
+  };
+  bloomsDistribution: {
+    level: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYZE' | 'EVALUATE' | 'CREATE';
+    percentage: number;
+  }[];
+  questionTypeDistribution: {
+    type: 'CHOOSE_BEST_ANSWER' | 'FILL_BLANKS' | 'ONE_WORD_ANSWER' | 'TRUE_FALSE' | 'CHOOSE_MULTIPLE_ANSWERS' | 'MATCHING_PAIRS' | 'DRAWING_DIAGRAM' | 'MARKING_PARTS' | 'SHORT_ANSWER' | 'LONG_ANSWER';
+    percentage: number;
+  }[];
+  aiSettings?: {
+    useSubjectBook: boolean;
+    customInstructions?: string;
+    difficultyLevel: 'EASY' | 'MODERATE' | 'TOUGHEST';
+    twistedQuestionsPercentage: number;
+  };
+}
+
+export interface QuestionPaperFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  examId?: string;
+  subjectId?: string;
+  classId?: string;
+  type?: 'AI_GENERATED' | 'PDF_UPLOADED' | 'MANUAL';
+  status?: 'DRAFT' | 'GENERATED' | 'PUBLISHED' | 'ARCHIVED';
+  isActive?: boolean;
+}
+
+export interface GenerateAIQuestionPaperRequest {
+  customSettings?: {
+    referenceBookUsed: boolean;
+    customInstructions?: string;
+    difficultyLevel: 'EASY' | 'MODERATE' | 'TOUGHEST';
+    twistedQuestionsPercentage: number;
+  };
+}
+
+// Exam Management API interfaces
+export interface Exam {
+  id: string;
+  title: string;
+  description?: string;
+  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL';
+  subjectId: string;
+  classId: string;
+  totalMarks: number;
+  duration: number; // in minutes
+  status: 'DRAFT' | 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
+  scheduledDate: string;
+  endDate?: string;
+  questions: string[]; // Array of question IDs
+  questionDistribution: {
+    unit: string;
+    bloomsLevel: string;
+    difficulty: string;
+    percentage: number;
+    twistedPercentage?: number;
+  }[];
+  instructions?: string;
+  allowLateSubmission: boolean;
+  lateSubmissionPenalty?: number;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateExamRequest {
+  title: string;
+  description?: string;
+  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL';
+  subjectId: string;
+  classId: string;
+  adminId?: string; // Optional, will be set from auth if not provided
+  totalMarks: number;
+  duration: number;
+  scheduledDate: string;
+  endDate?: string;
+  questions?: string[];
+  questionDistribution?: {
+    unit: string;
+    bloomsLevel: string;
+    difficulty: string;
+    percentage: number;
+    twistedPercentage?: number;
+  }[];
+  instructions?: string;
+  allowLateSubmission?: boolean;
+  lateSubmissionPenalty?: number;
+}
+
+export interface ExamFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  subjectId?: string;
+  classId?: string;
+  examType?: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL';
+  status?: 'DRAFT' | 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
+  isActive?: boolean;
+}
+
+// Exam Management API
+export const examsAPI = {
+  // Get all exams
+  getAll: async (filters?: ExamFilters): Promise<{ exams: Exam[]; pagination: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters?.page) queryParams.append('page', filters.page.toString());
+      if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+      if (filters?.search) queryParams.append('search', filters.search);
+      if (filters?.subjectId) queryParams.append('subjectId', filters.subjectId);
+      if (filters?.classId) queryParams.append('classId', filters.classId);
+      if (filters?.examType) queryParams.append('examType', filters.examType);
+      if (filters?.status) queryParams.append('status', filters.status);
+      if (filters?.isActive !== undefined) queryParams.append('isActive', filters.isActive.toString());
+
+      const response = await fetch(`${API_BASE_URL}/admin/exams?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ exams: Exam[]; pagination: any }>(response);
+    } catch (error) {
+      console.error('Error fetching exams:', error);
+      throw error;
+    }
+  },
+
+  // Get single exam
+  getById: async (id: string): Promise<Exam> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/exams/${id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Exam>(response);
+    } catch (error) {
+      console.error('Error fetching exam:', error);
+      throw error;
+    }
+  },
+
+  // Create exam
+  create: async (exam: CreateExamRequest): Promise<Exam> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/exams`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(exam),
+      });
+      return await handleApiResponse<Exam>(response);
+    } catch (error) {
+      console.error('Error creating exam:', error);
+      throw error;
+    }
+  },
+
+  // Update exam
+  update: async (id: string, exam: Partial<CreateExamRequest>): Promise<Exam> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/exams/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(exam),
+      });
+      return await handleApiResponse<Exam>(response);
+    } catch (error) {
+      console.error('Error updating exam:', error);
+      throw error;
+    }
+  },
+
+  // Delete exam
+  delete: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/exams/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleApiResponse<void>(response);
+    } catch (error) {
+      console.error('Error deleting exam:', error);
+      throw error;
+    }
+  },
+
+  // Start exam
+  start: async (id: string): Promise<Exam> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/exams/${id}/start`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Exam>(response);
+    } catch (error) {
+      console.error('Error starting exam:', error);
+      throw error;
+    }
+  },
+
+  // End exam
+  end: async (id: string): Promise<Exam> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/exams/${id}/end`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<Exam>(response);
+    } catch (error) {
+      console.error('Error ending exam:', error);
+      throw error;
+    }
+  },
+
+  // Get exam results
+  getResults: async (id: string, page?: number, limit?: number): Promise<{ results: any[]; pagination: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (page) queryParams.append('page', page.toString());
+      if (limit) queryParams.append('limit', limit.toString());
+
+      const response = await fetch(`${API_BASE_URL}/admin/exams/${id}/results?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ results: any[]; pagination: any }>(response);
+    } catch (error) {
+      console.error('Error fetching exam results:', error);
+      throw error;
+    }
+  },
+
+  // Get exam statistics
+  getStatistics: async (id: string): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/exams/${id}/statistics`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      console.error('Error fetching exam statistics:', error);
+      throw error;
+    }
+  },
+};
+
+// Enhanced Question Paper Management API
+export const questionPaperAPI = {
+  // Get all question papers
+  getAll: async (filters?: QuestionPaperFilters): Promise<{ questionPapers: QuestionPaper[]; pagination: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters?.page) queryParams.append('page', filters.page.toString());
+      if (filters?.limit) queryParams.append('limit', filters.limit.toString());
+      if (filters?.search) queryParams.append('search', filters.search);
+      if (filters?.examId) queryParams.append('examId', filters.examId);
+      if (filters?.subjectId) queryParams.append('subjectId', filters.subjectId);
+      if (filters?.classId) queryParams.append('classId', filters.classId);
+      if (filters?.type) queryParams.append('type', filters.type);
+      if (filters?.status) queryParams.append('status', filters.status);
+      if (filters?.isActive !== undefined) queryParams.append('isActive', filters.isActive.toString());
+
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ questionPapers: QuestionPaper[]; pagination: any }>(response);
+    } catch (error) {
+      console.error('Error fetching question papers:', error);
+      throw error;
+    }
+  },
+
+  // Get single question paper
+  getById: async (id: string): Promise<QuestionPaper> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<QuestionPaper>(response);
+    } catch (error) {
+      console.error('Error fetching question paper:', error);
+      throw error;
+    }
+  },
+
+  // Create question paper
+  create: async (questionPaper: CreateQuestionPaperRequest): Promise<QuestionPaper> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(questionPaper),
+      });
+      return await handleApiResponse<QuestionPaper>(response);
+    } catch (error) {
+      console.error('Error creating question paper:', error);
+      throw error;
+    }
+  },
+
+  // Update question paper
+  update: async (id: string, questionPaper: Partial<CreateQuestionPaperRequest>): Promise<QuestionPaper> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(questionPaper),
+      });
+      return await handleApiResponse<QuestionPaper>(response);
+    } catch (error) {
+      console.error('Error updating question paper:', error);
+      throw error;
+    }
+  },
+
+  // Delete question paper
+  delete: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleApiResponse<void>(response);
+    } catch (error) {
+      console.error('Error deleting question paper:', error);
+      throw error;
+    }
+  },
+
+  // Generate AI question paper
+  generateAI: async (id: string, request?: GenerateAIQuestionPaperRequest): Promise<QuestionPaper> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/generate-ai`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(request || {}),
+      });
+      return await handleApiResponse<QuestionPaper>(response);
+    } catch (error) {
+      console.error('Error generating AI question paper:', error);
+      throw error;
+    }
+  },
+
+  // Upload PDF question paper
+  uploadPDF: async (id: string, file: File): Promise<QuestionPaper> => {
+    try {
+      const formData = new FormData();
+      formData.append('questionPaper', file);
+
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/upload-pdf`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: formData,
+      });
+      return await handleApiResponse<QuestionPaper>(response);
+    } catch (error) {
+      console.error('Error uploading PDF question paper:', error);
+      throw error;
+    }
+  },
+
+  // Download question paper as PDF
+  download: async (id: string): Promise<{ success: boolean; downloadUrl: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/download`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download question paper');
+      }
+      
+      // Create download URL
+      const downloadUrl = `${API_BASE_URL}/admin/question-papers/${id}/download`;
+      return { success: true, downloadUrl };
+    } catch (error) {
+      console.error('Error downloading question paper:', error);
+      throw error;
+    }
+  },
+
+  // Generate AI question paper
+  generateAI: async (id: string): Promise<{ success: boolean; questionPaper: QuestionPaper; downloadUrl?: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/generate-ai`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ questionPaperId: id }),
+      });
+      return await handleApiResponse<{ success: boolean; questionPaper: QuestionPaper; downloadUrl?: string }>(response);
+    } catch (error) {
+      console.error('Error generating AI question paper:', error);
+      throw error;
+    }
+  },
+
+  // Publish question paper
+  publish: async (id: string): Promise<QuestionPaper> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/publish`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<QuestionPaper>(response);
+    } catch (error) {
+      console.error('Error publishing question paper:', error);
+      throw error;
+    }
+  }
+};
+
 // Syllabus API
 export interface Syllabus {
   id: string;
@@ -1473,9 +2062,7 @@ export const syllabusAPI = {
 
       const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}/upload`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${getToken()}`,
-        },
+        headers: getAuthHeaders(),
         body: formData,
       });
       return await handleApiResponse<Syllabus>(response);

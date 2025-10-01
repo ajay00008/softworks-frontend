@@ -158,8 +158,11 @@ const Students = () => {
   const loadStudents = async () => {
     try {
       const response = await studentsAPI.getAll();
-      setStudents(response.students);
+      console.log('Students API response:', response); // Debug log
+      console.log('Students data:', response.students); // Debug log
+      setStudents(response.students || []);
     } catch (error) {
+      console.error('Error loading students:', error); // Debug log
       toast({
         title: "Error",
         description: "Failed to load students",
@@ -173,7 +176,7 @@ const Students = () => {
   const loadClasses = async () => {
     try {
       const data = await classesAPI.getAll();
-      setClasses(data);
+      setClasses(data?.data || []);
     } catch (error) {
       toast({
         title: "Error",
@@ -184,11 +187,12 @@ const Students = () => {
   };
 
   const handleEditClick = (student: Student) => {
+    console.log('Editing student:', student); // Debug log
     setEditStudent(student);
     setFormData({
-      email: student.email,
+      email: student.email || '',
       password: '',
-      name: student.name,
+      name: student.name || '',
       rollNumber: student.rollNumber || '',
       fatherName: student.fatherName || '',
       motherName: student.motherName || '',
@@ -198,7 +202,9 @@ const Students = () => {
       address: student.address || '',
       whatsappNumber: student.whatsappNumber || ''
     });
-    setSelectedClassId(student.class?.id || '');
+    // Fix: Handle different class structure
+    const classId = student.class?.id || student.class?.[0]?.id || '';
+    setSelectedClassId(classId);
     setShowCreateForm(true);
   };
 
@@ -220,10 +226,12 @@ const Students = () => {
     try {
       const payload = {
         ...formData,
-        classId: selectedClassId,
         userId: '',
         student: {},
-        class: [],
+        class: {
+          id: selectedClassId,
+          name: classes?.find(c => c.classId === selectedClassId)?.className || ''
+        }
       };
 
       if (editStudent) {
@@ -332,8 +340,8 @@ const Students = () => {
   };
 
   const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (student.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (student.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Pagination logic
@@ -344,6 +352,14 @@ const Students = () => {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+  };
+
+  // Helper function to get class name
+  const getClassName = (student: Student) => {
+    if (student.class?.name) return student.class.name;
+    if (student.class?.displayName) return student.class.displayName;
+    if (student.class?.[0]?.name) return student.class[0].name;
+    return 'N/A';
   };
 
   if (isLoading) {
@@ -464,7 +480,7 @@ const Students = () => {
                     required
                   >
                     <option value="">Select a class</option>
-                    {classes.map((cls) => (
+                    {classes?.map((cls) => (
                       <option key={cls.classId} value={cls.classId}>
                         {cls.className}
                       </option>
@@ -621,13 +637,13 @@ const Students = () => {
                       <div className="space-y-3 flex-1">
                         {/* Student Header */}
                         <div className="space-y-2">
-                          <h3 className="font-semibold text-base sm:text-lg break-words">{student.name}</h3>
+                          <h3 className="font-semibold text-base sm:text-lg break-words">{student.name || 'Unknown Student'}</h3>
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge className="bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30 text-xs">
-                              Roll: {student.rollNumber}
+                              Roll: {student.rollNumber || 'N/A'}
                             </Badge>
                             <Badge className="bg-secondary/10 text-secondary-foreground border-secondary/20 dark:bg-secondary/20 dark:text-secondary-foreground dark:border-secondary/30 text-xs">
-                              {student.class?.name || 'N/A'}
+                              Class: {getClassName(student)}
                             </Badge>
                             <Badge variant={student.isActive ? "default" : "destructive"} className="text-xs">
                               {student.isActive ? "Active" : "Inactive"}
@@ -637,11 +653,12 @@ const Students = () => {
                         
                         {/* Student Details */}
                         <div className="grid gap-2 sm:grid-cols-2 text-sm text-muted-foreground">
-                          <p className="break-all"><strong>Email:</strong> {student.email}</p>
+                          <p className="break-all"><strong>Email:</strong> {student.email || 'N/A'}</p>
+                          <p><strong>Class:</strong> {getClassName(student)}</p>
                           {student.fatherName && <p><strong>Father:</strong> {student.fatherName}</p>}
                           {student.motherName && <p><strong>Mother:</strong> {student.motherName}</p>}
                           {student.whatsappNumber && <p><strong>Phone:</strong> {student.whatsappNumber}</p>}
-                          <p><strong>Enrolled:</strong> {new Date(student.createdAt).toLocaleDateString()}</p>
+                          <p><strong>Enrolled:</strong> {student.createdAt ? new Date(student.createdAt).toLocaleDateString() : 'N/A'}</p>
                         </div>
                         
                         {/* Address */}
@@ -716,7 +733,7 @@ const Students = () => {
                       {studentToDelete.email}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Roll No: {studentToDelete.rollNumber} | Class: {studentToDelete.class?.[0]?.name || 'N/A'}
+                      Roll No: {studentToDelete.rollNumber} | Class: {getClassName(studentToDelete)}
                     </p>
                   </div>
                 </div>

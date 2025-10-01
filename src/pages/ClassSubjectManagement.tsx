@@ -36,6 +36,7 @@ import {
   UpdateClassRequest,
   UpdateSubjectRequest
 } from '@/services/api';
+import ReferenceBookManager from '@/components/ReferenceBookManager';
 
 const ClassSubjectManagement = () => {
   const [activeTab, setActiveTab] = useState('classes');
@@ -106,7 +107,7 @@ const ClassSubjectManagement = () => {
         academicYear: selectedAcademicYear !== 'all' ? selectedAcademicYear : undefined,
       });
       console.log(response,"class");
-      setClasses(response.classes || response.data || response);
+      setClasses(response.classes || []);
     } catch (error) {
       console.error('Error loading classes:', error);
       setClasses([]);
@@ -121,7 +122,7 @@ const ClassSubjectManagement = () => {
         level: selectedLevel !== 'all' ? parseInt(selectedLevel) : undefined,
       });
       console.log(response);
-      setSubjects(response.subjects || response.data || response);
+      setSubjects(response.subjects || []);
     } catch (error) {
       console.error('Error loading subjects:', error);
       setSubjects([]);
@@ -246,7 +247,7 @@ const ClassSubjectManagement = () => {
       setIsLoading(true);
       const newSubject = await subjectManagementAPI.create(subjectForm);
       console.log(newSubject,"newSubject")
-      setSubjects(prev => [newSubject.subject, ...prev]);
+      setSubjects(prev => [newSubject, ...prev]);
       setShowSubjectDialog(false);
       resetSubjectForm();
       toast({
@@ -665,6 +666,15 @@ console.log(classes,'classes')
                         {subject.description && (
                           <p className="text-sm text-muted-foreground">{subject.description}</p>
                         )}
+                        
+                        {/* Reference Book Section */}
+                        <div className="pt-3 border-t">
+                          <ReferenceBookManager
+                            subjectId={subject._id}
+                            referenceBook={subject.referenceBook}
+                            onUpdate={loadSubjects}
+                          />
+                        </div>
                         
                         <div className="flex justify-between items-center pt-4 border-t">
                           <div className="text-sm text-muted-foreground">

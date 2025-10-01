@@ -183,9 +183,11 @@ const Teachers = () => {
 
   const loadSubjects = async () => {
     try {
+      console.log('Loading subjects...');
       const response = await subjectsAPI.getAll();
-      console.log(response,"responseSubjects");
-      setSubjects(response);
+      console.log('Subjects API response:', response);
+      console.log('Subjects count:', response?.length);
+      setSubjects(response || []);
     } catch (error) {
       console.error('Error loading subjects:', error);
       toast({
@@ -198,23 +200,33 @@ const Teachers = () => {
 
   const loadClasses = async () => {
     try {
+      console.log('Loading classes...');
       const response = await classesAPI.getAll();
-      console.log(response,"response");
+      console.log('Classes API response:', response);
+      console.log('Classes count:', response?.length);
+      
       // Convert ClassMapping to Class format
       const classData = response?.map((cls: any) => ({
-        id: cls.classId,
-        name: cls.className,
-        displayName: cls.className,
-        level: 1,
-        section: '',
-        academicYear: '2024-25',
-        isActive: cls.isActive || true,
+        id: cls._id || cls.id,
+        name: cls.name,
+        displayName: cls.displayName || cls.name,
+        level: cls.level || 1,
+        section: cls.section || '',
+        academicYear: cls.academicYear || '2024-25',
+        isActive: cls.isActive !== false,
         createdAt: cls.createdAt || new Date().toISOString(),
         updatedAt: cls.updatedAt || new Date().toISOString()
-      }));
+      })) || [];
+      
+      console.log('Processed classes:', classData);
       setClasses(classData);
     } catch (error) {
       console.error('Error loading classes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load classes",
+        variant: "destructive",
+      });
     }
   };
 
@@ -236,6 +248,25 @@ const Teachers = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if subjects and classes are available
+    if (subjects.length === 0) {
+      toast({
+        title: "No Subjects Available",
+        description: "Please create subjects first before adding teachers",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (classes.length === 0) {
+      toast({
+        title: "No Classes Available",
+        description: "Please create classes first before adding teachers",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Validate form before submission
     if (!validateForm()) {
@@ -522,6 +553,24 @@ const Teachers = () => {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Teacher Management</h1>
           </div>
           <p className="text-sm sm:text-base text-muted-foreground">Add and manage teaching staff</p>
+          {subjects.length === 0 && (
+            <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
+              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+              <span className="text-sm font-medium">No subjects available - Create subjects first to add teachers</span>
+            </div>
+          )}
+          {subjects.length > 0 && classes.length === 0 && (
+            <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
+              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+              <span className="text-sm font-medium">No classes available - Create classes first to add teachers</span>
+            </div>
+          )}
+          {subjects.length === 0 && classes.length === 0 && (
+            <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
+              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+              <span className="text-sm font-medium">No subjects & classes available - Create them first to add teachers</span>
+            </div>
+          )}
         </div>
         <Button
           onClick={() => {
@@ -529,12 +578,157 @@ const Teachers = () => {
             setEditTeacher(null);
             setShowForm(true);
           }}
-          className="bg-accent hover:bg-accent/90 w-full sm:w-auto"
+          disabled={subjects.length === 0 || classes.length === 0}
+          className="bg-accent hover:bg-accent/90 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Teacher
+          {subjects.length === 0 && (
+            <span className="ml-2 text-xs">(No subjects available)</span>
+          )}
+          {subjects.length > 0 && classes.length === 0 && (
+            <span className="ml-2 text-xs">(No classes available)</span>
+          )}
+          {subjects.length === 0 && classes.length === 0 && (
+            <span className="ml-2 text-xs">(No subjects & classes available)</span>
+          )}
         </Button>
       </div>
+
+      {/* No Subjects Warning */}
+      {subjects.length === 0 && (
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+          <CardContent className="p-6">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                  No Subjects Available
+                </h3>
+                <p className="text-amber-700 dark:text-amber-300 mb-4">
+                  You need to create subjects before you can add teachers. Teachers must be assigned to at least one subject.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    onClick={() => {
+                      // Navigate to subjects page or open subjects management
+                      window.location.href = '/class-subject-management';
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                  >
+                    <BookOpen className="w-4 h-4 mr-2" />
+                    Go to Subjects Management
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // Refresh the page to reload subjects
+                      window.location.reload();
+                    }}
+                    className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                  >
+                    Refresh Page
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No Classes Warning */}
+      {subjects.length > 0 && classes.length === 0 && (
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+          <CardContent className="p-6">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                  <Users className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                  No Classes Available
+                </h3>
+                <p className="text-amber-700 dark:text-amber-300 mb-4">
+                  You need to create classes before you can add teachers. Teachers must be assigned to at least one class.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    onClick={() => {
+                      // Navigate to classes page or open classes management
+                      window.location.href = '/class-subject-management';
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Go to Classes Management
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // Refresh the page to reload classes
+                      window.location.reload();
+                    }}
+                    className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                  >
+                    Refresh Page
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No Subjects & Classes Warning */}
+      {subjects.length === 0 && classes.length === 0 && (
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+          <CardContent className="p-6">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                  <GraduationCap className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                  No Subjects & Classes Available
+                </h3>
+                <p className="text-amber-700 dark:text-amber-300 mb-4">
+                  You need to create both subjects and classes before you can add teachers. Teachers must be assigned to at least one subject and one class.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    onClick={() => {
+                      // Navigate to class-subject management page
+                      window.location.href = '/class-subject-management';
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                  >
+                    <GraduationCap className="w-4 h-4 mr-2" />
+                    Go to Class & Subject Management
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // Refresh the page to reload data
+                      window.location.reload();
+                    }}
+                    className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                  >
+                    Refresh Page
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Create/Edit Form */}
       {showForm && (
@@ -668,9 +862,28 @@ const Teachers = () => {
                       <Users className="w-5 h-5 mr-2 text-blue-600" />
                       Assign Subjects & Classes (Optional)
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      You can assign subjects and classes now, or do it later from the teacher list.
-                    </p>
+                    {subjects.length === 0 || classes.length === 0 ? (
+                      <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-4">
+                        <div className="space-y-2">
+                          {subjects.length === 0 && (
+                            <div className="flex items-center space-x-2 text-amber-700 dark:text-amber-300">
+                              <BookOpen className="w-4 h-4" />
+                              <span className="text-sm font-medium">No subjects available. Please create subjects first.</span>
+                            </div>
+                          )}
+                          {classes.length === 0 && (
+                            <div className="flex items-center space-x-2 text-amber-700 dark:text-amber-300">
+                              <Users className="w-4 h-4" />
+                              <span className="text-sm font-medium">No classes available. Please create classes first.</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground mb-4">
+                        You can assign subjects and classes now, or do it later from the teacher list.
+                      </p>
+                    )}
                   </div>
 
                   {/* Subjects Assignment */}
@@ -802,11 +1015,21 @@ const Teachers = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting || subjects.length === 0 || classes.length === 0}>
                   {isSubmitting ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                       {editTeacher ? "Updating..." : "Creating Teacher..."}
+                    </>
+                  ) : subjects.length === 0 ? (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      No Subjects Available
+                    </>
+                  ) : classes.length === 0 ? (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      No Classes Available
                     </>
                   ) : (
                     <>

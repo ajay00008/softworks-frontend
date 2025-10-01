@@ -65,11 +65,16 @@ const DIFFICULTY_LEVELS = [
 ];
 
 const QUESTION_TYPES = [
-  { id: 'MULTIPLE_CHOICE', name: 'Multiple Choice', description: 'Select one correct answer from options' },
-  { id: 'SHORT_ANSWER', name: 'Short Answer', description: 'Brief text response' },
-  { id: 'LONG_ANSWER', name: 'Long Answer', description: 'Detailed text response' },
-  { id: 'TRUE_FALSE', name: 'True/False', description: 'Select true or false' },
-  { id: 'FILL_BLANKS', name: 'Fill in the Blanks', description: 'Complete missing words or phrases' }
+  { id: 'CHOOSE_BEST_ANSWER', name: 'Choose the best answer', description: 'Multiple choice with one correct answer' },
+  { id: 'FILL_BLANKS', name: 'Fill in the blanks', description: 'Complete missing words or phrases' },
+  { id: 'ONE_WORD_ANSWER', name: 'One word answer', description: 'Answer in one word' },
+  { id: 'TRUE_FALSE', name: 'True or False', description: 'Select true or false' },
+  { id: 'CHOOSE_MULTIPLE_ANSWERS', name: 'Choose multiple answers', description: 'Select multiple correct answers' },
+  { id: 'MATCHING_PAIRS', name: 'Matching pairs', description: 'Match items using arrows' },
+  { id: 'DRAWING_DIAGRAM', name: 'Drawing/Diagram', description: 'Draw diagrams and mark parts' },
+  { id: 'MARKING_PARTS', name: 'Marking parts', description: 'Mark correct objects or parts' },
+  { id: 'SHORT_ANSWER', name: 'Short answer', description: 'Brief text response' },
+  { id: 'LONG_ANSWER', name: 'Long answer', description: 'Detailed text response' }
 ];
 
 const QuestionManagement = () => {

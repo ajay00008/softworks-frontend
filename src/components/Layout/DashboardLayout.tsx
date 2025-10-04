@@ -28,12 +28,22 @@ const getNavigation = (userRole?: string) => {
   // Check if user is super admin (handle both 'super_admin' and 'SUPER_ADM(N' cases)
   const isSuperAdmin = userRole === 'super_admin' || userRole?.toLowerCase().includes('super_admin') || userRole?.includes('SUPER_ADM');
   
+  // Check if user is teacher
+  const isTeacher = userRole === 'TEACHER' || userRole?.toLowerCase().includes('teacher');
+  
   // Super admin navigation - only admin management features
   if (isSuperAdmin) {
     return [
       { name: 'Admin Management', href: '/dashboard/admin-management', icon: Shield, section: 'SUPER_ADMIN' },
       { name: 'System Settings', href: '/dashboard/settings', icon: Settings, section: 'SYSTEM' },
       { name: 'System Analytics', href: '/dashboard/analytics', icon: BarChart3, section: 'SYSTEM' },
+    ];
+  }
+
+  // Teacher navigation - teacher-specific features
+  if (isTeacher) {
+    return [
+      { name: 'Teacher Dashboard', href: '/dashboard/teacher-dashboard', icon: GraduationCap, section: 'MAIN' },
     ];
   }
 
@@ -46,7 +56,7 @@ const getNavigation = (userRole?: string) => {
     { name: 'Question Papers', href: '/dashboard/question-papers', icon: BookOpen, section: 'CONTENT' },
     { name: 'Exams', href: '/dashboard/exams', icon: GraduationCap, section: 'CONTENT' },
     { name: 'Absenteeism Tracking', href: '/dashboard/absenteeism', icon: AlertTriangle, section: 'TRACKING' },
-    { name: 'Access Privileges', href: '/dashboard/access', icon: Settings, section: 'SYSTEM' },
+    { name: 'Access Privileges', href: '/dashboard/access-privileges', icon: Settings, section: 'SYSTEM' },
     { name: 'Mirror Login', href: '/dashboard/mirror', icon: UserCheck, section: 'SYSTEM' },
   ];
 };

@@ -83,10 +83,11 @@ export interface Teacher {
 
 export interface User {
   id: string;
+  _id: string;
   email: string;
   password?: string;
   name: string;
-  role: 'super_admin' | 'admin' | 'teacher' | 'student';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'teacher' | 'student';
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -494,7 +495,7 @@ export const teachersAPI = {
 
 // Admins API (Super Admin endpoints)
 export const adminsAPI = {
-  getAll: async (params: PaginationParams = {}): Promise<{ admins: User[]; pagination?: any }> => {
+  getAll: async (params: PaginationParams = {}): Promise<{ admins: { data: User[] }; pagination?: any }> => {
     try {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.append('page', params.page.toString());
@@ -507,7 +508,7 @@ export const adminsAPI = {
         headers: getAuthHeaders(),
       });
 
-      const data = await handleApiResponse<User[]>(response);
+      const data = await handleApiResponse<{ data: User[]; pagination?: any }>(response);
       return { admins: data };
     } catch (error) {
       console.error('Error fetching admins:', error);
@@ -530,7 +531,7 @@ export const adminsAPI = {
     }
   },
 
-  create: async (admin: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> => {
+  create: async (admin: Omit<User, 'id' | '_id' | 'createdAt' | 'updatedAt'>): Promise<User> => {
     try {
       const response = await fetch(`${API_BASE_URL}/super/admins`, {
         method: 'POST',
@@ -545,7 +546,7 @@ export const adminsAPI = {
     }
   },
 
-  update: async (id: string, admin: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>>): Promise<User> => {
+  update: async (id: string, admin: Partial<Omit<User, 'id' | '_id' | 'createdAt' | 'updatedAt'>>): Promise<User> => {
     try {
       const response = await fetch(`${API_BASE_URL}/super/admins/${id}`, {
         method: 'PUT',
@@ -1414,7 +1415,6 @@ export interface QuestionPaper {
     twoMark: number;
     threeMark: number;
     fiveMark: number;
-    totalQuestions: number;
     totalMarks: number;
   };
   bloomsDistribution: {
@@ -1452,32 +1452,17 @@ export interface QuestionPaper {
     fileSize: number;
     uploadedAt: string;
   };
-  aiSettings?: {
-    referenceBookUsed: boolean;
-    customInstructions?: string;
-    difficultyLevel: 'EASY' | 'MODERATE' | 'TOUGHEST';
-    twistedQuestionsPercentage: number;
-  };
-  createdBy: string;
-  isActive: boolean;
-  generatedAt?: string;
-  publishedAt?: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface CreateQuestionPaperRequest {
   title: string;
   description?: string;
   examId: string;
-  subjectId: string;
-  classId: string;
   markDistribution: {
     oneMark: number;
     twoMark: number;
     threeMark: number;
     fiveMark: number;
-    totalQuestions: number;
     totalMarks: number;
   };
   bloomsDistribution: {
@@ -1827,6 +1812,21 @@ export const questionPaperAPI = {
     }
   },
 
+  // Generate complete question paper with AI (direct generation)
+  generateCompleteAI: async (request: CreateQuestionPaperRequest & { subjectId: string; classId: string }): Promise<QuestionPaper> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/generate-complete-ai`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(request),
+      });
+      return await handleApiResponse<QuestionPaper>(response);
+    } catch (error) {
+      console.error('Error generating complete AI question paper:', error);
+      throw error;
+    }
+  },
+
   // Upload PDF question paper
   uploadPDF: async (id: string, file: File): Promise<QuestionPaper> => {
     try {
@@ -1866,20 +1866,6 @@ export const questionPaperAPI = {
     }
   },
 
-  // Generate AI question paper
-  generateAI: async (id: string): Promise<{ success: boolean; questionPaper: QuestionPaper; downloadUrl?: string }> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/generate-ai`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ questionPaperId: id }),
-      });
-      return await handleApiResponse<{ success: boolean; questionPaper: QuestionPaper; downloadUrl?: string }>(response);
-    } catch (error) {
-      console.error('Error generating AI question paper:', error);
-      throw error;
-    }
-  },
 
   // Publish question paper
   publish: async (id: string): Promise<QuestionPaper> => {
@@ -2082,6 +2068,128 @@ export const syllabusAPI = {
       return await handleApiResponse<SyllabusStatistics>(response);
     } catch (error) {
       console.error('Error fetching syllabus statistics:', error);
+      throw error;
+    }
+  },
+};
+
+// Teacher Dashboard API
+export const teacherDashboardAPI = {
+  // Get teacher's assigned classes and subjects
+  getAccess: async (): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/access`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error fetching teacher access:', error);
+      throw error;
+    }
+  },
+
+  // Create question paper for assigned subjects
+  createQuestionPaper: async (data: any): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/questions`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error creating question paper:', error);
+      throw error;
+    }
+  },
+
+  // Upload answer sheets for evaluation
+  uploadAnswerSheets: async (data: any): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/upload-answers`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error uploading answer sheets:', error);
+      throw error;
+    }
+  },
+
+  // Mark student as absent or missing
+  markStudentStatus: async (data: any): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/mark-status`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error marking student status:', error);
+      throw error;
+    }
+  },
+
+  // Evaluate answer sheets with AI and manual override
+  evaluateAnswerSheets: async (data: any): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/evaluate`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error evaluating answer sheets:', error);
+      throw error;
+    }
+  },
+
+  // Get results for assigned classes
+  getResults: async (params?: any): Promise<{ success: boolean; data: any }> => {
+    try {
+      const queryParams = new URLSearchParams(params);
+      const response = await fetch(`${API_BASE_URL}/teacher/results?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error fetching results:', error);
+      throw error;
+    }
+  },
+
+  // Get performance graphs and analytics
+  getPerformanceGraphs: async (params?: any): Promise<{ success: boolean; data: any }> => {
+    try {
+      const queryParams = new URLSearchParams(params);
+      const response = await fetch(`${API_BASE_URL}/teacher/performance-graph?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error fetching performance graphs:', error);
+      throw error;
+    }
+  },
+
+  // Download results in various formats
+  downloadResults: async (params?: any): Promise<{ success: boolean; data: any }> => {
+    try {
+      const queryParams = new URLSearchParams(params);
+      const response = await fetch(`${API_BASE_URL}/teacher/results/download?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error downloading results:', error);
       throw error;
     }
   },

@@ -135,7 +135,7 @@ const ClassSubjectManagement = () => {
       setIsLoading(true);
       const newClass = await classManagementAPI.create(classForm);
       console.log(newClass,"newClass");
-      setClasses(prev => [newClass.class, ...prev]);
+      setClasses(prev => [newClass, ...prev]);
       setShowClassDialog(false);
       resetClassForm();
       toast({
@@ -543,20 +543,21 @@ console.log(classes,'classes')
                           <div className="space-y-2">
                             <h3 className="text-lg font-semibold">{cls.displayName}</h3>
                             <div className="flex items-center space-x-2">
-                              <Badge variant="outline">{cls.name}</Badge>
-                              <Badge variant="outline">Level {cls.level}</Badge>
+                              <Badge variant="outline">Name: {cls.name}</Badge>
+                              <Badge variant="outline">Level: {cls.level}</Badge>
+                              <Badge variant="outline">Section: {cls.section}</Badge>
                             </div>
                           </div>
                           {getStatusBadge(cls.isActive)}
                         </div>
                         
                         {cls.description && (
-                          <p className="text-sm text-muted-foreground">{cls.description}</p>
+                          <p className="text-sm text-muted-foreground">Description: {cls.description}</p>
                         )}
                         
                         <div className="flex justify-between items-center pt-4 border-t">
                           <div className="text-sm text-muted-foreground">
-                            Created: {new Date(cls.createdAt).toLocaleDateString()}
+                            CreatedAt:  {new Date(cls.createdAt).toLocaleDateString()}
                           </div>
                           <div className="flex space-x-2">
                             <Button
@@ -618,11 +619,11 @@ console.log(classes,'classes')
                       <div className="space-y-4">
                         <div className="flex justify-between items-start">
                           <div className="space-y-2">
-                            <h3 className="text-lg font-semibold">{subject.name}</h3>
+                            <h3 className="text-lg font-semibold">Name: {subject.name}</h3>
                             <div className="flex items-center space-x-2">
-                              <Badge variant="outline">{subject.code}</Badge>
+                              <Badge variant="outline">Code: {subject.code}</Badge>
                               <Badge className={getCategoryBadge(subject.category)}>
-                                {subject.category}
+                                Category: {subject.category}
                               </Badge>
                               {getStatusBadge(subject.isActive)}
                             </div>
@@ -632,7 +633,7 @@ console.log(classes,'classes')
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
                             <Tag className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">{subject.shortName}</span>
+                            <span className="text-sm text-muted-foreground">Short Name: {subject.shortName}</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <Hash className="w-4 h-4 text-muted-foreground" />
@@ -664,7 +665,7 @@ console.log(classes,'classes')
                         </div>
                         
                         {subject.description && (
-                          <p className="text-sm text-muted-foreground">{subject.description}</p>
+                          <p className="text-sm text-muted-foreground">Description: {subject.description}</p>
                         )}
                         
                         {/* Reference Book Section */}
@@ -678,7 +679,7 @@ console.log(classes,'classes')
                         
                         <div className="flex justify-between items-center pt-4 border-t">
                           <div className="text-sm text-muted-foreground">
-                            Created: {new Date(subject.createdAt).toLocaleDateString()}
+                            CreatedAt: {new Date(subject.createdAt).toLocaleDateString()}
                           </div>
                           <div className="flex space-x-2">
                             <Button
@@ -898,7 +899,7 @@ console.log(classes,'classes')
                         }}
                         className="rounded"
                       />
-                      <span className="text-sm">{cls.displayName} ({cls.name})</span>
+                      <span className="text-sm">Name: {cls.displayName} ({cls.name})</span>
                     </label>
                   ))}
                 </div>

@@ -77,22 +77,25 @@ export default function ExamManagement() {
         subjectManagementAPI.getAll().catch(() => null),
         classManagementAPI.getAll().catch(() => null)
       ]);
+      console.log("examsResponse",examsResponse)
+      console.log("subjectsResponse",subjectsResponse)
+      console.log("classesResponse",classesResponse)
 
       if (examsResponse && subjectsResponse && classesResponse) {
         // Backend data available
-        setExams(examsResponse.exams || []);
+        setExams(examsResponse?.data || []);
         setSubjects(subjectsResponse.subjects || []);
         setClasses(classesResponse.classes || []);
         console.log('✅ Loaded data from backend');
       } else {
         // Fallback to mock data
         console.log('⚠️ Backend unavailable, using mock data');
-        loadMockData();
+        // loadMockData();
       }
     } catch (error) {
       console.error('Error loading data:', error);
       // Fallback to mock data on error
-      loadMockData();
+      // loadMockData();
     } finally {
       setLoading(false);
     }
@@ -168,8 +171,12 @@ export default function ExamManagement() {
 
   const handleCreate = async () => {
     try {
+      // Prepare data for API call - remove empty adminId to avoid validation error
+      const { adminId, ...examData } = formData;
+      const apiData = adminId ? { ...examData, adminId } : examData;
+      
       // Try backend API first
-      const newExam = await examsAPI.create(formData);
+      const newExam = await examsAPI.create(apiData);
       setExams(prev => [newExam, ...prev]);
       toast({
         title: "Success",
@@ -343,12 +350,16 @@ export default function ExamManagement() {
                           <span>{formatDuration(exam.duration)}</span>
                         </div>
                         <div className="flex items-center gap-1">
+                          <FileText className="h-4 w-4" />
+                          <span>{exam.examType}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
                           <BookOpen className="h-4 w-4" />
-                          <span>{subjects.find(s => s._id === exam.subjectId)?.name}</span>
+                          <span>{subjects.find(s => s._id === exam.subjectId?._id)?.name}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <GraduationCap className="h-4 w-4" />
-                          <span>{classes.find(c => c._id === exam.classId)?.displayName}</span>
+                          <span>{classes.find(c => c._id === exam.classId?._id)?.displayName}</span>
                         </div>
                       </div>
                       <div className="flex gap-2 mt-3">

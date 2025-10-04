@@ -595,51 +595,6 @@ const Teachers = () => {
         </Button>
       </div>
 
-      {/* No Subjects Warning */}
-      {subjects.length === 0 && (
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
-          <CardContent className="p-6">
-            <div className="flex items-start space-x-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
-                  <BookOpen className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">
-                  No Subjects Available
-                </h3>
-                <p className="text-amber-700 dark:text-amber-300 mb-4">
-                  You need to create subjects before you can add teachers. Teachers must be assigned to at least one subject.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button
-                    onClick={() => {
-                      // Navigate to subjects page or open subjects management
-                      window.location.href = '/class-subject-management';
-                    }}
-                    className="bg-amber-600 hover:bg-amber-700 text-white"
-                  >
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Go to Subjects Management
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      // Refresh the page to reload subjects
-                      window.location.reload();
-                    }}
-                    className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
-                  >
-                    Refresh Page
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* No Classes Warning */}
       {subjects.length > 0 && classes.length === 0 && (
         <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">

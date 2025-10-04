@@ -84,14 +84,11 @@ export default function QuestionPaperManagement() {
     title: '',
     description: '',
     examId: '',
-    subjectId: '',
-    classId: '',
     markDistribution: {
       oneMark: 0,
       twoMark: 0,
       threeMark: 0,
       fiveMark: 0,
-      totalQuestions: 0,
       totalMarks: 0
     },
     bloomsDistribution: [
@@ -121,151 +118,17 @@ export default function QuestionPaperManagement() {
     loadData();
   }, []);
 
-  // Debug: Log current state
-  useEffect(() => {
-    console.log('Current state:', {
-      subjects: subjects.length,
-      classes: classes.length,
-      exams: exams.length,
-      questionPapers: questionPapers.length,
-      loading
-    });
-  }, [subjects, classes, exams, questionPapers, loading]);
-
   const loadData = async () => {
     try {
-      setLoading(true);
-      
-      // For now, use mock data since backend has compilation issues
-      // TODO: Replace with actual API calls when backend is fixed
-      
-      // Mock subjects
-      setSubjects([
-        { _id: '1', name: 'Mathematics', code: 'MATH' },
-        { _id: '2', name: 'Physics', code: 'PHY' },
-        { _id: '3', name: 'Chemistry', code: 'CHEM' },
-        { _id: '4', name: 'Biology', code: 'BIO' },
-        { _id: '5', name: 'English', code: 'ENG' }
+      setLoading(true);   
+      const [examsResponse, questionPapersResponse] = await Promise.all([
+        examsAPI.getAll().catch(() => null),
+        questionPaperAPI.getAll().catch(() => null)
       ]);
-      
-      // Mock classes
-      setClasses([
-        { _id: '1', name: 'Class 10A', displayName: 'Class 10A' },
-        { _id: '2', name: 'Class 10B', displayName: 'Class 10B' },
-        { _id: '3', name: 'Class 11A', displayName: 'Class 11A' },
-        { _id: '4', name: 'Class 11B', displayName: 'Class 11B' },
-        { _id: '5', name: 'Class 12A', displayName: 'Class 12A' }
-      ]);
-      
-      // Mock exams
-      setExams([
-        { _id: '1', title: 'Mid Term Exam', examType: 'MID_TERM' },
-        { _id: '2', title: 'Unit Test 1', examType: 'UNIT_TEST' },
-        { _id: '3', title: 'Final Exam', examType: 'FINAL' },
-        { _id: '4', title: 'Quiz 1', examType: 'QUIZ' }
-      ]);
-      
-      // Mock question papers
-      setQuestionPapers([
-        {
-          _id: '1',
-          id: '1',
-          title: 'Mathematics Mid Term Exam',
-          description: 'Comprehensive mathematics exam for Class 10A',
-          examId: '1',
-          subjectId: '1',
-          classId: '1',
-          type: 'AI_GENERATED',
-          status: 'GENERATED',
-          markDistribution: {
-            oneMark: 20,
-            twoMark: 15,
-            threeMark: 10,
-            fiveMark: 5,
-            totalQuestions: 50,
-            totalMarks: 100
-          },
-          bloomsDistribution: [
-            { level: 'REMEMBER', percentage: 20 },
-            { level: 'UNDERSTAND', percentage: 30 },
-            { level: 'APPLY', percentage: 25 },
-            { level: 'ANALYZE', percentage: 15 },
-            { level: 'EVALUATE', percentage: 7 },
-            { level: 'CREATE', percentage: 3 }
-          ],
-          questionTypeDistribution: [
-            { type: 'CHOOSE_BEST_ANSWER', percentage: 40 },
-            { type: 'FILL_BLANKS', percentage: 20 },
-            { type: 'SHORT_ANSWER', percentage: 20 },
-            { type: 'LONG_ANSWER', percentage: 20 }
-          ],
-          generatedPdf: {
-            fileName: 'math-midterm-2024.pdf',
-            filePath: '/question-papers/math-midterm-2024.pdf',
-            fileSize: 1024000,
-            generatedAt: new Date().toISOString(),
-            downloadUrl: '/question-papers/math-midterm-2024.pdf'
-          },
-          aiSettings: {
-            useSubjectBook: true,
-            customInstructions: 'Focus on algebra and geometry',
-            difficultyLevel: 'MODERATE',
-            twistedQuestionsPercentage: 10
-          },
-          createdBy: 'admin1',
-          isActive: true,
-          questions: ['q1', 'q2', 'q3', 'q4', 'q5'], // Mock question IDs
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          _id: '2',
-          id: '2',
-          title: 'Physics Unit Test',
-          description: 'Physics unit test for Class 11A',
-          examId: '2',
-          subjectId: '2',
-          classId: '3',
-          type: 'AI_GENERATED',
-          status: 'DRAFT',
-          markDistribution: {
-            oneMark: 15,
-            twoMark: 10,
-            threeMark: 8,
-            fiveMark: 3,
-            totalQuestions: 36,
-            totalMarks: 80
-          },
-          bloomsDistribution: [
-            { level: 'REMEMBER', percentage: 15 },
-            { level: 'UNDERSTAND', percentage: 25 },
-            { level: 'APPLY', percentage: 30 },
-            { level: 'ANALYZE', percentage: 20 },
-            { level: 'EVALUATE', percentage: 7 },
-            { level: 'CREATE', percentage: 3 }
-          ],
-          questionTypeDistribution: [
-            { type: 'CHOOSE_BEST_ANSWER', percentage: 50 },
-            { type: 'FILL_BLANKS', percentage: 15 },
-            { type: 'SHORT_ANSWER', percentage: 20 },
-            { type: 'LONG_ANSWER', percentage: 15 }
-          ],
-          aiSettings: {
-            useSubjectBook: false,
-            customInstructions: '',
-            difficultyLevel: 'MODERATE',
-            twistedQuestionsPercentage: 5
-          },
-          createdBy: 'admin1',
-          isActive: true,
-          questions: ['q6', 'q7', 'q8', 'q9', 'q10'], // Mock question IDs
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ]);
-      
-      console.log('Mock data loaded successfully');
-      
+      setExams(examsResponse?.data || []);
+      setQuestionPapers(questionPapersResponse?.questionPapers || []);
+      console.log("examsResponse", examsResponse);
+      console.log("questionPapersResponse", questionPapersResponse);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -280,41 +143,70 @@ export default function QuestionPaperManagement() {
 
   const handleCreateQuestionPaper = async () => {
     try {
-      // For now, just add to mock data
-      const newQuestionPaper = {
-        _id: Date.now().toString(),
-        id: Date.now().toString(),
+      if (!formData.title || !formData.examId) {
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate mark distribution
+      const totalFromQuestions = (formData.markDistribution.oneMark * 1) + 
+                                (formData.markDistribution.twoMark * 2) + 
+                                (formData.markDistribution.threeMark * 3) + 
+                                (formData.markDistribution.fiveMark * 5);
+      
+      if (formData.markDistribution.totalMarks === 100 && totalFromQuestions !== 100) {
+        toast({
+          title: "Validation Error",
+          description: `Total marks from questions (${totalFromQuestions}) must equal exactly 100 when total marks is set to 100`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Get exam details to extract subject and class IDs
+      const selectedExam = exams.find(exam => exam._id === formData.examId);
+      
+      if (!selectedExam) {
+        toast({
+          title: "Error",
+          description: "Please select a valid exam",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Generate question paper directly using AI
+      const aiRequest = {
         title: formData.title,
         description: formData.description,
         examId: formData.examId,
-        subjectId: formData.subjectId,
-        classId: formData.classId,
-        type: 'AI_GENERATED' as const,
-        status: 'DRAFT' as const,
+        subjectId: selectedExam.subjectId || selectedExam.subjectId?._id,
+        classId: selectedExam.classId || selectedExam.classId?._id,
         markDistribution: formData.markDistribution,
         bloomsDistribution: formData.bloomsDistribution,
         questionTypeDistribution: formData.questionTypeDistribution,
-        aiSettings: formData.aiSettings,
-        createdBy: 'admin1',
-        isActive: true,
-        questions: [], // Empty questions array for new question paper
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        aiSettings: formData.aiSettings
       };
+
+      const generatedQuestionPaper = await questionPaperAPI.generateCompleteAI(aiRequest as any);
       
-      setQuestionPapers(prev => [newQuestionPaper, ...prev]);
+      setQuestionPapers(prev => [generatedQuestionPaper, ...prev]);
       
       toast({ 
         title: "Success",
-        description: "Question paper created successfully"
+        description: "Question paper generated successfully with AI"
       });
       setIsCreateDialogOpen(false);
       resetForm();
     } catch (error) {
-      console.error('Error creating question paper:', error);
+      console.error('Error generating question paper:', error);
       toast({
         title: "Error",
-        description: "Failed to create question paper",
+        description: "Failed to generate question paper",
         variant: "destructive"
       });
     }
@@ -322,20 +214,13 @@ export default function QuestionPaperManagement() {
 
   const handleGenerateQuestionPaper = async (questionPaper: QuestionPaper) => {
     try {
-      // Mock generation - update status and add PDF info
+      // Generate question paper using AI
+      const result = await questionPaperAPI.generateAI(questionPaper._id);
+      
+      // Update the question paper in state
       setQuestionPapers(prev => prev.map(paper => 
         paper._id === questionPaper._id 
-          ? {
-              ...paper,
-              status: 'GENERATED',
-              generatedPdf: {
-                fileName: `${paper.title.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.pdf`,
-                filePath: `/question-papers/${paper.title.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.pdf`,
-                fileSize: 1024000,
-                generatedAt: new Date().toISOString(),
-                downloadUrl: `/question-papers/${paper.title.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.pdf`
-              }
-            }
+          ? result.questionPaper
           : paper
       ));
       
@@ -356,13 +241,21 @@ export default function QuestionPaperManagement() {
   const handleDownloadQuestionPaper = async (questionPaper: QuestionPaper) => {
     try {
       if (questionPaper.generatedPdf) {
-        // Mock download - just show a message
+        // Use the download URL from the generated PDF
+        const downloadUrl = questionPaper.generatedPdf.downloadUrl;
+        
+        // Create a temporary link and trigger download
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = questionPaper.generatedPdf.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
         toast({
           title: "Download Started",
           description: `Downloading ${questionPaper.generatedPdf.fileName}`
         });
-        // In a real app, this would trigger the actual download
-        console.log('Would download:', questionPaper.generatedPdf.downloadUrl);
       } else {
         toast({
           title: "Error",
@@ -382,7 +275,10 @@ export default function QuestionPaperManagement() {
 
   const handleDeleteQuestionPaper = async (questionPaper: QuestionPaper) => {
     try {
-      // Mock deletion - remove from state
+      // Delete question paper using API
+      await questionPaperAPI.delete(questionPaper._id);
+      
+      // Remove from state
       setQuestionPapers(prev => prev.filter(paper => paper._id !== questionPaper._id));
       
       toast({
@@ -404,14 +300,11 @@ export default function QuestionPaperManagement() {
       title: '',
       description: '',
       examId: '',
-      subjectId: '',
-      classId: '',
       markDistribution: {
         oneMark: 0,
         twoMark: 0,
         threeMark: 0,
         fiveMark: 0,
-        totalQuestions: 0,
         totalMarks: 0
       },
       bloomsDistribution: [
@@ -438,13 +331,33 @@ export default function QuestionPaperManagement() {
   };
 
   const updateMarkDistribution = (field: string, value: number) => {
-    setFormData(prev => ({
-      ...prev,
-      markDistribution: {
+    setFormData(prev => {
+      const newMarkDistribution = {
         ...prev.markDistribution,
         [field]: value
+      };
+      
+      // Calculate total marks from individual mark questions
+      const totalFromQuestions = (newMarkDistribution.oneMark * 1) + 
+                                (newMarkDistribution.twoMark * 2) + 
+                                (newMarkDistribution.threeMark * 3) + 
+                                (newMarkDistribution.fiveMark * 5);
+      
+      // If total marks is set to 100, validate that question marks equal exactly 100
+      if (newMarkDistribution.totalMarks === 100 && totalFromQuestions !== 100) {
+        toast({
+          title: "Validation Error",
+          description: `Total marks from questions (${totalFromQuestions}) must equal exactly 100 when total marks is set to 100`,
+          variant: "destructive"
+        });
+        return prev; // Don't update if validation fails
       }
-    }));
+      
+      return {
+        ...prev,
+        markDistribution: newMarkDistribution
+      };
+    });
   };
 
   const updateBloomsDistribution = (level: string, percentage: number) => {
@@ -691,10 +604,6 @@ export default function QuestionPaperManagement() {
                   <Badge variant="outline">{paper.type}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Total Questions</span>
-                  <span className="font-medium">{paper.markDistribution.totalQuestions}</span>
-                </div>
-                <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Total Marks</span>
                   <span className="font-medium">{paper.markDistribution.totalMarks}</span>
                 </div>
@@ -722,23 +631,21 @@ export default function QuestionPaperManagement() {
           </DialogHeader>
           
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="marks">Mark Distribution</TabsTrigger>
-              <TabsTrigger value="blooms">Blooms Taxonomy</TabsTrigger>
-              <TabsTrigger value="types">Question Types</TabsTrigger>
+              <TabsTrigger value="marks">Mark Distribution & Settings</TabsTrigger>
             </TabsList>
             
             <TabsContent value="basic" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="title">Title</Label>
-              <Input 
-                id="title"
-                value={formData.title}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Title</Label>
+                  <Input 
+                    id="title"
+                    value={formData.title}
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Enter question paper title"
-              />
+                    placeholder="Enter question paper title"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="exam">Exam</Label>
@@ -756,168 +663,211 @@ export default function QuestionPaperManagement() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="subject">Subject</Label>
-                  <Select value={formData.subjectId} onValueChange={(value) => setFormData(prev => ({ ...prev, subjectId: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subjects.map(subject => (
-                        <SelectItem key={subject._id} value={subject._id}>
-                          {subject.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="class">Class</Label>
-                  <Select value={formData.classId} onValueChange={(value) => setFormData(prev => ({ ...prev, classId: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes.map(cls => (
-                        <SelectItem key={cls._id} value={cls._id}>
-                          {cls.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea 
-                id="description"
-                value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Enter question paper description"
-                rows={3}
-                />
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="marks" className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="oneMark">1 Mark Questions</Label>
-                  <Input
-                    id="oneMark"
-                    type="number"
-                    value={formData.markDistribution.oneMark}
-                    onChange={(e) => updateMarkDistribution('oneMark', parseInt(e.target.value) || 0)}
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="twoMark">2 Mark Questions</Label>
-                  <Input
-                    id="twoMark"
-                    type="number"
-                    value={formData.markDistribution.twoMark}
-                    onChange={(e) => updateMarkDistribution('twoMark', parseInt(e.target.value) || 0)}
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="threeMark">3 Mark Questions</Label>
-                  <Input
-                    id="threeMark"
-                    type="number"
-                    value={formData.markDistribution.threeMark}
-                    onChange={(e) => updateMarkDistribution('threeMark', parseInt(e.target.value) || 0)}
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="fiveMark">5 Mark Questions</Label>
-                  <Input
-                    id="fiveMark"
-                    type="number"
-                    value={formData.markDistribution.fiveMark}
-                    onChange={(e) => updateMarkDistribution('fiveMark', parseInt(e.target.value) || 0)}
-                    min="0"
-                    max="100"
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea 
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Enter question paper description"
+                    rows={3}
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="totalQuestions">Total Questions</Label>
-                  <Input
-                    id="totalQuestions"
-                    type="number"
-                    value={formData.markDistribution.totalQuestions}
-                    onChange={(e) => updateMarkDistribution('totalQuestions', parseInt(e.target.value) || 0)}
-                    min="1"
-                    max="100"
-              />
-            </div>
-            <div>
-                  <Label htmlFor="totalMarks">Total Marks</Label>
-                  <Input
-                    id="totalMarks"
-                    type="number"
-                    value={formData.markDistribution.totalMarks}
-                    onChange={(e) => updateMarkDistribution('totalMarks', parseInt(e.target.value) || 0)}
-                    min="1"
-                    max="1000"
-                  />
-            </div>
-          </div>
             </TabsContent>
             
-            <TabsContent value="blooms" className="space-y-4">
+            <TabsContent value="marks" className="space-y-6">
+              {/* Basic Mark Distribution */}
               <div className="space-y-4">
-                {BLOOMS_LEVELS.map(level => (
-                  <div key={level.id} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <Label className="font-medium">{level.name}</Label>
-                        <p className="text-sm text-gray-600">{level.description}</p>
-                      </div>
-                      <span className="text-sm font-medium">
-                        {formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0}%
-                      </span>
-                    </div>
-                    <Slider
-                      value={[formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0]}
-                      onValueChange={([value]) => updateBloomsDistribution(level.id, value)}
-                      max={100}
-                      step={1}
-                      className="w-full"
+                <h3 className="text-lg font-semibold">Mark Distribution</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label htmlFor="oneMark">1 Mark Questions</Label>
+                    <Input
+                      id="oneMark"
+                      type="number"
+                      value={formData.markDistribution.oneMark || ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                        updateMarkDistribution('oneMark', value);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      min="0"
+                      max="100"
+                      placeholder="0"
                     />
                   </div>
-                ))}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="types" className="space-y-4">
-              <div className="space-y-4">
-                {QUESTION_TYPES.map(type => (
-                  <div key={type.id} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <Label className="font-medium">{type.name}</Label>
-                        <p className="text-sm text-gray-600">{type.description}</p>
-                      </div>
-                      <span className="text-sm font-medium">
-                        {formData.questionTypeDistribution.find(d => d.type === type.id)?.percentage || 0}%
-                      </span>
-                    </div>
-                    <Slider
-                      value={[formData.questionTypeDistribution.find(d => d.type === type.id)?.percentage || 0]}
-                      onValueChange={([value]) => updateQuestionTypeDistribution(type.id, value)}
-                      max={100}
-                      step={1}
-                      className="w-full"
+                  <div>
+                    <Label htmlFor="twoMark">2 Mark Questions</Label>
+                    <Input
+                      id="twoMark"
+                      type="number"
+                      value={formData.markDistribution.twoMark || ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                        updateMarkDistribution('twoMark', value);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      min="0"
+                      max="100"
+                      placeholder="0"
                     />
                   </div>
-                ))}
+                  <div>
+                    <Label htmlFor="threeMark">3 Mark Questions</Label>
+                    <Input
+                      id="threeMark"
+                      type="number"
+                      value={formData.markDistribution.threeMark || ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                        updateMarkDistribution('threeMark', value);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="fiveMark">5 Mark Questions</Label>
+                    <Input
+                      id="fiveMark"
+                      type="number"
+                      value={formData.markDistribution.fiveMark || ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                        updateMarkDistribution('fiveMark', value);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="totalMarks">Total Marks</Label>
+                    <Input
+                      id="totalMarks"
+                      type="number"
+                      value={formData.markDistribution.totalMarks || ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? 0 : Math.max(1, parseInt(e.target.value) || 1);
+                        updateMarkDistribution('totalMarks', value);
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      min="1"
+                      max="1000"
+                      placeholder="100"
+                    />
+                  </div>
+                </div>
+                
+                {/* Mark Distribution Summary */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2">Mark Distribution Summary</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">1 Mark Questions:</span>
+                      <span className="ml-2 font-medium">{formData.markDistribution.oneMark} × 1 = {formData.markDistribution.oneMark * 1} marks</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">2 Mark Questions:</span>
+                      <span className="ml-2 font-medium">{formData.markDistribution.twoMark} × 2 = {formData.markDistribution.twoMark * 2} marks</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">3 Mark Questions:</span>
+                      <span className="ml-2 font-medium">{formData.markDistribution.threeMark} × 3 = {formData.markDistribution.threeMark * 3} marks</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">5 Mark Questions:</span>
+                      <span className="ml-2 font-medium">{formData.markDistribution.fiveMark} × 5 = {formData.markDistribution.fiveMark * 5} marks</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Total Marks from Questions:</span>
+                      <span className={`font-medium ${
+                        ((formData.markDistribution.oneMark * 1) + 
+                         (formData.markDistribution.twoMark * 2) + 
+                         (formData.markDistribution.threeMark * 3) + 
+                         (formData.markDistribution.fiveMark * 5)) !== 100 && 
+                        formData.markDistribution.totalMarks === 100 
+                          ? 'text-red-600' 
+                          : 'text-green-600'
+                      }`}>
+                        {(formData.markDistribution.oneMark * 1) + 
+                         (formData.markDistribution.twoMark * 2) + 
+                         (formData.markDistribution.threeMark * 3) + 
+                         (formData.markDistribution.fiveMark * 5)}
+                      </span>
+                    </div>
+                    {formData.markDistribution.totalMarks === 100 && 
+                     ((formData.markDistribution.oneMark * 1) + 
+                      (formData.markDistribution.twoMark * 2) + 
+                      (formData.markDistribution.threeMark * 3) + 
+                      (formData.markDistribution.fiveMark * 5)) !== 100 && (
+                      <div className="mt-2 text-red-600 text-sm">
+                        ⚠️ Total marks from questions must equal exactly 100. Please adjust the distribution.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Question Type Distribution */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Question Type Distribution</h3>
+                <div className="space-y-4">
+                  {QUESTION_TYPES.map(type => (
+                    <div key={type.id} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <Label className="font-medium">{type.name}</Label>
+                          <p className="text-sm text-gray-600">{type.description}</p>
+                        </div>
+                        <span className="text-sm font-medium">
+                          {formData.questionTypeDistribution.find(d => d.type === type.id)?.percentage || 0}%
+                        </span>
+                      </div>
+                      <Slider
+                        value={[formData.questionTypeDistribution.find(d => d.type === type.id)?.percentage || 0]}
+                        onValueChange={([value]) => updateQuestionTypeDistribution(type.id, value)}
+                        max={100}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Blooms Taxonomy Distribution */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Blooms Taxonomy Distribution</h3>
+                <div className="space-y-4">
+                  {BLOOMS_LEVELS.map(level => (
+                    <div key={level.id} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <Label className="font-medium">{level.name}</Label>
+                          <p className="text-sm text-gray-600">{level.description}</p>
+                        </div>
+                        <span className="text-sm font-medium">
+                          {formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0}%
+                        </span>
+                      </div>
+                      <Slider
+                        value={[formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0]}
+                        onValueChange={([value]) => updateBloomsDistribution(level.id, value)}
+                        max={100}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -926,7 +876,19 @@ export default function QuestionPaperManagement() {
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateQuestionPaper} className="bg-blue-600 hover:bg-blue-700">
+            <Button 
+              onClick={handleCreateQuestionPaper} 
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={
+                !formData.title || 
+                !formData.examId ||
+                (formData.markDistribution.totalMarks === 100 && 
+                 ((formData.markDistribution.oneMark * 1) + 
+                  (formData.markDistribution.twoMark * 2) + 
+                  (formData.markDistribution.threeMark * 3) + 
+                  (formData.markDistribution.fiveMark * 5)) !== 100)
+              }
+            >
               Create Question Paper
             </Button>
           </div>
@@ -953,10 +915,6 @@ export default function QuestionPaperManagement() {
                   <div className="mt-1">
                     <Badge variant="outline">{selectedQuestionPaper.type}</Badge>
                   </div>
-                </div>
-                <div>
-                  <Label className="font-medium">Total Questions</Label>
-                  <div className="mt-1">{selectedQuestionPaper.markDistribution.totalQuestions}</div>
                 </div>
                 <div>
                   <Label className="font-medium">Total Marks</Label>

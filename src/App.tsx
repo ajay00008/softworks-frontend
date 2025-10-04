@@ -16,6 +16,8 @@ import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import PerformanceAnalytics from "./pages/PerformanceAnalytics";
 import TeacherAssignment from "./pages/TeacherAssignment";
+import TeacherDashboard from "./pages/TeacherDashboard";
+import AccessPrivileges from "./pages/AccessPrivileges";
 import QuestionPaperManagement from "./pages/QuestionPaperManagement";
 import ExamManagement from "./pages/ExamManagement";
 import ClassSubjectManagement from "./pages/ClassSubjectManagement";
@@ -64,6 +66,8 @@ const App = () => (
               <Route index element={<PerformanceDashboard />} />
               <Route path="students" element={<Students />} />
               <Route path="teachers" element={<Teachers />} />
+              <Route path="teacher-dashboard" element={<TeacherDashboard />} />
+              <Route path="access-privileges" element={<AccessPrivileges />} />
               <Route path="performance" element={<PerformanceAnalytics />} />
               <Route path="performance/class/:classId" element={<ClassPerformance />} />
               <Route path="performance/subject/:subjectId" element={<SubjectPerformance />} />
@@ -74,7 +78,7 @@ const App = () => (
               <Route path="exams" element={<ExamManagement />} />
               <Route path="absenteeism" element={<AbsenteeismTracking />} />
               <Route path="books" element={<div className="p-6">Books Management - Coming Soon</div>} />
-              <Route path="access" element={<div className="p-6">Access Privileges - Coming Soon</div>} />
+              <Route path="access" element={<AccessPrivileges />} />
               <Route path="mirror" element={<div className="p-6">Mirror Login - Coming Soon</div>} />
             </Route>
             

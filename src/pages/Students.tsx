@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { studentsAPI, classesAPI, Student, ClassMapping } from '@/services/api';
 import { Pagination } from '@/components/ui/pagination';
-import { Plus, Users, Edit, Trash2, UserPlus } from 'lucide-react';
+import { Plus, Users, Edit, Trash2, UserPlus, AlertCircle, ExternalLink } from 'lucide-react';
 
 const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -176,7 +176,7 @@ const Students = () => {
   const loadClasses = async () => {
     try {
       const data = await classesAPI.getAll();
-      setClasses(data?.data || []);
+      setClasses(data || []);
     } catch (error) {
       toast({
         title: "Error",
@@ -226,12 +226,7 @@ const Students = () => {
     try {
       const payload = {
         ...formData,
-        userId: '',
-        student: {},
-        class: {
-          id: selectedClassId,
-          name: classes?.find(c => c.classId === selectedClassId)?.className || ''
-        }
+        classId: selectedClassId,
       };
 
       if (editStudent) {
@@ -241,7 +236,7 @@ const Students = () => {
         });
 
         setStudents(students.map(s =>
-          s.id === editStudent.id ? { ...s, ...updatedStudent.student } : s
+          s.id === editStudent.id ? { ...s, ...updatedStudent } : s
         ));
 
         toast({
@@ -253,8 +248,8 @@ const Students = () => {
           ...payload,
           isActive: true,
         });
-
-        setStudents([...students, newStudent.student]);
+console.log("newStudent",newStudent)
+        setStudents([...students, newStudent]);
 
         toast({
           title: "Success",
@@ -354,6 +349,20 @@ const Students = () => {
     setCurrentPage(page);
   };
 
+  const handleCreateClick = () => {
+    if (classes.length === 0) {
+      toast({
+        title: "No Classes Available",
+        description: "Please create classes first before adding students. Go to Class & Subject Management to create classes.",
+        variant: "destructive",
+      });
+      return;
+    }
+    resetForm();
+    setEditStudent(null);
+    setShowCreateForm(true);
+  };
+
   // Helper function to get class name
   const getClassName = (student: Student) => {
     if (student.class?.name) return student.class.name;
@@ -385,17 +394,59 @@ const Students = () => {
           </p>
         </div>
         <Button
-          onClick={() => {
-            resetForm();
-            setEditStudent(null);
-            setShowCreateForm(true);
-          }}
+          onClick={handleCreateClick}
           className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Student
         </Button>
       </div>
+
+      {/* No Classes Warning */}
+      {classes.length === 0 && (
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
+          <CardContent className="p-6">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-orange-800 dark:text-orange-200 mb-2">
+                  No Classes Available
+                </h3>
+                <p className="text-orange-700 dark:text-orange-300 mb-4">
+                  You need to create classes before you can add students. Please go to Class & Subject Management to create classes first.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    variant="outline"
+                    className="border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/30"
+                    onClick={() => {
+                      // Navigate to class management - you can update this to use your router
+                      window.location.href = '/dashboard/class-subject-management';
+                    }}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Go to Class Management
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="text-orange-600 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-900/30"
+                    onClick={() => {
+                      // Refresh classes
+                      loadClasses();
+                    }}
+                  >
+                    Refresh Classes
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Create/Edit Form */}
       {showCreateForm && (
@@ -478,14 +529,22 @@ const Students = () => {
                     onChange={(e) => setSelectedClassId(e.target.value)}
                     className="w-full p-2 border rounded-md"
                     required
+                    disabled={classes.length === 0}
                   >
-                    <option value="">Select a class</option>
+                    <option value="">
+                      {classes.length === 0 ? "No classes available" : "Select a class"}
+                    </option>
                     {classes?.map((cls) => (
-                      <option key={cls.classId} value={cls.classId}>
-                        {cls.className}
+                      <option key={cls._id} value={cls._id}>
+                        {cls.name}
                       </option>
                     ))}
                   </select>
+                  {classes.length === 0 && (
+                    <p className="text-sm text-orange-600 dark:text-orange-400">
+                      Please create classes first in Class & Subject Management
+                    </p>
+                  )}
                 </div>
               </div>
 

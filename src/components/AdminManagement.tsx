@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { adminsAPI, User } from '@/services/api';
 import { Plus, Edit, Trash2, Shield, Crown, Search } from 'lucide-react';
@@ -24,7 +25,8 @@ const AdminManagement = () => {
     name: '',
     email: '',
     password: '',
-    role: 'admin' as 'admin' | 'super_admin'
+    role: 'ADMIN' as 'ADMIN' | 'SUPER_ADMIN',
+    isActive: true
   });
 
   useEffect(() => {
@@ -35,7 +37,8 @@ const AdminManagement = () => {
     try {
       setIsLoading(true);
       const response = await adminsAPI.getAll();
-      setAdmins(response.admins);
+      console.log('Admins API response:', response);
+      setAdmins(response?.admins?.data || []);
     } catch (error) {
       console.error('Error loading admins:', error);
       toast({
@@ -52,7 +55,7 @@ const AdminManagement = () => {
     e.preventDefault();
     try {
       if (editingAdmin) {
-        await adminsAPI.update(editingAdmin.id, formData);
+        await adminsAPI.update(editingAdmin._id, formData);
         toast({
           title: "Success",
           description: "Admin updated successfully",
@@ -67,7 +70,7 @@ const AdminManagement = () => {
       }
       setIsDialogOpen(false);
       setEditingAdmin(null);
-      setFormData({ name: '', email: '', password: '', role: 'admin' });
+      setFormData({ name: '', email: '', password: '', role: 'ADMIN', isActive: true });
       loadAdmins();
     } catch (error) {
       console.error('Error saving admin:', error);
@@ -85,7 +88,8 @@ const AdminManagement = () => {
       name: admin.name || '',
       email: admin.email,
       password: '', // Don't show existing password
-      role: admin.role || 'admin'
+      role: (admin.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN') as 'ADMIN' | 'SUPER_ADMIN',
+      isActive: admin.isActive
     });
     setIsDialogOpen(true);
   };
@@ -108,10 +112,11 @@ const AdminManagement = () => {
     }
   };
 
+
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setEditingAdmin(null);
-    setFormData({ name: '', email: '', password: '', role: 'admin' });
+    setFormData({ name: '', email: '', password: '', role: 'ADMIN', isActive: true });
   };
 
   const filteredAdmins = admins.filter(admin =>
@@ -120,11 +125,11 @@ const AdminManagement = () => {
   );
 
   const getRoleIcon = (role: string) => {
-    return role === 'super_admin' ? Crown : Shield;
+    return role === 'SUPER_ADMIN' ? Crown : Shield;
   };
 
   const getRoleBadgeVariant = (role: string) => {
-    return role === 'super_admin' ? 'default' : 'secondary';
+    return role === 'SUPER_ADMIN' ? 'default' : 'secondary';
   };
 
   if (isLoading) {
@@ -213,16 +218,24 @@ const AdminManagement = () => {
                 <Label htmlFor="role">Role</Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value: 'admin' | 'super_admin') => setFormData({ ...formData, role: value })}
+                  onValueChange={(value: 'ADMIN' | 'SUPER_ADMIN') => setFormData({ ...formData, role: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                    <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isActive"
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                />
+                <Label htmlFor="isActive">Active Status</Label>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={handleDialogClose}>
@@ -282,7 +295,7 @@ const AdminManagement = () => {
                     <TableCell>
                       <Badge variant={getRoleBadgeVariant(admin.role || 'admin')} className="flex items-center gap-1 w-fit">
                         <RoleIcon className="w-3 h-3" />
-                        {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                        {admin.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -300,7 +313,7 @@ const AdminManagement = () => {
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        {admin.role !== 'super_admin' && admin.isActive && (
+                        {admin.role !== 'SUPER_ADMIN' && admin.isActive && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">

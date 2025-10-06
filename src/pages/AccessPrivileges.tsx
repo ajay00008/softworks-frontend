@@ -38,13 +38,23 @@ import { teachersAPI, classManagementAPI, subjectManagementAPI } from '@/service
 import { accessPrivilegesAPI } from '@/services/accessPrivilegesAPI';
 
 interface StaffAccess {
-  id: string;
-  staffId: string;
-  staffName: string;
-  staffEmail: string;
-  assignedBy: string;
+  _id: string;
+  staffId: {
+    _id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
+  assignedBy: {
+    _id: string;
+    email: string;
+    name: string;
+  };
   classAccess: Array<{
-    classId: string;
+    classId: {
+      _id: string;
+      name: string;
+    };
     className: string;
     accessLevel: 'READ_ONLY' | 'READ_WRITE' | 'FULL_ACCESS';
     canUploadSheets: boolean;
@@ -53,7 +63,11 @@ interface StaffAccess {
     canOverrideAI: boolean;
   }>;
   subjectAccess: Array<{
-    subjectId: string;
+    subjectId: {
+      _id: string;
+      code: string;
+      name: string;
+    };
     subjectName: string;
     accessLevel: 'READ_ONLY' | 'READ_WRITE' | 'FULL_ACCESS';
     canCreateQuestions: boolean;
@@ -82,7 +96,7 @@ interface Teacher {
 }
 
 interface Class {
-  id: string;
+  _id: string;
   name: string;
   displayName: string;
   level: number;
@@ -90,14 +104,13 @@ interface Class {
 }
 
 interface Subject {
-  id: string;
+  _id: string;
   name: string;
   code: string;
   category: string;
 }
 
 const AccessPrivileges = () => {
-  console.log('AccessPrivileges component rendering...');
   
   const [staffAccessList, setStaffAccessList] = useState<StaffAccess[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -222,10 +235,30 @@ const AccessPrivileges = () => {
 
   const handleEditAccess = (access: StaffAccess) => {
     setEditingAccess(access);
+    
+    // Ensure classAccess and subjectAccess have proper structure
+    const classAccess = access.classAccess.map(ca => ({
+      classId: typeof ca.classId === 'string' ? ca.classId : ca.classId._id,
+      className: ca.className || (typeof ca.classId === 'object' ? ca.classId.name : ''),
+      accessLevel: ca.accessLevel,
+      canUploadSheets: ca.canUploadSheets,
+      canMarkAbsent: ca.canMarkAbsent,
+      canMarkMissing: ca.canMarkMissing,
+      canOverrideAI: ca.canOverrideAI
+    }));
+    
+    const subjectAccess = access.subjectAccess.map(sa => ({
+      subjectId: typeof sa.subjectId === 'string' ? sa.subjectId : sa.subjectId._id,
+      subjectName: sa.subjectName || (typeof sa.subjectId === 'object' ? sa.subjectId.name : ''),
+      accessLevel: sa.accessLevel,
+      canCreateQuestions: sa.canCreateQuestions,
+      canUploadSyllabus: sa.canUploadSyllabus
+    }));
+    
     setAccessForm({
-      staffId: access.staffId,
-      classAccess: access.classAccess,
-      subjectAccess: access.subjectAccess,
+      staffId: access.staffId._id,
+      classAccess: classAccess,
+      subjectAccess: subjectAccess,
       globalPermissions: access.globalPermissions,
       expiresAt: access.expiresAt || '',
       notes: access.notes || ''
@@ -237,7 +270,7 @@ const AccessPrivileges = () => {
     if (!editingAccess) return;
 
     try {
-      const response = await accessPrivilegesAPI.update(editingAccess.id, {
+      const response = await accessPrivilegesAPI.update(editingAccess._id, {
         classAccess: accessForm.classAccess,
         subjectAccess: accessForm.subjectAccess,
         globalPermissions: accessForm.globalPermissions,
@@ -247,7 +280,7 @@ const AccessPrivileges = () => {
 
       if (response.success) {
         setStaffAccessList(prev => 
-          prev.map(access => access.id === editingAccess.id ? response.data : access)
+          prev.map(access => access._id === editingAccess._id ? response.data : access)
         );
         setShowEditDialog(false);
         setEditingAccess(null);
@@ -275,7 +308,7 @@ const AccessPrivileges = () => {
       const response = await accessPrivilegesAPI.delete(accessId);
       
       if (response.success) {
-        setStaffAccessList(prev => prev.filter(access => access.id !== accessId));
+        setStaffAccessList(prev => prev.filter(access => access._id !== accessId));
         toast({
           title: "Success",
           description: "Access privileges deleted successfully",
@@ -355,24 +388,46 @@ const AccessPrivileges = () => {
   const updateClassAccess = (index: number, field: string, value: any) => {
     setAccessForm(prev => ({
       ...prev,
-      classAccess: prev.classAccess.map((access, i) => 
-        i === index ? { ...access, [field]: value } : access
-      )
+      classAccess: prev.classAccess.map((access, i) => {
+        if (i === index) {
+          const updatedAccess = { ...access, [field]: value };
+          // If classId is being updated, also update className
+          if (field === 'classId') {
+            const selectedClass = classes.find(cls => cls._id === value);
+            if (selectedClass) {
+              updatedAccess.className = selectedClass.displayName || selectedClass.name;
+            }
+          }
+          return updatedAccess;
+        }
+        return access;
+      })
     }));
   };
 
   const updateSubjectAccess = (index: number, field: string, value: any) => {
     setAccessForm(prev => ({
       ...prev,
-      subjectAccess: prev.subjectAccess.map((access, i) => 
-        i === index ? { ...access, [field]: value } : access
-      )
+      subjectAccess: prev.subjectAccess.map((access, i) => {
+        if (i === index) {
+          const updatedAccess = { ...access, [field]: value };
+          // If subjectId is being updated, also update subjectName
+          if (field === 'subjectId') {
+            const selectedSubject = subjects.find(subject => subject._id === value);
+            if (selectedSubject) {
+              updatedAccess.subjectName = selectedSubject.name;
+            }
+          }
+          return updatedAccess;
+        }
+        return access;
+      })
     }));
   };
 
   const filteredAccess = staffAccessList.filter(access => {
-    const matchesSearch = access.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         access.staffEmail.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = access.staffId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         access.staffId.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || 
                          (filterStatus === 'active' && access.isActive) ||
                          (filterStatus === 'inactive' && !access.isActive);
@@ -399,11 +454,7 @@ const AccessPrivileges = () => {
     );
   }
 
-  console.log('Rendering AccessPrivileges main content...');
-  
-  // Fallback content in case of any issues
-  try {
-    return (
+  return (
       <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -474,23 +525,23 @@ const AccessPrivileges = () => {
           </Card>
         ) : (
           filteredAccess.map((access) => (
-          <Card key={access.id}>
+          <Card key={access._id}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center space-x-2">
-                    <span>{access.staffName}</span>
+                    <span>{access.staffId.name}</span>
                     <Badge variant={access.isActive ? "default" : "secondary"}>
                       {access.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </CardTitle>
-                  <CardDescription>{access.staffEmail}</CardDescription>
+                  <CardDescription>{access.staffId.email}</CardDescription>
                 </div>
                 <div className="flex space-x-2">
                   <Button variant="outline" size="sm" onClick={() => handleEditAccess(access)}>
                     <Edit className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleDeleteAccess(access.id)}>
+                  <Button variant="outline" size="sm" onClick={() => handleDeleteAccess(access._id)}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -649,7 +700,7 @@ const AccessPrivileges = () => {
                       <Select 
                         value={classAccess.classId} 
                         onValueChange={(value) => {
-                          const selectedClass = classes.find(c => c.id === value);
+                          const selectedClass = classes.find(c => c._id === value);
                           updateClassAccess(index, 'classId', value);
                           updateClassAccess(index, 'className', selectedClass?.name || '');
                         }}
@@ -659,7 +710,7 @@ const AccessPrivileges = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {classes.map((cls) => (
-                            <SelectItem key={cls.id} value={cls.id}>
+                            <SelectItem key={cls._id} value={cls._id}>
                               {cls.displayName}
                             </SelectItem>
                           ))}
@@ -743,7 +794,7 @@ const AccessPrivileges = () => {
                       <Select 
                         value={subjectAccess.subjectId} 
                         onValueChange={(value) => {
-                          const selectedSubject = subjects.find(s => s.id === value);
+                          const selectedSubject = subjects.find(s => s._id === value);
                           updateSubjectAccess(index, 'subjectId', value);
                           updateSubjectAccess(index, 'subjectName', selectedSubject?.name || '');
                         }}
@@ -753,7 +804,7 @@ const AccessPrivileges = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {subjects.map((subject) => (
-                            <SelectItem key={subject.id} value={subject.id}>
+                            <SelectItem key={subject._id} value={subject._id}>
                               {subject.name}
                             </SelectItem>
                           ))}
@@ -893,15 +944,287 @@ const AccessPrivileges = () => {
           <DialogHeader>
             <DialogTitle>Edit Access Privileges</DialogTitle>
             <DialogDescription>
-              Modify access permissions for {editingAccess?.staffName}
+              Modify access permissions for {editingAccess?.staffId.name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
-            {/* Similar form structure as create dialog */}
-            <div className="text-center py-8 text-muted-foreground">
-              <Edit className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Edit form would be similar to create form</p>
-              <p className="text-sm">Implementation details omitted for brevity</p>
+            {/* Teacher Selection (Read-only) */}
+            <div className="space-y-2">
+              <Label>Teacher</Label>
+              <div className="p-3 bg-muted rounded-md">
+                <div className="flex items-center space-x-2">
+                  <UserCheck className="w-4 h-4" />
+                  <span className="font-medium">{editingAccess?.staffId.name}</span>
+                  <span className="text-muted-foreground">({editingAccess?.staffId.email})</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Class Access */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label className="text-lg font-medium">Class Access</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addClassAccess}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Class
+                </Button>
+              </div>
+              {accessForm.classAccess.map((classAccess, index) => (
+                <div key={index} className="p-4 border rounded-lg space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium">Class Access {index + 1}</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => removeClassAccess(index)}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Class</Label>
+                      <Select 
+                        value={classAccess.classId} 
+                        onValueChange={(value) => {
+                          const selectedClass = classes.find(c => c._id === value);
+                          updateClassAccess(index, 'classId', value);
+                          updateClassAccess(index, 'className', selectedClass?.displayName || selectedClass?.name || '');
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {classes.map((cls) => (
+                            <SelectItem key={cls._id} value={cls._id}>
+                              {cls.displayName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Access Level</Label>
+                      <Select 
+                        value={classAccess.accessLevel} 
+                        onValueChange={(value) => updateClassAccess(index, 'accessLevel', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="READ_ONLY">Read Only</SelectItem>
+                          <SelectItem value="READ_WRITE">Read & Write</SelectItem>
+                          <SelectItem value="FULL_ACCESS">Full Access</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`upload-sheets-${index}`}
+                          checked={classAccess.canUploadSheets}
+                          onCheckedChange={(checked) => updateClassAccess(index, 'canUploadSheets', checked)}
+                        />
+                        <Label htmlFor={`upload-sheets-${index}`} className="text-sm">Can Upload Sheets</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`mark-absent-${index}`}
+                          checked={classAccess.canMarkAbsent}
+                          onCheckedChange={(checked) => updateClassAccess(index, 'canMarkAbsent', checked)}
+                        />
+                        <Label htmlFor={`mark-absent-${index}`} className="text-sm">Can Mark Absent</Label>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`mark-missing-${index}`}
+                          checked={classAccess.canMarkMissing}
+                          onCheckedChange={(checked) => updateClassAccess(index, 'canMarkMissing', checked)}
+                        />
+                        <Label htmlFor={`mark-missing-${index}`} className="text-sm">Can Mark Missing</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`override-ai-${index}`}
+                          checked={classAccess.canOverrideAI}
+                          onCheckedChange={(checked) => updateClassAccess(index, 'canOverrideAI', checked)}
+                        />
+                        <Label htmlFor={`override-ai-${index}`} className="text-sm">Can Override AI</Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Subject Access */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label className="text-lg font-medium">Subject Access</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addSubjectAccess}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Subject
+                </Button>
+              </div>
+              {accessForm.subjectAccess.map((subjectAccess, index) => (
+                <div key={index} className="p-4 border rounded-lg space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium">Subject Access {index + 1}</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => removeSubjectAccess(index)}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Subject</Label>
+                      <Select 
+                        value={subjectAccess.subjectId} 
+                        onValueChange={(value) => {
+                          const selectedSubject = subjects.find(s => s._id === value);
+                          updateSubjectAccess(index, 'subjectId', value);
+                          updateSubjectAccess(index, 'subjectName', selectedSubject?.name || '');
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a subject" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subjects.map((subject) => (
+                            <SelectItem key={subject._id} value={subject._id}>
+                              {subject.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Access Level</Label>
+                      <Select 
+                        value={subjectAccess.accessLevel} 
+                        onValueChange={(value) => updateSubjectAccess(index, 'accessLevel', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="READ_ONLY">Read Only</SelectItem>
+                          <SelectItem value="READ_WRITE">Read & Write</SelectItem>
+                          <SelectItem value="FULL_ACCESS">Full Access</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`create-questions-${index}`}
+                        checked={subjectAccess.canCreateQuestions}
+                        onCheckedChange={(checked) => updateSubjectAccess(index, 'canCreateQuestions', checked)}
+                      />
+                      <Label htmlFor={`create-questions-${index}`} className="text-sm">Can Create Questions</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`upload-syllabus-${index}`}
+                        checked={subjectAccess.canUploadSyllabus}
+                        onCheckedChange={(checked) => updateSubjectAccess(index, 'canUploadSyllabus', checked)}
+                      />
+                      <Label htmlFor={`upload-syllabus-${index}`} className="text-sm">Can Upload Syllabus</Label>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Global Permissions */}
+            <div className="space-y-4">
+              <Label className="text-lg font-medium">Global Permissions</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="view-all-classes"
+                      checked={accessForm.globalPermissions.canViewAllClasses}
+                      onCheckedChange={(checked) => setAccessForm(prev => ({
+                        ...prev,
+                        globalPermissions: { ...prev.globalPermissions, canViewAllClasses: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="view-all-classes">View All Classes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="view-all-subjects"
+                      checked={accessForm.globalPermissions.canViewAllSubjects}
+                      onCheckedChange={(checked) => setAccessForm(prev => ({
+                        ...prev,
+                        globalPermissions: { ...prev.globalPermissions, canViewAllSubjects: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="view-all-subjects">View All Subjects</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="access-analytics"
+                      checked={accessForm.globalPermissions.canAccessAnalytics}
+                      onCheckedChange={(checked) => setAccessForm(prev => ({
+                        ...prev,
+                        globalPermissions: { ...prev.globalPermissions, canAccessAnalytics: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="access-analytics">Access Analytics</Label>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="print-reports"
+                      checked={accessForm.globalPermissions.canPrintReports}
+                      onCheckedChange={(checked) => setAccessForm(prev => ({
+                        ...prev,
+                        globalPermissions: { ...prev.globalPermissions, canPrintReports: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="print-reports">Print Reports</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="send-notifications"
+                      checked={accessForm.globalPermissions.canSendNotifications}
+                      onCheckedChange={(checked) => setAccessForm(prev => ({
+                        ...prev,
+                        globalPermissions: { ...prev.globalPermissions, canSendNotifications: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="send-notifications">Send Notifications</Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Expiration and Notes */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expiresAt">Expiration Date (Optional)</Label>
+                <Input
+                  id="expiresAt"
+                  type="date"
+                  value={accessForm.expiresAt}
+                  onChange={(e) => setAccessForm(prev => ({ ...prev, expiresAt: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Additional notes..."
+                  value={accessForm.notes}
+                  onChange={(e) => setAccessForm(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                />
+              </div>
             </div>
             
             <div className="flex justify-end space-x-2">
@@ -918,21 +1241,6 @@ const AccessPrivileges = () => {
       </Dialog>
     </div>
     );
-  } catch (error) {
-    console.error('Error rendering AccessPrivileges:', error);
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Error Loading Access Privileges</h2>
-          <p className="text-muted-foreground mb-4">Something went wrong while loading the page.</p>
-          <Button onClick={() => window.location.reload()}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Reload Page
-          </Button>
-        </div>
-      </div>
-    );
-  }
 };
 
 export default AccessPrivileges;

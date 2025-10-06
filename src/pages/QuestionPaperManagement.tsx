@@ -118,17 +118,38 @@ export default function QuestionPaperManagement() {
     loadData();
   }, []);
 
+  // Reload data when filters change
+  useEffect(() => {
+    loadData();
+  }, [searchTerm, selectedType, selectedStatus, selectedSubject, selectedClass, selectedExam]);
+
   const loadData = async () => {
     try {
       setLoading(true);   
-      const [examsResponse, questionPapersResponse] = await Promise.all([
+      
+      // Build filter parameters for question papers
+      const questionPaperFilters: any = {};
+      if (searchTerm) questionPaperFilters.search = searchTerm;
+      if (selectedType && selectedType !== 'all') questionPaperFilters.type = selectedType;
+      if (selectedStatus && selectedStatus !== 'all') questionPaperFilters.status = selectedStatus;
+      if (selectedSubject && selectedSubject !== 'all') questionPaperFilters.subjectId = selectedSubject;
+      if (selectedClass && selectedClass !== 'all') questionPaperFilters.classId = selectedClass;
+      if (selectedExam && selectedExam !== 'all') questionPaperFilters.examId = selectedExam;
+      
+      const [examsResponse, questionPapersResponse, subjectsResponse, classesResponse] = await Promise.all([
         examsAPI.getAll().catch(() => null),
-        questionPaperAPI.getAll().catch(() => null)
+        questionPaperAPI.getAll(questionPaperFilters).catch(() => null),
+        subjectManagementAPI.getAll().catch(() => null),
+        classManagementAPI.getAll().catch(() => null)
       ]);
       setExams(examsResponse?.data || []);
       setQuestionPapers(questionPapersResponse?.questionPapers || []);
+      setSubjects(subjectsResponse?.subjects || []);
+      setClasses(classesResponse?.classes || []);
       console.log("examsResponse", examsResponse);
       console.log("questionPapersResponse", questionPapersResponse);
+      console.log("subjectsResponse", subjectsResponse);
+      console.log("classesResponse", classesResponse);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -162,6 +183,17 @@ export default function QuestionPaperManagement() {
         toast({
           title: "Validation Error",
           description: `Total marks from questions (${totalFromQuestions}) must equal exactly 100 when total marks is set to 100`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate Blooms Taxonomy distribution
+      const bloomsTotal = formData.bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0);
+      if (bloomsTotal !== 100) {
+        toast({
+          title: "Validation Error",
+          description: `Blooms taxonomy percentages must add up to exactly 100%. Current total: ${bloomsTotal}%`,
           variant: "destructive"
         });
         return;
@@ -220,7 +252,7 @@ export default function QuestionPaperManagement() {
       // Update the question paper in state
       setQuestionPapers(prev => prev.map(paper => 
         paper._id === questionPaper._id 
-          ? result.questionPaper
+          ? result
           : paper
       ));
       
@@ -397,17 +429,7 @@ export default function QuestionPaperManagement() {
     );
   };
 
-  const filteredQuestionPapers = questionPapers.filter(paper => {
-    const matchesSearch = paper.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         paper.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = !selectedType || selectedType === 'all' || paper.type === selectedType;
-    const matchesStatus = !selectedStatus || selectedStatus === 'all' || paper.status === selectedStatus;
-    const matchesSubject = !selectedSubject || selectedSubject === 'all' || paper.subjectId === selectedSubject;
-    const matchesClass = !selectedClass || selectedClass === 'all' || paper.classId === selectedClass;
-    const matchesExam = !selectedExam || selectedExam === 'all' || paper.examId === selectedExam;
-    
-    return matchesSearch && matchesType && matchesStatus && matchesSubject && matchesClass && matchesExam;
-  });
+  // Backend filtering is now handled in loadData function
 
   if (loading) {
     return (
@@ -532,7 +554,7 @@ export default function QuestionPaperManagement() {
       </Card>
 
       {/* Question Papers List */}
-      {filteredQuestionPapers.length === 0 ? (
+      {questionPapers.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="w-12 h-12 text-gray-400 mb-4" />
@@ -551,7 +573,7 @@ export default function QuestionPaperManagement() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredQuestionPapers.map(paper => (
+          {questionPapers.map(paper => (
           <Card key={paper._id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
@@ -631,9 +653,10 @@ export default function QuestionPaperManagement() {
           </DialogHeader>
           
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="marks">Mark Distribution & Settings</TabsTrigger>
+              <TabsTrigger value="blooms">Blooms Taxonomy</TabsTrigger>
             </TabsList>
             
             <TabsContent value="basic" className="space-y-4">
@@ -843,9 +866,51 @@ export default function QuestionPaperManagement() {
                 </div>
               </div>
 
+            </TabsContent>
+            
+            <TabsContent value="blooms" className="space-y-6">
               {/* Blooms Taxonomy Distribution */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Blooms Taxonomy Distribution</h3>
+                <p className="text-sm text-gray-600">
+                  Configure the distribution of questions across different cognitive levels according to Bloom's Taxonomy.
+                </p>
+                
+                {/* Blooms Distribution Summary */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2">Distribution Summary</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {BLOOMS_LEVELS.map(level => {
+                      const percentage = formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0;
+                      return (
+                        <div key={level.id} className="flex justify-between">
+                          <span className="text-gray-600">{level.name}:</span>
+                          <span className={`font-medium ${percentage > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                            {percentage}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 font-medium">Total:</span>
+                      <span className={`font-bold ${
+                        formData.bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0) === 100 
+                          ? 'text-green-600' 
+                          : 'text-red-600'
+                      }`}>
+                        {formData.bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0)}%
+                      </span>
+                    </div>
+                    {formData.bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0) !== 100 && (
+                      <div className="mt-2 text-red-600 text-sm">
+                        ⚠️ Blooms taxonomy percentages must add up to exactly 100%. Please adjust the distribution.
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
                 <div className="space-y-4">
                   {BLOOMS_LEVELS.map(level => (
                     <div key={level.id} className="space-y-2">
@@ -886,7 +951,8 @@ export default function QuestionPaperManagement() {
                  ((formData.markDistribution.oneMark * 1) + 
                   (formData.markDistribution.twoMark * 2) + 
                   (formData.markDistribution.threeMark * 3) + 
-                  (formData.markDistribution.fiveMark * 5)) !== 100)
+                  (formData.markDistribution.fiveMark * 5)) !== 100) ||
+                formData.bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0) !== 100
               }
             >
               Create Question Paper

@@ -67,13 +67,26 @@ export default function ExamManagement() {
     loadData();
   }, []);
 
+  // Reload data when filters change
+  useEffect(() => {
+    loadData();
+  }, [searchTerm, selectedType, selectedStatus, selectedSubject, selectedClass]);
+
   const loadData = async () => {
     try {
       setLoading(true);
       
+      // Build filter parameters
+      const filters: any = {};
+      if (searchTerm) filters.search = searchTerm;
+      if (selectedType && selectedType !== 'all') filters.examType = selectedType;
+      if (selectedStatus && selectedStatus !== 'all') filters.status = selectedStatus;
+      if (selectedSubject && selectedSubject !== 'all') filters.subjectId = selectedSubject;
+      if (selectedClass && selectedClass !== 'all') filters.classId = selectedClass;
+      
       // Try to load from backend first
       const [examsResponse, subjectsResponse, classesResponse] = await Promise.all([
-        examsAPI.getAll().catch(() => null),
+        examsAPI.getAll(filters).catch(() => null),
         subjectManagementAPI.getAll().catch(() => null),
         classManagementAPI.getAll().catch(() => null)
       ]);
@@ -315,6 +328,91 @@ export default function ExamManagement() {
           Create Exam
         </Button>
       </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <Label htmlFor="search">Search</Label>
+              <Input
+                id="search"
+                placeholder="Search exams..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="type">Type</Label>
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="UNIT_TEST">Unit Test</SelectItem>
+                  <SelectItem value="MID_TERM">Mid Term</SelectItem>
+                  <SelectItem value="FINAL">Final</SelectItem>
+                  <SelectItem value="QUIZ">Quiz</SelectItem>
+                  <SelectItem value="ASSIGNMENT">Assignment</SelectItem>
+                  <SelectItem value="PRACTICAL">Practical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="DRAFT">Draft</SelectItem>
+                  <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+                  <SelectItem value="ONGOING">Ongoing</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="subject">Subject</Label>
+              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Subjects" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subjects</SelectItem>
+                  {subjects.map(subject => (
+                    <SelectItem key={subject._id} value={subject._id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="class">Class</Label>
+              <Select value={selectedClass} onValueChange={setSelectedClass}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Classes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Classes</SelectItem>
+                  {classes.map(cls => (
+                    <SelectItem key={cls._id} value={cls._id}>
+                      {cls.displayName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

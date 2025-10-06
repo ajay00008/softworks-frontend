@@ -82,15 +82,24 @@ const ClassSubjectManagement = () => {
     loadData();
   }, []);
 
+  // Reload data when filters change
+  useEffect(() => {
+    console.log('Filters changed:', { searchTerm, selectedLevel, selectedCategory, selectedAcademicYear });
+    loadData();
+  }, [searchTerm, selectedLevel, selectedCategory, selectedAcademicYear]);
+
   const loadData = async () => {
     try {
       setIsLoading(true);
       setError(null);
+      console.log('Loading data with filters:', { searchTerm, selectedLevel, selectedCategory, selectedAcademicYear });
       
       await Promise.all([
         loadClasses(),
         loadSubjects()
       ]);
+      
+      console.log('Data loaded successfully');
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Failed to load data');
@@ -101,13 +110,29 @@ const ClassSubjectManagement = () => {
 
   const loadClasses = async () => {
     try {
+      console.log('Loading classes with filters:', { searchTerm, selectedLevel, selectedAcademicYear });
       const response = await classManagementAPI.getAll({
         search: searchTerm,
         level: selectedLevel !== 'all' ? parseInt(selectedLevel) : undefined,
-        academicYear: selectedAcademicYear !== 'all' ? selectedAcademicYear : undefined,
+        // academicYear filter is not supported by backend, so we'll filter on frontend
       });
-      console.log(response,"class");
-      setClasses(response.classes || []);
+      console.log('Classes API response:', response);
+      
+      // Apply academicYear filter on frontend since backend doesn't support it
+      let filteredClasses = response.classes || [];
+      if (selectedAcademicYear !== 'all') {
+        // Check if classes have academicYear field, if not, show all classes
+        const hasAcademicYear = filteredClasses.some(cls => cls.academicYear !== undefined);
+        if (hasAcademicYear) {
+          filteredClasses = filteredClasses.filter(cls => cls.academicYear === selectedAcademicYear);
+          console.log('Applied academicYear filter:', { selectedAcademicYear, filteredCount: filteredClasses.length });
+        } else {
+          console.log('Classes do not have academicYear field, showing all classes');
+        }
+      }
+      
+      setClasses(filteredClasses);
+      console.log('Classes loaded successfully:', filteredClasses.length);
     } catch (error) {
       console.error('Error loading classes:', error);
       setClasses([]);
@@ -116,13 +141,15 @@ const ClassSubjectManagement = () => {
 
   const loadSubjects = async () => {
     try {
+      console.log('Loading subjects with filters:', { searchTerm, selectedCategory, selectedLevel });
       const response = await subjectManagementAPI.getAll({
         search: searchTerm,
         category: selectedCategory !== 'all' ? selectedCategory : undefined,
         level: selectedLevel !== 'all' ? parseInt(selectedLevel) : undefined,
       });
-      console.log(response);
+      console.log('Subjects API response:', response);
       setSubjects(response.subjects || []);
+      console.log('Subjects loaded successfully:', (response.subjects || []).length);
     } catch (error) {
       console.error('Error loading subjects:', error);
       setSubjects([]);
@@ -350,23 +377,11 @@ const ClassSubjectManagement = () => {
     setEditingSubject(null);
   };
 console.log(classes,'classes')
-  // Filter functions
-  const filteredClasses = classes?.filter(cls => {
-    const matchesSearch = cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         cls.displayName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesLevel = selectedLevel === 'all' || cls.level.toString() === selectedLevel;
-    const matchesYear = selectedAcademicYear === 'all' || cls.academicYear === selectedAcademicYear;
-    return matchesSearch && matchesLevel && matchesYear;
-  });
-  console.log(filteredClasses,'filteredClasses')
+  // Backend filtering is now handled in loadClasses function
+  // No need for frontend filtering since we're using backend filters
 
-  const filteredSubjects = subjects?.filter(subject => {
-    const matchesSearch = subject.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         subject.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || subject.category === selectedCategory;
-    const matchesLevel = selectedLevel === 'all' || subject.level.includes(parseInt(selectedLevel));
-    return matchesSearch && matchesCategory && matchesLevel;
-  });
+  // Backend filtering is now handled in loadSubjects function
+  // No need for frontend filtering since we're using backend filters
 
   const getCategoryBadge = (category: string) => {
     const colors = {
@@ -506,11 +521,11 @@ console.log(classes,'classes')
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="classes" className="flex items-center space-x-2">
               <Users className="w-4 h-4" />
-              <span>Classes ({filteredClasses?.length})</span>
+              <span>Classes ({classes?.length})</span>
             </TabsTrigger>
             <TabsTrigger value="subjects" className="flex items-center space-x-2">
               <Book className="w-4 h-4" />
-              <span>Subjects ({filteredSubjects?.length})</span>
+              <span>Subjects ({subjects?.length})</span>
             </TabsTrigger>
           </TabsList>
 
@@ -524,7 +539,7 @@ console.log(classes,'classes')
               </Button>
             </div>
 
-            {filteredClasses?.length === 0 ? (
+            {classes?.length === 0 ? (
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-center space-x-4 text-muted-foreground">
@@ -535,7 +550,7 @@ console.log(classes,'classes')
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredClasses?.map((cls) => (
+                {classes?.map((cls) => (
                   <Card key={cls.id} className="border-l-4 border-l-primary">
                     <CardContent className="p-6">
                       <div className="space-y-4">
@@ -602,7 +617,7 @@ console.log(classes,'classes')
               </Button>
             </div>
 
-            {filteredSubjects?.length === 0 ? (
+            {subjects?.length === 0 ? (
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-center space-x-4 text-muted-foreground">
@@ -613,7 +628,7 @@ console.log(classes,'classes')
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredSubjects?.map((subject) => (
+                {subjects?.map((subject) => (
                   <Card key={subject.id} className="border-l-4 border-l-primary">
                     <CardContent className="p-6">
                       <div className="space-y-4">

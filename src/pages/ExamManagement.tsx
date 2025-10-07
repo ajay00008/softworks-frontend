@@ -239,7 +239,7 @@ export default function ExamManagement() {
     try {
       // Try backend API first
       await examsAPI.delete(id);
-      setExams(prev => prev.filter(exam => exam.id !== id));
+      setExams(prev => prev.filter(exam => exam._id !== id));
       toast({
         title: "Success",
         description: "Exam deleted successfully",
@@ -464,7 +464,7 @@ export default function ExamManagement() {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => handleDelete(exam.id)}
+                          onClick={() => handleDelete(exam._id)}
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           Delete

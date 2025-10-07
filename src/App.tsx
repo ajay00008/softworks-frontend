@@ -78,7 +78,7 @@ const App = () => (
               <Route path="exams" element={<ExamManagement />} />
               <Route path="absenteeism" element={<AbsenteeismTracking />} />
               <Route path="books" element={<div className="p-6">Books Management - Coming Soon</div>} />
-              <Route path="access" element={<AccessPrivileges />} />
+              <Route path="access-privileges" element={<AccessPrivileges />} />
               <Route path="mirror" element={<div className="p-6">Mirror Login - Coming Soon</div>} />
             </Route>
             

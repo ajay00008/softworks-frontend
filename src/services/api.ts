@@ -149,6 +149,14 @@ const getAuthHeaders = () => {
   };
 };
 
+// Helper function to get auth headers for file uploads (without Content-Type)
+const getAuthHeadersForUpload = () => {
+  const token = localStorage.getItem('auth-token');
+  return {
+    'Authorization': `Bearer ${token}`
+  };
+};
+
 // All API calls now use real backend endpoints
 export const authAPI = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
@@ -227,6 +235,9 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
     } else if (data.subject) {
       console.log('Returning data.subject:', data.subject);
       return data.subject;
+    } else if (data.exam) {
+      console.log('Returning data.exam:', data.exam);
+      return data.exam;
     } else {
       console.log('Returning data as T:', data);
       return data as T;
@@ -1507,10 +1518,9 @@ export interface Exam {
   id: string;
   title: string;
   description?: string;
-  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL';
+  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'UNIT_WISE' | 'PAGE_WISE' | 'TERM_TEST' | 'ANNUAL_EXAM';
   subjectId: string;
   classId: string;
-  totalMarks: number;
   duration: number; // in minutes
   status: 'DRAFT' | 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
   scheduledDate: string;
@@ -1535,11 +1545,10 @@ export interface Exam {
 export interface CreateExamRequest {
   title: string;
   description?: string;
-  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL';
+  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'UNIT_WISE' | 'PAGE_WISE' | 'TERM_TEST' | 'ANNUAL_EXAM';
   subjectId: string;
   classId: string;
   adminId?: string; // Optional, will be set from auth if not provided
-  totalMarks: number;
   duration: number;
   scheduledDate: string;
   endDate?: string;
@@ -1562,7 +1571,7 @@ export interface ExamFilters {
   search?: string;
   subjectId?: string;
   classId?: string;
-  examType?: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL';
+  examType?: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'UNIT_WISE' | 'PAGE_WISE' | 'TERM_TEST' | 'ANNUAL_EXAM';
   status?: 'DRAFT' | 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
   isActive?: boolean;
 }
@@ -2179,17 +2188,221 @@ export const teacherDashboardAPI = {
     }
   },
 
-  // Download results in various formats
-  downloadResults: async (params?: any): Promise<{ success: boolean; data: any }> => {
+  // Get exams for teacher
+  getExams: async (params?: {
+    classId?: string;
+    subjectId?: string;
+  }): Promise<{ success: boolean; data: any }> => {
     try {
-      const queryParams = new URLSearchParams(params);
-      const response = await fetch(`${API_BASE_URL}/teacher/results/download?${queryParams}`, {
+      const queryParams = new URLSearchParams();
+      if (params?.classId) queryParams.append('classId', params.classId);
+      if (params?.subjectId) queryParams.append('subjectId', params.subjectId);
+
+      const response = await fetch(`${API_BASE_URL}/teacher/exams?${queryParams}`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error downloading results:', error);
+      console.error('Error fetching exams:', error);
+      throw error;
+    }
+  },
+
+  // Get answer sheets for an exam
+  getAnswerSheets: async (examId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/${examId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error fetching answer sheets:', error);
+      throw error;
+    }
+  },
+
+  // Process answer sheet with AI
+  processAnswerSheet: async (sheetId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/${sheetId}/process`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error processing answer sheet:', error);
+      throw error;
+    }
+  },
+
+  // Get question papers
+  getQuestionPapers: async (params?: {
+    classId?: string;
+    subjectId?: string;
+    status?: string;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.classId) queryParams.append('classId', params.classId);
+      if (params?.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params?.status) queryParams.append('status', params.status);
+
+      const response = await fetch(`${API_BASE_URL}/teacher/question-papers?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error fetching question papers:', error);
+      throw error;
+    }
+  },
+
+  // Create teacher question paper
+  createTeacherQuestionPaper: async (data: any): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/question-papers`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error creating question paper:', error);
+      throw error;
+    }
+  },
+
+  // Generate AI question paper
+  generateAIQuestionPaper: async (paperId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/question-papers/${paperId}/generate`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error generating question paper:', error);
+      throw error;
+    }
+  },
+
+  // Get exam results
+  getExamResults: async (examId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/results/${examId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error fetching exam results:', error);
+      throw error;
+    }
+  },
+
+  // Get class statistics
+  getClassStats: async (examId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/results/${examId}/stats`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error fetching class stats:', error);
+      throw error;
+    }
+  },
+
+  // Get analytics data
+  getAnalytics: async (params?: {
+    classId?: string;
+    subjectId?: string;
+    timeRange?: string;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.classId) queryParams.append('classId', params.classId);
+      if (params?.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params?.timeRange) queryParams.append('timeRange', params.timeRange);
+
+      const response = await fetch(`${API_BASE_URL}/teacher/analytics?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      throw error;
+    }
+  },
+
+  // Upload answer sheets with files
+  uploadAnswerSheetFiles: async (examId: string, formData: FormData): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/upload/${examId}`, {
+        method: 'POST',
+        headers: getAuthHeadersForUpload(),
+        body: formData,
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error uploading answer sheets:', error);
+      throw error;
+    }
+  },
+
+  // Get notifications
+  getNotifications: async (params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+      const response = await fetch(`${API_BASE_URL}/teacher/notifications?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      throw error;
+    }
+  },
+
+  // Mark notification as read
+  markNotificationAsRead: async (notificationId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/notifications/${notificationId}/read`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      throw error;
+    }
+  },
+
+  // Mark all notifications as read
+  markAllNotificationsAsRead: async (): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/notifications/read-all`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
       throw error;
     }
   },

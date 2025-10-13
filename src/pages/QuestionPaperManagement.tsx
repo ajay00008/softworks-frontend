@@ -58,6 +58,12 @@ import {
   Archive,
 } from "lucide-react";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   QuestionPaper,
   CreateQuestionPaperRequest,
   questionPaperAPI,
@@ -199,12 +205,32 @@ export default function QuestionPaperManagement() {
       { level: "EVALUATE", percentage: 7 },
       { level: "CREATE", percentage: 3 },
     ],
-    questionTypeDistribution: [
-      { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-      { type: "FILL_BLANKS", percentage: 20 },
-      { type: "SHORT_ANSWER", percentage: 20 },
-      { type: "LONG_ANSWER", percentage: 20 },
-    ],
+    questionTypeDistribution: {
+      oneMark: [
+        { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
+        { type: "FILL_BLANKS", percentage: 20 },
+        { type: "SHORT_ANSWER", percentage: 20 },
+        { type: "LONG_ANSWER", percentage: 20 },
+      ],
+      twoMark: [
+        { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
+        { type: "FILL_BLANKS", percentage: 20 },
+        { type: "SHORT_ANSWER", percentage: 20 },
+        { type: "LONG_ANSWER", percentage: 20 },
+      ],
+      threeMark: [
+        { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
+        { type: "FILL_BLANKS", percentage: 20 },
+        { type: "SHORT_ANSWER", percentage: 20 },
+        { type: "LONG_ANSWER", percentage: 20 },
+      ],
+      fiveMark: [
+        { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
+        { type: "FILL_BLANKS", percentage: 20 },
+        { type: "SHORT_ANSWER", percentage: 20 },
+        { type: "LONG_ANSWER", percentage: 20 },
+      ],
+    } as any, // Updated to object for per-mark distributions
     aiSettings: {
       useSubjectBook: false,
       customInstructions: "",
@@ -282,43 +308,13 @@ export default function QuestionPaperManagement() {
   const handleCreateQuestionPaper = async () => {
     try {
       setIsCreating(true);
-      if (!formData.title || !formData.examId) {
-        toast({
-          title: "Error",
-          description: "Please fill in all required fields",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validate mark distribution
-      const totalFromQuestions =
-        formData.markDistribution.oneMark * 1 +
-        formData.markDistribution.twoMark * 2 +
-        formData.markDistribution.threeMark * 3 +
-        formData.markDistribution.fiveMark * 5;
-
-      if (
-        formData.markDistribution.totalMarks === 100 &&
-        totalFromQuestions !== 100
-      ) {
+      
+      // Use comprehensive validation
+      const validation = validateQuestionPaperForm();
+      if (!validation.isValid) {
         toast({
           title: "Validation Error",
-          description: `Total marks from questions (${totalFromQuestions}) must equal exactly 100 when total marks is set to 100`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validate Blooms Taxonomy distribution
-      const bloomsTotal = formData.bloomsDistribution.reduce(
-        (sum, dist) => sum + dist.percentage,
-        0
-      );
-      if (bloomsTotal !== 100) {
-        toast({
-          title: "Validation Error",
-          description: `Blooms taxonomy percentages must add up to exactly 100%. Current total: ${bloomsTotal}%`,
+          description: validation.errors.join(". "),
           variant: "destructive",
         });
         return;
@@ -494,12 +490,32 @@ export default function QuestionPaperManagement() {
         { level: "EVALUATE", percentage: 7 },
         { level: "CREATE", percentage: 3 },
       ],
-      questionTypeDistribution: [
-        { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-        { type: "FILL_BLANKS", percentage: 20 },
-        { type: "SHORT_ANSWER", percentage: 20 },
-        { type: "LONG_ANSWER", percentage: 20 },
-      ],
+      questionTypeDistribution: {
+        oneMark: [
+          { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
+          { type: "FILL_BLANKS", percentage: 20 },
+          { type: "SHORT_ANSWER", percentage: 20 },
+          { type: "LONG_ANSWER", percentage: 20 },
+        ],
+        twoMark: [
+          { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
+          { type: "FILL_BLANKS", percentage: 20 },
+          { type: "SHORT_ANSWER", percentage: 20 },
+          { type: "LONG_ANSWER", percentage: 20 },
+        ],
+        threeMark: [
+          { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
+          { type: "FILL_BLANKS", percentage: 20 },
+          { type: "SHORT_ANSWER", percentage: 20 },
+          { type: "LONG_ANSWER", percentage: 20 },
+        ],
+        fiveMark: [
+          { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
+          { type: "FILL_BLANKS", percentage: 20 },
+          { type: "SHORT_ANSWER", percentage: 20 },
+          { type: "LONG_ANSWER", percentage: 20 },
+        ],
+      } as any,
       aiSettings: {
         useSubjectBook: false,
         customInstructions: "",
@@ -552,13 +568,118 @@ export default function QuestionPaperManagement() {
     }));
   };
 
-  const updateQuestionTypeDistribution = (type: string, percentage: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      questionTypeDistribution: prev.questionTypeDistribution.map((dist) =>
-        dist.type === type ? { ...dist, percentage } : dist
-      ),
-    }));
+  const updateQuestionTypeDistribution = (mark: string, type: string, percentage: number) => {
+    setFormData((prev) => {
+      const distributions = { ...prev.questionTypeDistribution };
+      let dists = distributions[mark] || [];
+      const existingIndex = dists.findIndex((d) => d.type === type);
+
+      if (existingIndex !== -1) {
+        if (percentage === 0) {
+          dists = dists.filter((_, index) => index !== existingIndex);
+        } else {
+          dists[existingIndex] = { ...dists[existingIndex], percentage };
+        }
+      } else if (percentage > 0) {
+        dists.push({ type, percentage });
+      }
+
+      distributions[mark] = dists;
+
+      return {
+        ...prev,
+        questionTypeDistribution: distributions,
+      };
+    });
+  };
+
+  const getQuestionTypePercentage = (mark: string, type: string) => {
+    return formData.questionTypeDistribution[mark]?.find((d) => d.type === type)?.percentage || 0;
+  };
+
+  const getQuestionTypeTotal = (mark: string) => {
+    return (formData.questionTypeDistribution[mark] || []).reduce((sum, d) => sum + d.percentage, 0);
+  };
+
+  // Comprehensive validation function for question paper creation
+  const validateQuestionPaperForm = () => {
+    const errors: string[] = [];
+
+    // Basic required fields validation
+    if (!formData.title.trim()) {
+      errors.push("Title is required");
+    }
+
+    if (!formData.examId) {
+      errors.push("Exam selection is required");
+    } else {
+      // Validate that the selected exam exists and has required data
+      const selectedExam = exams.find((exam) => exam._id === formData.examId);
+      if (!selectedExam) {
+        errors.push("Selected exam is not valid or not found");
+      } else {
+        // Check if exam has required subject and class information
+        if (!selectedExam.subjectId) {
+          errors.push("Selected exam does not have a valid subject");
+        }
+        if (!selectedExam.classId) {
+          errors.push("Selected exam does not have a valid class");
+        }
+      }
+    }
+
+    // Mark distribution validation
+    const totalFromQuestions =
+      formData.markDistribution.oneMark * 1 +
+      formData.markDistribution.twoMark * 2 +
+      formData.markDistribution.threeMark * 3 +
+      formData.markDistribution.fiveMark * 5;
+
+    // Validate that at least some questions are configured
+    const totalQuestions = 
+      formData.markDistribution.oneMark +
+      formData.markDistribution.twoMark +
+      formData.markDistribution.threeMark +
+      formData.markDistribution.fiveMark;
+
+    if (totalQuestions === 0) {
+      errors.push("At least one question must be configured");
+    }
+
+    // Validate total marks configuration
+    if (formData.markDistribution.totalMarks <= 0) {
+      errors.push("Total marks must be greater than 0");
+    }
+
+    // If total marks is set to 100, ensure question marks add up to 100
+    if (formData.markDistribution.totalMarks === 100 && totalFromQuestions !== 100) {
+      errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromQuestions}`);
+    }
+
+    // Question type distribution validation for each mark category
+    const markCategories = ['oneMark', 'twoMark', 'threeMark', 'fiveMark'] as const;
+    for (const mark of markCategories) {
+      if (formData.markDistribution[mark] > 0) {
+        const total = getQuestionTypeTotal(mark);
+        if (total !== 100) {
+          errors.push(`Question type percentages for ${mark.replace('Mark', ' Mark')} must add up to exactly 100%. Current total: ${total}%`);
+        }
+      }
+    }
+
+    // Blooms Taxonomy distribution validation
+    const bloomsTotal = formData.bloomsDistribution.reduce(
+      (sum, dist) => sum + dist.percentage,
+      0
+    );
+    if (bloomsTotal !== 100) {
+      errors.push(`Blooms taxonomy percentages must add up to exactly 100%. Current total: ${bloomsTotal}%`);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
   };
 
   const getStatusBadge = (status: string) => {
@@ -831,10 +952,8 @@ export default function QuestionPaperManagement() {
           <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="marks">
-                Mark Distribution & Settings
-              </TabsTrigger>
-              <TabsTrigger value="blooms">Blooms Taxonomy</TabsTrigger>
+              <TabsTrigger value="distributions">Distributions</TabsTrigger>
+              <TabsTrigger value="ai">AI Settings</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4">
@@ -891,7 +1010,7 @@ export default function QuestionPaperManagement() {
               </div>
             </TabsContent>
 
-            <TabsContent value="marks" className="space-y-6">
+            <TabsContent value="distributions" className="space-y-6">
               {/* Basic Mark Distribution */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Mark Distribution</h3>
@@ -1067,48 +1186,222 @@ export default function QuestionPaperManagement() {
                 </div>
               </div>
 
-              {/* Question Type Distribution */}
+              {/* Question Type Distribution per Mark */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">
-                  Question Type Distribution
+                  Question Type Distribution per Mark Category
                 </h3>
-                <div className="space-y-4">
-                  {QUESTION_TYPES.map((type) => (
-                    <div key={type.id} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <Label className="font-medium">{type.name}</Label>
-                          <p className="text-sm text-gray-600">
-                            {type.description}
-                          </p>
+                <Accordion type="multiple" className="w-full">
+                  <AccordionItem value="oneMark">
+                    <AccordionTrigger>1 Mark Questions ({formData.markDistribution.oneMark})</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4">
+                        {QUESTION_TYPES.map((type) => (
+                          <div key={type.id} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <Label className="font-medium">{type.name}</Label>
+                                <p className="text-sm text-gray-600">
+                                  {type.description}
+                                </p>
+                              </div>
+                              <span className="text-sm font-medium">
+                                {getQuestionTypePercentage("oneMark", type.id)}%
+                              </span>
+                            </div>
+                            <Slider
+                              value={[getQuestionTypePercentage("oneMark", type.id)]}
+                              onValueChange={([value]) =>
+                                updateQuestionTypeDistribution("oneMark", type.id, value)
+                              }
+                              max={100}
+                              step={1}
+                              className="w-full"
+                            />
+                          </div>
+                        ))}
+                        {/* Summary for this mark */}
+                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">Total:</span>
+                            <span
+                              className={`font-bold ${
+                                getQuestionTypeTotal("oneMark") === 100
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {getQuestionTypeTotal("oneMark")}%
+                            </span>
+                          </div>
+                          {getQuestionTypeTotal("oneMark") !== 100 && (
+                            <div className="mt-2 text-red-600 text-sm">
+                              ⚠️ Percentages must add up to exactly 100%.
+                            </div>
+                          )}
                         </div>
-                        <span className="text-sm font-medium">
-                          {formData.questionTypeDistribution.find(
-                            (d) => d.type === type.id
-                          )?.percentage || 0}
-                          %
-                        </span>
                       </div>
-                      <Slider
-                        value={[
-                          formData.questionTypeDistribution.find(
-                            (d) => d.type === type.id
-                          )?.percentage || 0,
-                        ]}
-                        onValueChange={([value]) =>
-                          updateQuestionTypeDistribution(type.id, value)
-                        }
-                        max={100}
-                        step={1}
-                        className="w-full"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </TabsContent>
+                    </AccordionContent>
+                  </AccordionItem>
 
-            <TabsContent value="blooms" className="space-y-6">
+                  <AccordionItem value="twoMark">
+                    <AccordionTrigger>2 Mark Questions ({formData.markDistribution.twoMark})</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4">
+                        {QUESTION_TYPES.map((type) => (
+                          <div key={type.id} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <Label className="font-medium">{type.name}</Label>
+                                <p className="text-sm text-gray-600">
+                                  {type.description}
+                                </p>
+                              </div>
+                              <span className="text-sm font-medium">
+                                {getQuestionTypePercentage("twoMark", type.id)}%
+                              </span>
+                            </div>
+                            <Slider
+                              value={[getQuestionTypePercentage("twoMark", type.id)]}
+                              onValueChange={([value]) =>
+                                updateQuestionTypeDistribution("twoMark", type.id, value)
+                              }
+                              max={100}
+                              step={1}
+                              className="w-full"
+                            />
+                          </div>
+                        ))}
+                        {/* Summary for this mark */}
+                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">Total:</span>
+                            <span
+                              className={`font-bold ${
+                                getQuestionTypeTotal("twoMark") === 100
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {getQuestionTypeTotal("twoMark")}%
+                            </span>
+                          </div>
+                          {getQuestionTypeTotal("twoMark") !== 100 && (
+                            <div className="mt-2 text-red-600 text-sm">
+                              ⚠️ Percentages must add up to exactly 100%.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="threeMark">
+                    <AccordionTrigger>3 Mark Questions ({formData.markDistribution.threeMark})</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4">
+                        {QUESTION_TYPES.map((type) => (
+                          <div key={type.id} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <Label className="font-medium">{type.name}</Label>
+                                <p className="text-sm text-gray-600">
+                                  {type.description}
+                                </p>
+                              </div>
+                              <span className="text-sm font-medium">
+                                {getQuestionTypePercentage("threeMark", type.id)}%
+                              </span>
+                            </div>
+                            <Slider
+                              value={[getQuestionTypePercentage("threeMark", type.id)]}
+                              onValueChange={([value]) =>
+                                updateQuestionTypeDistribution("threeMark", type.id, value)
+                              }
+                              max={100}
+                              step={1}
+                              className="w-full"
+                            />
+                          </div>
+                        ))}
+                        {/* Summary for this mark */}
+                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">Total:</span>
+                            <span
+                              className={`font-bold ${
+                                getQuestionTypeTotal("threeMark") === 100
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {getQuestionTypeTotal("threeMark")}%
+                            </span>
+                          </div>
+                          {getQuestionTypeTotal("threeMark") !== 100 && (
+                            <div className="mt-2 text-red-600 text-sm">
+                              ⚠️ Percentages must add up to exactly 100%.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="fiveMark">
+                    <AccordionTrigger>5 Mark Questions ({formData.markDistribution.fiveMark})</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4">
+                        {QUESTION_TYPES.map((type) => (
+                          <div key={type.id} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <Label className="font-medium">{type.name}</Label>
+                                <p className="text-sm text-gray-600">
+                                  {type.description}
+                                </p>
+                              </div>
+                              <span className="text-sm font-medium">
+                                {getQuestionTypePercentage("fiveMark", type.id)}%
+                              </span>
+                            </div>
+                            <Slider
+                              value={[getQuestionTypePercentage("fiveMark", type.id)]}
+                              onValueChange={([value]) =>
+                                updateQuestionTypeDistribution("fiveMark", type.id, value)
+                              }
+                              max={100}
+                              step={1}
+                              className="w-full"
+                            />
+                          </div>
+                        ))}
+                        {/* Summary for this mark */}
+                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">Total:</span>
+                            <span
+                              className={`font-bold ${
+                                getQuestionTypeTotal("fiveMark") === 100
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {getQuestionTypeTotal("fiveMark")}%
+                            </span>
+                          </div>
+                          {getQuestionTypeTotal("fiveMark") !== 100 && (
+                            <div className="mt-2 text-red-600 text-sm">
+                              ⚠️ Percentages must add up to exactly 100%.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+
               {/* Blooms Taxonomy Distribution */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">
@@ -1211,7 +1504,115 @@ export default function QuestionPaperManagement() {
                 </div>
               </div>
             </TabsContent>
+
+            <TabsContent value="ai" className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="useSubjectBook"
+                    checked={formData.aiSettings.useSubjectBook}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        aiSettings: { ...prev.aiSettings, useSubjectBook: checked as boolean },
+                      }))
+                    }
+                  />
+                  <Label htmlFor="useSubjectBook">Use Subject Book for Generation</Label>
+                </div>
+                <div>
+                  <Label htmlFor="difficultyLevel">Difficulty Level</Label>
+                  <Select
+                    value={formData.aiSettings.difficultyLevel}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        aiSettings: { ...prev.aiSettings, difficultyLevel: value },
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select difficulty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EASY">Easy</SelectItem>
+                      <SelectItem value="MODERATE">Moderate</SelectItem>
+                      <SelectItem value="HARD">Hard</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Twisted Questions Percentage</Label>
+                  <Slider
+                    value={[formData.aiSettings.twistedQuestionsPercentage]}
+                    onValueChange={([value]) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        aiSettings: { ...prev.aiSettings, twistedQuestionsPercentage: value },
+                      }))
+                    }
+                    max={100}
+                    step={1}
+                  />
+                  <span className="text-sm font-medium">
+                    {formData.aiSettings.twistedQuestionsPercentage}%
+                  </span>
+                </div>
+                <div>
+                  <Label htmlFor="customInstructions">Custom Instructions</Label>
+                  <Textarea
+                    id="customInstructions"
+                    value={formData.aiSettings.customInstructions}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        aiSettings: { ...prev.aiSettings, customInstructions: e.target.value },
+                      }))
+                    }
+                    placeholder="Additional instructions for AI generation"
+                    rows={4}
+                  />
+                </div>
+              </div>
+            </TabsContent>
           </Tabs>
+
+          {/* Validation Status Display */}
+          {(() => {
+            const validation = validateQuestionPaperForm();
+            if (!validation.isValid) {
+              return (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-start">
+                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-sm font-medium text-red-800 mb-2">
+                        Please fix the following issues:
+                      </h4>
+                      <ul className="text-sm text-red-700 space-y-1">
+                        {validation.errors.map((error, index) => (
+                          <li key={index} className="flex items-start">
+                            <span className="mr-2">•</span>
+                            <span>{error}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
+                  <span className="text-sm font-medium text-green-800">
+                    All validation requirements are met. Ready to create question paper.
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button
@@ -1223,21 +1624,7 @@ export default function QuestionPaperManagement() {
             <Button
               onClick={handleCreateQuestionPaper}
               className="bg-blue-600 hover:bg-blue-700"
-              disabled={
-                isCreating ||
-                !formData.title ||
-                !formData.examId ||
-                (formData.markDistribution.totalMarks === 100 &&
-                  formData.markDistribution.oneMark * 1 +
-                    formData.markDistribution.twoMark * 2 +
-                    formData.markDistribution.threeMark * 3 +
-                    formData.markDistribution.fiveMark * 5 !==
-                    100) ||
-                formData.bloomsDistribution.reduce(
-                  (sum, dist) => sum + dist.percentage,
-                  0
-                ) !== 100
-              }
+              disabled={isCreating || !validateQuestionPaperForm().isValid}
             >
               {isCreating ? (
                 <>
@@ -1308,4 +1695,4 @@ export default function QuestionPaperManagement() {
       )}
     </div>
   );
-}
+} 

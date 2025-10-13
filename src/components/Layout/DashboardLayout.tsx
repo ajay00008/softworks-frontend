@@ -18,7 +18,10 @@ import {
   Crown,
   Database,
   AlertTriangle,
-  BookMarked
+  BookMarked,
+  Upload,
+  Brain,
+  Award
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { authAPI, User } from '@/services/api';
@@ -44,6 +47,11 @@ const getNavigation = (userRole?: string) => {
   if (isTeacher) {
     return [
       { name: 'Teacher Dashboard', href: '/dashboard/teacher-dashboard', icon: GraduationCap, section: 'MAIN' },
+      { name: 'Upload Answer Sheets', href: '/dashboard/teacher/upload-sheets', icon: Upload, section: 'TEACHING' },
+      { name: 'AI Answer Checking', href: '/dashboard/teacher/ai-checking', icon: Brain, section: 'TEACHING' },
+      { name: 'Question Papers', href: '/dashboard/teacher/question-papers', icon: BookOpen, section: 'TEACHING' },
+      { name: 'Results', href: '/dashboard/teacher/results', icon: Award, section: 'ANALYTICS' },
+      { name: 'Analytics', href: '/dashboard/teacher/analytics', icon: BarChart3, section: 'ANALYTICS' },
     ];
   }
 

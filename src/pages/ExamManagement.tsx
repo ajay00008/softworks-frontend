@@ -51,7 +51,7 @@ export default function ExamManagement() {
     title: '',
     description: '',
     examType: 'UNIT_TEST',
-    subjectId: '',
+    subjectIds: [], // Changed to array for multiple subjects
     classId: '',
     adminId: '', // Will be set from current user if not provided
     duration: 60,
@@ -61,6 +61,7 @@ export default function ExamManagement() {
     allowLateSubmission: false,
     lateSubmissionPenalty: 0
   });
+  const [isCustomExamType, setIsCustomExamType] = useState(false);
 
   // Step-by-step form state
   const [currentStep, setCurrentStep] = useState(1);
@@ -121,12 +122,11 @@ export default function ExamManagement() {
   const loadMockData = () => {
     const mockExams = [
       {
-        _id: '1',
         id: '1',
         title: 'Mathematics Unit Test - Chapter 1',
         description: 'Unit test covering basic algebra and geometry concepts',
         examType: 'UNIT_TEST' as const,
-        subjectId: 'subj1',
+        subjectIds: ['subj1'],
         classId: 'class1',
         totalMarks: 100,
         duration: 90,
@@ -144,12 +144,11 @@ export default function ExamManagement() {
         updatedAt: '2024-01-15T10:00:00Z'
       },
       {
-        _id: '2',
         id: '2',
         title: 'Physics Final Exam',
         description: 'Comprehensive final examination covering all physics topics',
         examType: 'FINAL' as const,
-        subjectId: 'subj2',
+        subjectIds: ['subj2'],
         classId: 'class2',
         totalMarks: 150,
         duration: 180,
@@ -169,13 +168,13 @@ export default function ExamManagement() {
     ];
 
     const mockSubjects = [
-      { _id: 'subj1', id: 'subj1', name: 'Mathematics', code: 'MATH' },
-      { _id: 'subj2', id: 'subj2', name: 'Physics', code: 'PHY' }
+      { id: 'subj1', name: 'Mathematics', code: 'MATH' },
+      { id: 'subj2', name: 'Physics', code: 'PHY' }
     ];
 
     const mockClasses = [
-      { _id: 'class1', id: 'class1', name: '10A', displayName: 'Class 10A' },
-      { _id: 'class2', id: 'class2', name: '11B', displayName: 'Class 11B' }
+      { id: 'class1', name: '10A', displayName: 'Class 10A' },
+      { id: 'class2', name: '11B', displayName: 'Class 11B' }
     ];
 
     setExams(mockExams);
@@ -191,8 +190,8 @@ export default function ExamManagement() {
       // Prepare data for API call - remove empty adminId to avoid validation error
       const { adminId, ...examData } = formData;
       
-      // Handle custom exam type
-      const finalExamType = formData.examType === 'CUSTOM' ? customExamType : formData.examType;
+      // Handle custom exam type - convert to valid enum value
+      const finalExamType = isCustomExamType ? 'UNIT_TEST' : formData.examType;
       
       const apiData = {
         ...examData,
@@ -205,7 +204,7 @@ export default function ExamManagement() {
       console.log('Exam creation response:', response);
       
       // Handle different response structures
-      const newExam = response.exam || response;
+      const newExam = (response as any).exam || response;
       setExams(prev => [newExam, ...prev]);
       
       // Reload data to ensure consistency
@@ -220,14 +219,14 @@ export default function ExamManagement() {
     } catch (error) {
       console.error('Backend create failed, using mock data:', error);
       // Fallback to mock creation
-      const finalExamType = formData.examType === 'CUSTOM' ? customExamType : formData.examType;
+      const finalExamType = isCustomExamType ? 'UNIT_TEST' : formData.examType;
       
       const newExam: Exam = {
         id: Date.now().toString(),
         title: formData.title,
         description: formData.description,
         examType: finalExamType as any,
-        subjectId: formData.subjectId,
+        subjectIds: formData.subjectIds,
         classId: formData.classId,
         duration: formData.duration,
         scheduledDate: formData.scheduledDate,
@@ -260,7 +259,7 @@ export default function ExamManagement() {
     try {
       // Try backend API first
       await examsAPI.delete(id);
-      setExams(prev => prev.filter(exam => (exam._id || exam.id) !== id));
+      setExams(prev => prev.filter(exam => exam.id !== id));
       toast({
         title: "Success",
         description: "Exam deleted successfully",
@@ -268,7 +267,7 @@ export default function ExamManagement() {
     } catch (error) {
       console.error('Backend delete failed, using mock data:', error);
       // Fallback to mock deletion
-      setExams(prev => prev.filter(exam => (exam._id || exam.id) !== id));
+      setExams(prev => prev.filter(exam => exam.id !== id));
       toast({
         title: "Success",
         description: "Exam deleted successfully (offline mode)",
@@ -293,7 +292,7 @@ export default function ExamManagement() {
       title: '',
       description: '',
       examType: 'UNIT_TEST',
-      subjectId: '',
+      subjectIds: [],
       classId: '',
       adminId: '',
       duration: 60,
@@ -306,6 +305,7 @@ export default function ExamManagement() {
     setSelectedDate(undefined);
     setCurrentStep(1);
     setCustomExamType('');
+    setIsCustomExamType(false);
     setIsDatePickerOpen(false);
   };
 
@@ -331,8 +331,10 @@ export default function ExamManagement() {
 
   const handleExamTypeChange = (value: string) => {
     if (value === 'CUSTOM') {
-      setFormData(prev => ({ ...prev, examType: 'CUSTOM' }));
+      setIsCustomExamType(true);
+      setFormData(prev => ({ ...prev, examType: 'UNIT_TEST' as any })); // Use valid enum value
     } else {
+      setIsCustomExamType(false);
       setFormData(prev => ({ ...prev, examType: value as any }));
       setCustomExamType('');
     }
@@ -454,7 +456,7 @@ export default function ExamManagement() {
                 <SelectContent>
                   <SelectItem value="all">All Subjects</SelectItem>
                   {subjects.map(subject => (
-                    <SelectItem key={subject._id} value={subject._id}>
+                    <SelectItem key={subject.id} value={subject.id}>
                       {subject.name}
                     </SelectItem>
                   ))}
@@ -470,7 +472,7 @@ export default function ExamManagement() {
                 <SelectContent>
                   <SelectItem value="all">All Classes</SelectItem>
                   {classes.map(cls => (
-                    <SelectItem key={cls._id} value={cls._id}>
+                    <SelectItem key={cls.id} value={cls.id}>
                       {cls.displayName}
                     </SelectItem>
                   ))}
@@ -496,7 +498,7 @@ export default function ExamManagement() {
           ) : (
             <div className="space-y-4">
               {exams.map((exam) => (
-                <Card key={exam._id || exam.id} className="p-4">
+                <Card key={exam.id} className="p-4">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -526,17 +528,20 @@ export default function ExamManagement() {
                         <div className="flex items-center gap-1">
                           <BookOpen className="h-4 w-4" />
                           <span>
-                            {exam.subjectId?.name || 
-                             subjects.find(s => s._id === exam.subjectId?._id)?.name || 
-                             'No subject'
-                            }
+                            {exam.subjectIds && exam.subjectIds.length > 0 ? (
+                              exam.subjectIds.map(subjectId => {
+                                const subject = subjects.find(s => s.id === subjectId);
+                                return subject ? subject.name : 'Unknown Subject';
+                              }).join(', ')
+                            ) : (
+                              'No subjects'
+                            )}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <GraduationCap className="h-4 w-4" />
                           <span>
-                            {exam.classId?.displayName || 
-                             classes.find(c => c._id === exam.classId?._id)?.displayName || 
+                            {classes.find(c => c.id === exam.classId)?.displayName || 
                              'No class'
                             }
                           </span>
@@ -546,7 +551,7 @@ export default function ExamManagement() {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => handleDelete(exam._id || exam.id)}
+                          onClick={() => handleDelete(exam.id)}
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           Delete
@@ -638,7 +643,7 @@ export default function ExamManagement() {
               </div>
 
               {/* Custom Exam Type Input */}
-              {formData.examType === 'CUSTOM' && (
+              {isCustomExamType && (
                 <div className="mt-6">
                   <Label htmlFor="customExamType">Custom Exam Type Name</Label>
                   <Input
@@ -654,7 +659,7 @@ export default function ExamManagement() {
               <div className="flex justify-end">
                 <Button 
                   onClick={nextStep}
-                  disabled={!formData.examType || (formData.examType === 'CUSTOM' && !customExamType.trim())}
+                  disabled={!formData.examType || (isCustomExamType && !customExamType.trim())}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   Next Step
@@ -685,7 +690,7 @@ export default function ExamManagement() {
                   <Label htmlFor="examTypeDisplay">Exam Type</Label>
                   <Input
                     id="examTypeDisplay"
-                    value={formData.examType === 'CUSTOM' ? customExamType : examTypeOptions.find(opt => opt.value === formData.examType)?.label}
+                    value={isCustomExamType ? customExamType : examTypeOptions.find(opt => opt.value === formData.examType)?.label || formData.examType}
                     disabled
                     className="bg-gray-50"
                   />
@@ -705,26 +710,42 @@ export default function ExamManagement() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="subject">Subject</Label>
-                  <Select 
-                    value={formData.subjectId} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, subjectId: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subjects.length === 0 ? (
-                        <SelectItem value="" disabled>No subjects available. Create subjects first.</SelectItem>
-                      ) : (
-                        subjects.map((subject) => (
-                          <SelectItem key={subject._id} value={subject._id}>
-                            {subject.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="subjects">Subjects</Label>
+                  <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                    {subjects.length === 0 ? (
+                      <p className="text-sm text-gray-500">No subjects available. Create subjects first.</p>
+                    ) : (
+                      subjects.map((subject) => (
+                        <div key={subject.id} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`subject-${subject.id}`}
+                            checked={formData.subjectIds.includes(subject.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  subjectIds: [...prev.subjectIds, subject.id]
+                                }));
+                              } else {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  subjectIds: prev.subjectIds.filter(id => id !== subject.id)
+                                }));
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <Label htmlFor={`subject-${subject.id}`} className="text-sm">
+                            {subject.name} ({subject.code})
+                          </Label>
+                        </div>
+                      ))
+                    )}
+                    {formData.subjectIds.length === 0 && (
+                      <p className="text-sm text-red-500">Please select at least one subject</p>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="class">Class</Label>
@@ -740,7 +761,7 @@ export default function ExamManagement() {
                         <SelectItem value="" disabled>No classes available. Create classes first.</SelectItem>
                       ) : (
                         classes.map((cls) => (
-                          <SelectItem key={cls._id} value={cls._id}>
+                          <SelectItem key={cls.id} value={cls.id}>
                             {cls.name}
                           </SelectItem>
                         ))
@@ -825,7 +846,7 @@ export default function ExamManagement() {
                   </Button>
                   <Button 
                     onClick={handleCreate}
-                    disabled={!formData.title || !formData.subjectId || !formData.classId}
+                    disabled={!formData.title || formData.subjectIds.length === 0 || !formData.classId}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     Create Exam

@@ -183,6 +183,10 @@ export default function QuestionPaperManagement() {
   const [selectedQuestionPaper, setSelectedQuestionPaper] =
     useState<QuestionPaper | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [customMarks, setCustomMarks] = useState<{mark: number, count: number}[]>([]);
+  const [uploadedPattern, setUploadedPattern] = useState<File | null>(null);
+  const [uploadedPatternId, setUploadedPatternId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Form state
@@ -206,30 +210,10 @@ export default function QuestionPaperManagement() {
       { level: "CREATE", percentage: 3 },
     ],
     questionTypeDistribution: {
-      oneMark: [
-        { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-        { type: "FILL_BLANKS", percentage: 20 },
-        { type: "SHORT_ANSWER", percentage: 20 },
-        { type: "LONG_ANSWER", percentage: 20 },
-      ],
-      twoMark: [
-        { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-        { type: "FILL_BLANKS", percentage: 20 },
-        { type: "SHORT_ANSWER", percentage: 20 },
-        { type: "LONG_ANSWER", percentage: 20 },
-      ],
-      threeMark: [
-        { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-        { type: "FILL_BLANKS", percentage: 20 },
-        { type: "SHORT_ANSWER", percentage: 20 },
-        { type: "LONG_ANSWER", percentage: 20 },
-      ],
-      fiveMark: [
-        { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-        { type: "FILL_BLANKS", percentage: 20 },
-        { type: "SHORT_ANSWER", percentage: 20 },
-        { type: "LONG_ANSWER", percentage: 20 },
-      ],
+      oneMark: [],
+      twoMark: [],
+      threeMark: [],
+      fiveMark: [],
     } as any, // Updated to object for per-mark distributions
     aiSettings: {
       useSubjectBook: false,
@@ -289,6 +273,10 @@ export default function QuestionPaperManagement() {
       setQuestionPapers(questionPapersResponse?.questionPapers || []);
       setSubjects(subjectsResponse?.subjects || []);
       setClasses(classesResponse?.classes || []);
+      
+      // Debug log to check data structure
+      console.log("Question papers data:", questionPapersResponse?.questionPapers);
+      console.log("Current questionPapers state:", questionPapers);
       console.log("examsResponse", examsResponse);
       console.log("questionPapersResponse", questionPapersResponse);
       console.log("subjectsResponse", subjectsResponse);
@@ -332,6 +320,77 @@ export default function QuestionPaperManagement() {
         return;
       }
 
+      // Calculate the actual total marks from questions
+      const totalFromQuestions =
+        formData.markDistribution.oneMark * 1 +
+        formData.markDistribution.twoMark * 2 +
+        formData.markDistribution.threeMark * 3 +
+        formData.markDistribution.fiveMark * 5;
+      
+      const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+      const actualTotalMarks = totalFromQuestions + customMarksTotal;
+      
+      // Distribute custom marks into existing categories for backend compatibility
+      let adjustedMarkDistribution = { ...formData.markDistribution };
+      
+      // If we have custom marks, distribute them intelligently
+      if (customMarksTotal > 0) {
+        // Distribute custom marks based on their mark values
+        customMarks.forEach(custom => {
+          if (custom.mark > 0 && custom.count > 0) {
+            const totalCustomMarks = custom.mark * custom.count;
+            
+            // Distribute based on mark value:
+            // 1-2 marks -> oneMark or twoMark
+            // 3-4 marks -> threeMark  
+            // 5+ marks -> fiveMark
+            if (custom.mark <= 2) {
+              // Distribute between oneMark and twoMark
+              if (custom.mark === 1) {
+                adjustedMarkDistribution.oneMark += custom.count;
+              } else {
+                adjustedMarkDistribution.twoMark += custom.count;
+              }
+            } else if (custom.mark <= 4) {
+              // Distribute to threeMark - convert to equivalent 3-mark questions
+              const equivalentThreeMarkQuestions = Math.ceil(totalCustomMarks / 3);
+              adjustedMarkDistribution.threeMark += equivalentThreeMarkQuestions;
+            } else {
+              // Distribute to fiveMark - convert to equivalent 5-mark questions
+              const equivalentFiveMarkQuestions = Math.ceil(totalCustomMarks / 5);
+              adjustedMarkDistribution.fiveMark += equivalentFiveMarkQuestions;
+            }
+          }
+        });
+      }
+      
+      // Validate that adjusted distribution matches expected total
+      const adjustedTotalFromQuestions = 
+        adjustedMarkDistribution.oneMark * 1 +
+        adjustedMarkDistribution.twoMark * 2 +
+        adjustedMarkDistribution.threeMark * 3 +
+        adjustedMarkDistribution.fiveMark * 5;
+      
+      console.log("Mark calculation debug:", {
+        oneMark: formData.markDistribution.oneMark,
+        twoMark: formData.markDistribution.twoMark,
+        threeMark: formData.markDistribution.threeMark,
+        fiveMark: formData.markDistribution.fiveMark,
+        totalFromQuestions,
+        customMarksTotal,
+        actualTotalMarks,
+        customMarks,
+        adjustedMarkDistribution,
+        adjustedTotalFromQuestions,
+        matches: adjustedTotalFromQuestions === actualTotalMarks
+      });
+      
+      // If there's a mismatch, adjust the fiveMark category to match
+      if (adjustedTotalFromQuestions !== actualTotalMarks) {
+        const difference = actualTotalMarks - adjustedTotalFromQuestions;
+        adjustedMarkDistribution.fiveMark += Math.ceil(difference / 5);
+      }
+
       // Generate question paper directly using AI
       const aiRequest = {
         title: formData.title,
@@ -339,17 +398,54 @@ export default function QuestionPaperManagement() {
         examId: formData.examId,
         subjectId: selectedExam.subjectId || selectedExam.subjectId?._id,
         classId: selectedExam.classId || selectedExam.classId?._id,
-        markDistribution: formData.markDistribution,
+        markDistribution: {
+          ...adjustedMarkDistribution,
+          totalMarks: actualTotalMarks, // Use the calculated total marks
+        },
         bloomsDistribution: formData.bloomsDistribution,
-        questionTypeDistribution: formData.questionTypeDistribution,
+        questionTypeDistribution: (() => {
+          // Convert question counts to percentages for backend compatibility
+          const converted: any = {};
+          const markCategories = ['oneMark', 'twoMark', 'threeMark', 'fiveMark'] as const;
+          
+          for (const mark of markCategories) {
+            if (formData.markDistribution[mark] > 0) {
+              const distributions = formData.questionTypeDistribution[mark] || [];
+              const totalQuestions = formData.markDistribution[mark];
+              
+              converted[mark] = distributions.map(dist => ({
+                type: dist.type,
+                percentage: totalQuestions > 0 ? Math.round((dist.questionCount / totalQuestions) * 100) : 0
+              }));
+            }
+          }
+          
+          return converted;
+        })(),
         aiSettings: formData.aiSettings,
       };
+
+      // Add pattern ID to request if pattern was uploaded
+      if (uploadedPatternId) {
+        (aiRequest as any).patternId = uploadedPatternId;
+      }
 
       const generatedQuestionPaper = await questionPaperAPI.generateCompleteAI(
         aiRequest as any
       );
       console.log("generatedQuestionPaper", generatedQuestionPaper);
-      setQuestionPapers((prev) => [generatedQuestionPaper.questionPaper, ...prev]);
+      
+      // Extract the question paper from the response
+      const responseData = generatedQuestionPaper as any;
+      console.log("questionPaper from response:", responseData?.questionPaper);
+      
+      // Add the generated question paper to the list
+      if (responseData && responseData.questionPaper) {
+        console.log("Adding question paper to list:", responseData.questionPaper);
+        setQuestionPapers((prev) => [responseData.questionPaper, ...prev]);
+      } else {
+        console.log("No question paper found in response");
+      }
 
       toast({
         title: "Success",
@@ -373,7 +469,7 @@ export default function QuestionPaperManagement() {
     try {
       // Generate question paper using AI
       const result = await questionPaperAPI.generateAI(questionPaper._id);
-
+      console.log("result", result);
       // Update the question paper in state
       setQuestionPapers((prev) =>
         prev.map((paper) => (paper._id === questionPaper._id ? result : paper))
@@ -491,30 +587,10 @@ export default function QuestionPaperManagement() {
         { level: "CREATE", percentage: 3 },
       ],
       questionTypeDistribution: {
-        oneMark: [
-          { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-          { type: "FILL_BLANKS", percentage: 20 },
-          { type: "SHORT_ANSWER", percentage: 20 },
-          { type: "LONG_ANSWER", percentage: 20 },
-        ],
-        twoMark: [
-          { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-          { type: "FILL_BLANKS", percentage: 20 },
-          { type: "SHORT_ANSWER", percentage: 20 },
-          { type: "LONG_ANSWER", percentage: 20 },
-        ],
-        threeMark: [
-          { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-          { type: "FILL_BLANKS", percentage: 20 },
-          { type: "SHORT_ANSWER", percentage: 20 },
-          { type: "LONG_ANSWER", percentage: 20 },
-        ],
-        fiveMark: [
-          { type: "CHOOSE_BEST_ANSWER", percentage: 40 },
-          { type: "FILL_BLANKS", percentage: 20 },
-          { type: "SHORT_ANSWER", percentage: 20 },
-          { type: "LONG_ANSWER", percentage: 20 },
-        ],
+        oneMark: [],
+        twoMark: [],
+        threeMark: [],
+        fiveMark: [],
       } as any,
       aiSettings: {
         useSubjectBook: false,
@@ -523,6 +599,10 @@ export default function QuestionPaperManagement() {
         twistedQuestionsPercentage: 0,
       },
     });
+    setCurrentStep(1);
+    setCustomMarks([]);
+    setUploadedPattern(null);
+    setUploadedPatternId(null);
   };
 
   const updateMarkDistribution = (field: string, value: number) => {
@@ -539,14 +619,21 @@ export default function QuestionPaperManagement() {
         newMarkDistribution.threeMark * 3 +
         newMarkDistribution.fiveMark * 5;
 
+      // Add custom marks
+      const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+      const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
+
+      // Always auto-fill total marks
+      newMarkDistribution.totalMarks = totalFromAllQuestions;
+
       // If total marks is set to 100, validate that question marks equal exactly 100
       if (
         newMarkDistribution.totalMarks === 100 &&
-        totalFromQuestions !== 100
+        totalFromAllQuestions !== 100
       ) {
         toast({
           title: "Validation Error",
-          description: `Total marks from questions (${totalFromQuestions}) must equal exactly 100 when total marks is set to 100`,
+          description: `Total marks from questions (${totalFromAllQuestions}) must equal exactly 100 when total marks is set to 100`,
           variant: "destructive",
         });
         return prev; // Don't update if validation fails
@@ -559,6 +646,66 @@ export default function QuestionPaperManagement() {
     });
   };
 
+
+  const addCustomMark = () => {
+    setCustomMarks(prev => [...prev, { mark: 0, count: 0 }]);
+  };
+
+  const updateCustomMark = (index: number, field: 'mark' | 'count', value: number) => {
+    setCustomMarks(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      
+      // Calculate total marks from all questions including custom marks
+      const totalFromQuestions =
+        formData.markDistribution.oneMark * 1 +
+        formData.markDistribution.twoMark * 2 +
+        formData.markDistribution.threeMark * 3 +
+        formData.markDistribution.fiveMark * 5;
+      
+      const customMarksTotal = updated.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+      const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
+      
+      // Update total marks in form data
+      setFormData(prev => ({
+        ...prev,
+        markDistribution: {
+          ...prev.markDistribution,
+          totalMarks: totalFromAllQuestions,
+        },
+      }));
+      
+      return updated;
+    });
+  };
+
+  const removeCustomMark = (index: number) => {
+    setCustomMarks(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      
+      // Calculate total marks from all questions including remaining custom marks
+      const totalFromQuestions =
+        formData.markDistribution.oneMark * 1 +
+        formData.markDistribution.twoMark * 2 +
+        formData.markDistribution.threeMark * 3 +
+        formData.markDistribution.fiveMark * 5;
+      
+      const customMarksTotal = updated.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+      const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
+      
+      // Update total marks in form data
+      setFormData(prev => ({
+        ...prev,
+        markDistribution: {
+          ...prev.markDistribution,
+          totalMarks: totalFromAllQuestions,
+        },
+      }));
+      
+      return updated;
+    });
+  };
+
   const updateBloomsDistribution = (level: string, percentage: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -568,20 +715,20 @@ export default function QuestionPaperManagement() {
     }));
   };
 
-  const updateQuestionTypeDistribution = (mark: string, type: string, percentage: number) => {
+  const updateQuestionTypeDistribution = (mark: string, type: string, questionCount: number) => {
     setFormData((prev) => {
       const distributions = { ...prev.questionTypeDistribution };
       let dists = distributions[mark] || [];
       const existingIndex = dists.findIndex((d) => d.type === type);
 
       if (existingIndex !== -1) {
-        if (percentage === 0) {
+        if (questionCount === 0) {
           dists = dists.filter((_, index) => index !== existingIndex);
         } else {
-          dists[existingIndex] = { ...dists[existingIndex], percentage };
+          dists[existingIndex] = { ...dists[existingIndex], questionCount };
         }
-      } else if (percentage > 0) {
-        dists.push({ type, percentage });
+      } else if (questionCount > 0) {
+        dists.push({ type, questionCount });
       }
 
       distributions[mark] = dists;
@@ -593,12 +740,144 @@ export default function QuestionPaperManagement() {
     });
   };
 
-  const getQuestionTypePercentage = (mark: string, type: string) => {
-    return formData.questionTypeDistribution[mark]?.find((d) => d.type === type)?.percentage || 0;
+  const getQuestionTypeCount = (mark: string, type: string) => {
+    return formData.questionTypeDistribution[mark]?.find((d) => d.type === type)?.questionCount || 0;
   };
 
   const getQuestionTypeTotal = (mark: string) => {
-    return (formData.questionTypeDistribution[mark] || []).reduce((sum, d) => sum + d.percentage, 0);
+    return (formData.questionTypeDistribution[mark] || []).reduce((sum, d) => sum + (d.questionCount || 0), 0);
+  };
+
+  const getMaxQuestionsForMark = (mark: string) => {
+    if (mark === 'oneMark') return formData.markDistribution.oneMark;
+    if (mark === 'twoMark') return formData.markDistribution.twoMark;
+    if (mark === 'threeMark') return formData.markDistribution.threeMark;
+    if (mark === 'fiveMark') return formData.markDistribution.fiveMark;
+    
+    // For custom marks, find the corresponding custom mark
+    const customMark = customMarks.find(custom => {
+      if (custom.mark <= 2) return mark === 'oneMark' || mark === 'twoMark';
+      if (custom.mark <= 4) return mark === 'threeMark';
+      return mark === 'fiveMark';
+    });
+    
+    return customMark ? customMark.count : 0;
+  };
+
+  // Step validation functions
+  const validateStep1 = () => {
+    const errors: string[] = [];
+    if (!formData.title.trim()) {
+      errors.push("Title is required");
+    }
+    if (!formData.examId) {
+      errors.push("Exam selection is required");
+    } else {
+      const selectedExam = exams.find((exam) => exam._id === formData.examId);
+      if (!selectedExam) {
+        errors.push("Selected exam is not valid or not found");
+      }
+    }
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  };
+
+  const validateStep2 = () => {
+    const errors: string[] = [];
+    
+    // Mark distribution validation
+    const totalFromQuestions =
+      formData.markDistribution.oneMark * 1 +
+      formData.markDistribution.twoMark * 2 +
+      formData.markDistribution.threeMark * 3 +
+      formData.markDistribution.fiveMark * 5;
+
+    const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+    const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
+
+    const totalQuestions = 
+      formData.markDistribution.oneMark +
+      formData.markDistribution.twoMark +
+      formData.markDistribution.threeMark +
+      formData.markDistribution.fiveMark +
+      customMarks.reduce((sum, custom) => sum + custom.count, 0);
+
+    if (totalQuestions === 0) {
+      errors.push("At least one question must be configured");
+    }
+
+    if (formData.markDistribution.totalMarks <= 0) {
+      errors.push("Total marks must be greater than 0");
+    }
+
+    if (formData.markDistribution.totalMarks === 100 && totalFromAllQuestions !== 100) {
+      errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`);
+    }
+
+    // Question type distribution validation
+    const markCategories = ['oneMark', 'twoMark', 'threeMark', 'fiveMark'] as const;
+    for (const mark of markCategories) {
+      if (formData.markDistribution[mark] > 0) {
+        const total = getQuestionTypeTotal(mark);
+        const maxQuestions = getMaxQuestionsForMark(mark);
+        if (total > maxQuestions) {
+          errors.push(`Question type distribution for ${mark.replace('Mark', ' Mark')} cannot exceed ${maxQuestions} questions. Current total: ${total} questions`);
+        }
+      }
+    }
+
+    // Blooms Taxonomy distribution validation
+    const bloomsTotal = formData.bloomsDistribution.reduce(
+      (sum, dist) => sum + dist.percentage,
+      0
+    );
+    if (bloomsTotal !== 100) {
+      errors.push(`Blooms taxonomy percentages must add up to exactly 100%. Current total: ${bloomsTotal}%`);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  };
+
+  const validateStep3 = () => {
+    // Step 3 (AI Settings) doesn't require validation as all fields are optional
+    return {
+      isValid: true,
+      errors: []
+    };
+  };
+
+  const handleNextStep = () => {
+    if (currentStep === 1) {
+      const validation = validateStep1();
+      if (!validation.isValid) {
+        toast({
+          title: "Validation Error",
+          description: validation.errors.join(". "),
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (currentStep === 2) {
+      const validation = validateStep2();
+      if (!validation.isValid) {
+        toast({
+          title: "Validation Error",
+          description: validation.errors.join(". "),
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    setCurrentStep(prev => Math.min(prev + 1, 3));
+  };
+
+  const handlePreviousStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
   // Comprehensive validation function for question paper creation
@@ -635,12 +914,16 @@ export default function QuestionPaperManagement() {
       formData.markDistribution.threeMark * 3 +
       formData.markDistribution.fiveMark * 5;
 
+    const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+    const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
+
     // Validate that at least some questions are configured
     const totalQuestions = 
       formData.markDistribution.oneMark +
       formData.markDistribution.twoMark +
       formData.markDistribution.threeMark +
-      formData.markDistribution.fiveMark;
+      formData.markDistribution.fiveMark +
+      customMarks.reduce((sum, custom) => sum + custom.count, 0);
 
     if (totalQuestions === 0) {
       errors.push("At least one question must be configured");
@@ -652,8 +935,8 @@ export default function QuestionPaperManagement() {
     }
 
     // If total marks is set to 100, ensure question marks add up to 100
-    if (formData.markDistribution.totalMarks === 100 && totalFromQuestions !== 100) {
-      errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromQuestions}`);
+    if (formData.markDistribution.totalMarks === 100 && totalFromAllQuestions !== 100) {
+      errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`);
     }
 
     // Question type distribution validation for each mark category
@@ -661,8 +944,9 @@ export default function QuestionPaperManagement() {
     for (const mark of markCategories) {
       if (formData.markDistribution[mark] > 0) {
         const total = getQuestionTypeTotal(mark);
-        if (total !== 100) {
-          errors.push(`Question type percentages for ${mark.replace('Mark', ' Mark')} must add up to exactly 100%. Current total: ${total}%`);
+        const maxQuestions = getMaxQuestionsForMark(mark);
+        if (total > maxQuestions) {
+          errors.push(`Question type distribution for ${mark.replace('Mark', ' Mark')} cannot exceed ${maxQuestions} questions. Current total: ${total} questions`);
         }
       }
     }
@@ -858,7 +1142,9 @@ export default function QuestionPaperManagement() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {questionPapers.map((paper) => (
+          {questionPapers.map((paper) => {
+            console.log("Rendering paper:", paper);
+            return (
             <Card key={paper._id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -919,7 +1205,7 @@ export default function QuestionPaperManagement() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Total Marks</span>
                     <span className="font-medium">
-                      {paper.markDistribution.totalMarks}
+                      {paper.markDistribution?.totalMarks || 'N/A'}
                     </span>
                   </div>
                   {paper.generatedPdf && (
@@ -935,7 +1221,8 @@ export default function QuestionPaperManagement() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -949,17 +1236,49 @@ export default function QuestionPaperManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="distributions">Distributions</TabsTrigger>
-              <TabsTrigger value="ai">AI Settings</TabsTrigger>
-            </TabsList>
+          {/* Step Progress Indicator */}
+          <div className="flex items-center justify-center space-x-4 mb-6">
+            <div className="flex items-center space-x-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+              }`}>
+                1
+              </div>
+              <span className={`text-sm ${currentStep >= 1 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+                Basic Info
+              </span>
+            </div>
+            <div className="w-8 h-0.5 bg-gray-200"></div>
+            <div className="flex items-center space-x-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+              }`}>
+                2
+              </div>
+              <span className={`text-sm ${currentStep >= 2 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+                Distribution
+              </span>
+            </div>
+            <div className="w-8 h-0.5 bg-gray-200"></div>
+            <div className="flex items-center space-x-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+              }`}>
+                3
+              </div>
+              <span className={`text-sm ${currentStep >= 3 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+                AI Settings
+              </span>
+            </div>
+          </div>
 
-            <TabsContent value="basic" className="space-y-4">
+          {/* Step Content */}
+          {currentStep === 1 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Basic Information</h3>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="title">Title</Label>
+                  <Label htmlFor="title">Title *</Label>
                   <Input
                     id="title"
                     value={formData.title}
@@ -973,12 +1292,18 @@ export default function QuestionPaperManagement() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="exam">Exam</Label>
+                  <Label htmlFor="exam">Exam *</Label>
                   <Select
                     value={formData.examId}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({ ...prev, examId: value }))
-                    }
+                    onValueChange={(value) => {
+                      const selectedExam = exams.find(exam => exam._id === value);
+                      setFormData((prev) => ({ 
+                        ...prev, 
+                        examId: value,
+                        // Auto-select the first subject if exam has multiple subjects
+                        subjectId: selectedExam?.subjectIds?.[0] || ''
+                      }));
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select exam" />
@@ -987,6 +1312,9 @@ export default function QuestionPaperManagement() {
                       {exams.map((exam) => (
                         <SelectItem key={exam._id} value={exam._id}>
                           {exam.title}
+                          {exam.subjectIds && exam.subjectIds.length > 1 && 
+                            ` (${exam.subjectIds.length} subjects)`
+                          }
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1008,12 +1336,17 @@ export default function QuestionPaperManagement() {
                   />
                 </div>
               </div>
-            </TabsContent>
+            </div>
+          )}
 
-            <TabsContent value="distributions" className="space-y-6">
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">Distribution Settings</h3>
+              
+
               {/* Basic Mark Distribution */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Mark Distribution</h3>
+                <h4 className="text-md font-semibold">Mark Distribution</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <Label htmlFor="oneMark">1 Mark Questions</Label>
@@ -1092,27 +1425,6 @@ export default function QuestionPaperManagement() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="totalMarks">Total Marks</Label>
-                    <Input
-                      id="totalMarks"
-                      type="number"
-                      value={formData.markDistribution.totalMarks || ""}
-                      onChange={(e) => {
-                        const value =
-                          e.target.value === ""
-                            ? 0
-                            : Math.max(1, parseInt(e.target.value) || 1);
-                        updateMarkDistribution("totalMarks", value);
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      min="1"
-                      max="1000"
-                      placeholder="100"
-                    />
-                  </div>
-                </div>
 
                 {/* Mark Distribution Summary */}
                 <div className="bg-gray-50 p-4 rounded-lg">
@@ -1152,30 +1464,39 @@ export default function QuestionPaperManagement() {
                   <div className="mt-3 pt-3 border-t">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">
-                        Total Marks from Questions:
+                        Total Marks from Standard Questions:
                       </span>
-                      <span
-                        className={`font-medium ${
-                          formData.markDistribution.oneMark * 1 +
-                            formData.markDistribution.twoMark * 2 +
-                            formData.markDistribution.threeMark * 3 +
-                            formData.markDistribution.fiveMark * 5 !==
-                            100 && formData.markDistribution.totalMarks === 100
-                            ? "text-red-600"
-                            : "text-green-600"
-                        }`}
-                      >
+                      <span className="font-medium text-blue-600">
                         {formData.markDistribution.oneMark * 1 +
                           formData.markDistribution.twoMark * 2 +
                           formData.markDistribution.threeMark * 3 +
                           formData.markDistribution.fiveMark * 5}
                       </span>
                     </div>
+                    {customMarks.length > 0 && (
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-gray-600">
+                          Total Marks from Custom Questions:
+                        </span>
+                        <span className="font-medium text-green-600">
+                          {customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center mt-2 pt-2 border-t">
+                      <span className="text-gray-600 font-semibold">
+                        Auto-calculated Total Marks:
+                      </span>
+                      <span className="font-bold text-green-600">
+                        {formData.markDistribution.totalMarks}
+                      </span>
+                    </div>
                     {formData.markDistribution.totalMarks === 100 &&
-                      formData.markDistribution.oneMark * 1 +
+                      (formData.markDistribution.oneMark * 1 +
                         formData.markDistribution.twoMark * 2 +
                         formData.markDistribution.threeMark * 3 +
-                        formData.markDistribution.fiveMark * 5 !==
+                        formData.markDistribution.fiveMark * 5 +
+                        customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0)) !==
                         100 && (
                         <div className="mt-2 text-red-600 text-sm">
                           ⚠️ Total marks from questions must equal exactly 100.
@@ -1186,11 +1507,105 @@ export default function QuestionPaperManagement() {
                 </div>
               </div>
 
+              {/* Custom Marks Section */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-md font-semibold">Custom Marks Questions</h4>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCustomMark}
+                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Custom Mark
+                  </Button>
+                </div>
+                
+                {/* Warning about custom marks */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="flex items-start">
+                    <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                    <div className="text-sm text-yellow-800">
+                      <strong>Note:</strong> Custom marks will be automatically distributed into standard categories (1, 2, 3, 5 marks) for backend compatibility. 
+                      The total marks calculation will remain accurate.
+                    </div>
+                  </div>
+                </div>
+                
+                {customMarks.length > 0 && (
+                  <div className="space-y-3">
+                    {customMarks.map((custom, index) => (
+                      <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <Label htmlFor={`customMark-${index}`}>Mark Value</Label>
+                          <Input
+                            id={`customMark-${index}`}
+                            type="number"
+                            value={custom.mark || ""}
+                            onChange={(e) => {
+                              const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                              updateCustomMark(index, 'mark', value);
+                            }}
+                            min="1"
+                            max="100"
+                            placeholder="e.g., 4"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <Label htmlFor={`customCount-${index}`}>Number of Questions</Label>
+                          <Input
+                            id={`customCount-${index}`}
+                            type="number"
+                            value={custom.count || ""}
+                            onChange={(e) => {
+                              const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                              updateCustomMark(index, 'count', value);
+                            }}
+                            min="0"
+                            max="100"
+                            placeholder="e.g., 5"
+                          />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium">
+                            = {custom.mark * custom.count} marks
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeCustomMark(index)}
+                            className="text-red-600 border-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Custom Marks Summary */}
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Custom Marks Total:</span>
+                        <span className="text-sm font-bold text-blue-600">
+                          {customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0)} marks
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Question Type Distribution per Mark */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">
                   Question Type Distribution per Mark Category
                 </h3>
+                <p className="text-sm text-gray-600">
+                  Enter the number of questions for each type. Total cannot exceed the number of questions you specified above.
+                </p>
                 <Accordion type="multiple" className="w-full">
                   <AccordionItem value="oneMark">
                     <AccordionTrigger>1 Mark Questions ({formData.markDistribution.oneMark})</AccordionTrigger>
@@ -1205,38 +1620,41 @@ export default function QuestionPaperManagement() {
                                   {type.description}
                                 </p>
                               </div>
-                              <span className="text-sm font-medium">
-                                {getQuestionTypePercentage("oneMark", type.id)}%
-                              </span>
+                              <div className="flex items-center space-x-2">
+                                <Input
+                                  type="number"
+                                  value={getQuestionTypeCount("oneMark", type.id) || ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                    updateQuestionTypeDistribution("oneMark", type.id, value);
+                                  }}
+                                  min="0"
+                                  max={formData.markDistribution.oneMark}
+                                  className="w-20"
+                                  placeholder="0"
+                                />
+                                <span className="text-sm text-gray-500">questions</span>
+                              </div>
                             </div>
-                            <Slider
-                              value={[getQuestionTypePercentage("oneMark", type.id)]}
-                              onValueChange={([value]) =>
-                                updateQuestionTypeDistribution("oneMark", type.id, value)
-                              }
-                              max={100}
-                              step={1}
-                              className="w-full"
-                            />
                           </div>
                         ))}
                         {/* Summary for this mark */}
                         <div className="bg-gray-50 p-4 rounded-lg mt-4">
                           <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Total:</span>
+                            <span className="text-gray-600 font-medium">Total Questions:</span>
                             <span
                               className={`font-bold ${
-                                getQuestionTypeTotal("oneMark") === 100
+                                getQuestionTypeTotal("oneMark") <= formData.markDistribution.oneMark
                                   ? "text-green-600"
                                   : "text-red-600"
                               }`}
                             >
-                              {getQuestionTypeTotal("oneMark")}%
+                              {getQuestionTypeTotal("oneMark")} / {formData.markDistribution.oneMark}
                             </span>
                           </div>
-                          {getQuestionTypeTotal("oneMark") !== 100 && (
+                          {getQuestionTypeTotal("oneMark") > formData.markDistribution.oneMark && (
                             <div className="mt-2 text-red-600 text-sm">
-                              ⚠️ Percentages must add up to exactly 100%.
+                              ⚠️ Total questions cannot exceed {formData.markDistribution.oneMark}.
                             </div>
                           )}
                         </div>
@@ -1257,38 +1675,41 @@ export default function QuestionPaperManagement() {
                                   {type.description}
                                 </p>
                               </div>
-                              <span className="text-sm font-medium">
-                                {getQuestionTypePercentage("twoMark", type.id)}%
-                              </span>
+                              <div className="flex items-center space-x-2">
+                                <Input
+                                  type="number"
+                                  value={getQuestionTypeCount("twoMark", type.id) || ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                    updateQuestionTypeDistribution("twoMark", type.id, value);
+                                  }}
+                                  min="0"
+                                  max={formData.markDistribution.twoMark}
+                                  className="w-20"
+                                  placeholder="0"
+                                />
+                                <span className="text-sm text-gray-500">questions</span>
+                              </div>
                             </div>
-                            <Slider
-                              value={[getQuestionTypePercentage("twoMark", type.id)]}
-                              onValueChange={([value]) =>
-                                updateQuestionTypeDistribution("twoMark", type.id, value)
-                              }
-                              max={100}
-                              step={1}
-                              className="w-full"
-                            />
                           </div>
                         ))}
                         {/* Summary for this mark */}
                         <div className="bg-gray-50 p-4 rounded-lg mt-4">
                           <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Total:</span>
+                            <span className="text-gray-600 font-medium">Total Questions:</span>
                             <span
                               className={`font-bold ${
-                                getQuestionTypeTotal("twoMark") === 100
+                                getQuestionTypeTotal("twoMark") <= formData.markDistribution.twoMark
                                   ? "text-green-600"
                                   : "text-red-600"
                               }`}
                             >
-                              {getQuestionTypeTotal("twoMark")}%
+                              {getQuestionTypeTotal("twoMark")} / {formData.markDistribution.twoMark}
                             </span>
                           </div>
-                          {getQuestionTypeTotal("twoMark") !== 100 && (
+                          {getQuestionTypeTotal("twoMark") > formData.markDistribution.twoMark && (
                             <div className="mt-2 text-red-600 text-sm">
-                              ⚠️ Percentages must add up to exactly 100%.
+                              ⚠️ Total questions cannot exceed {formData.markDistribution.twoMark}.
                             </div>
                           )}
                         </div>
@@ -1309,38 +1730,41 @@ export default function QuestionPaperManagement() {
                                   {type.description}
                                 </p>
                               </div>
-                              <span className="text-sm font-medium">
-                                {getQuestionTypePercentage("threeMark", type.id)}%
-                              </span>
+                              <div className="flex items-center space-x-2">
+                                <Input
+                                  type="number"
+                                  value={getQuestionTypeCount("threeMark", type.id) || ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                    updateQuestionTypeDistribution("threeMark", type.id, value);
+                                  }}
+                                  min="0"
+                                  max={formData.markDistribution.threeMark}
+                                  className="w-20"
+                                  placeholder="0"
+                                />
+                                <span className="text-sm text-gray-500">questions</span>
+                              </div>
                             </div>
-                            <Slider
-                              value={[getQuestionTypePercentage("threeMark", type.id)]}
-                              onValueChange={([value]) =>
-                                updateQuestionTypeDistribution("threeMark", type.id, value)
-                              }
-                              max={100}
-                              step={1}
-                              className="w-full"
-                            />
                           </div>
                         ))}
                         {/* Summary for this mark */}
                         <div className="bg-gray-50 p-4 rounded-lg mt-4">
                           <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Total:</span>
+                            <span className="text-gray-600 font-medium">Total Questions:</span>
                             <span
                               className={`font-bold ${
-                                getQuestionTypeTotal("threeMark") === 100
+                                getQuestionTypeTotal("threeMark") <= formData.markDistribution.threeMark
                                   ? "text-green-600"
                                   : "text-red-600"
                               }`}
                             >
-                              {getQuestionTypeTotal("threeMark")}%
+                              {getQuestionTypeTotal("threeMark")} / {formData.markDistribution.threeMark}
                             </span>
                           </div>
-                          {getQuestionTypeTotal("threeMark") !== 100 && (
+                          {getQuestionTypeTotal("threeMark") > formData.markDistribution.threeMark && (
                             <div className="mt-2 text-red-600 text-sm">
-                              ⚠️ Percentages must add up to exactly 100%.
+                              ⚠️ Total questions cannot exceed {formData.markDistribution.threeMark}.
                             </div>
                           )}
                         </div>
@@ -1361,44 +1785,107 @@ export default function QuestionPaperManagement() {
                                   {type.description}
                                 </p>
                               </div>
-                              <span className="text-sm font-medium">
-                                {getQuestionTypePercentage("fiveMark", type.id)}%
-                              </span>
+                              <div className="flex items-center space-x-2">
+                                <Input
+                                  type="number"
+                                  value={getQuestionTypeCount("fiveMark", type.id) || ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                    updateQuestionTypeDistribution("fiveMark", type.id, value);
+                                  }}
+                                  min="0"
+                                  max={formData.markDistribution.fiveMark}
+                                  className="w-20"
+                                  placeholder="0"
+                                />
+                                <span className="text-sm text-gray-500">questions</span>
+                              </div>
                             </div>
-                            <Slider
-                              value={[getQuestionTypePercentage("fiveMark", type.id)]}
-                              onValueChange={([value]) =>
-                                updateQuestionTypeDistribution("fiveMark", type.id, value)
-                              }
-                              max={100}
-                              step={1}
-                              className="w-full"
-                            />
                           </div>
                         ))}
                         {/* Summary for this mark */}
                         <div className="bg-gray-50 p-4 rounded-lg mt-4">
                           <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Total:</span>
+                            <span className="text-gray-600 font-medium">Total Questions:</span>
                             <span
                               className={`font-bold ${
-                                getQuestionTypeTotal("fiveMark") === 100
+                                getQuestionTypeTotal("fiveMark") <= formData.markDistribution.fiveMark
                                   ? "text-green-600"
                                   : "text-red-600"
                               }`}
                             >
-                              {getQuestionTypeTotal("fiveMark")}%
-                            </span>
-                          </div>
-                          {getQuestionTypeTotal("fiveMark") !== 100 && (
+                              {getQuestionTypeTotal("fiveMark")} / {formData.markDistribution.fiveMark}
+                              </span>
+                            </div>
+                          {getQuestionTypeTotal("fiveMark") > formData.markDistribution.fiveMark && (
                             <div className="mt-2 text-red-600 text-sm">
-                              ⚠️ Percentages must add up to exactly 100%.
+                              ⚠️ Total questions cannot exceed {formData.markDistribution.fiveMark}.
                             </div>
                           )}
                         </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
+
+                  {/* Custom Marks Question Type Distribution */}
+                  {customMarks.map((custom, index) => (
+                    <AccordionItem key={`custom-${custom.mark}-${index}`} value={`custom-${custom.mark}-${index}`}>
+                      <AccordionTrigger>
+                        {custom.mark} Mark Questions ({custom.count})
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-4">
+                          {QUESTION_TYPES.map((type) => (
+                            <div key={type.id} className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <Label className="font-medium">{type.name}</Label>
+                                  <p className="text-sm text-gray-600">
+                                    {type.description}
+                                  </p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Input
+                                    type="number"
+                                    value={getQuestionTypeCount(`custom-${custom.mark}-${index}`, type.id) || ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                      updateQuestionTypeDistribution(`custom-${custom.mark}-${index}`, type.id, value);
+                                    }}
+                                    min="0"
+                                    max={custom.count}
+                                    className="w-20"
+                                    placeholder="0"
+                                  />
+                                  <span className="text-sm text-gray-500">questions</span>
+                                </div>
+                              </div>
+                          </div>
+                        ))}
+                          {/* Summary for this custom mark */}
+                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
+                          <div className="flex justify-between items-center">
+                              <span className="text-gray-600 font-medium">Total Questions:</span>
+                            <span
+                              className={`font-bold ${
+                                  getQuestionTypeTotal(`custom-${custom.mark}-${index}`) <= custom.count
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                                {getQuestionTypeTotal(`custom-${custom.mark}-${index}`)} / {custom.count}
+                            </span>
+                          </div>
+                            {getQuestionTypeTotal(`custom-${custom.mark}-${index}`) > custom.count && (
+                            <div className="mt-2 text-red-600 text-sm">
+                                ⚠️ Total questions cannot exceed {custom.count}.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  ))}
                 </Accordion>
               </div>
 
@@ -1503,28 +1990,73 @@ export default function QuestionPaperManagement() {
                   ))}
                 </div>
               </div>
-            </TabsContent>
+            </div>
+          )}
 
-            <TabsContent value="ai" className="space-y-6">
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">AI Settings</h3>
               <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="useSubjectBook"
-                    checked={formData.aiSettings.useSubjectBook}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        aiSettings: { ...prev.aiSettings, useSubjectBook: checked as boolean },
-                      }))
-                    }
-                  />
-                  <Label htmlFor="useSubjectBook">Use Subject Book for Generation</Label>
+                {/* Upload Question Paper Pattern */}
+                <div>
+                  <Label htmlFor="patternUpload">Upload Question Paper Pattern (Optional)</Label>
+                  <p className="text-sm text-gray-600 mb-2">
+                    Upload a PDF or image of a question paper pattern to help AI generate similar format
+                  </p>
+                  <div className="flex items-center space-x-4">
+                    <Input
+                      id="patternUpload"
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setUploadedPattern(file);
+                          try {
+                            const result = await questionPaperAPI.uploadPattern(file);
+                            setUploadedPatternId(result.patternId);
+                            toast({
+                              title: "Pattern uploaded",
+                              description: "Pattern file uploaded successfully",
+                            });
+                          } catch (error) {
+                            console.error('Error uploading pattern:', error);
+                            toast({
+                              title: "Upload failed",
+                              description: "Failed to upload pattern file",
+                              variant: "destructive",
+                            });
+                          }
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                    {uploadedPattern && (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-green-600">
+                          ✓ {uploadedPattern.name}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setUploadedPattern(null);
+                            setUploadedPatternId(null);
+                          }}
+                        >
+                          Remove
+                        </Button>
                 </div>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <Label htmlFor="difficultyLevel">Difficulty Level</Label>
                   <Select
                     value={formData.aiSettings.difficultyLevel}
-                    onValueChange={(value) =>
+                    onValueChange={(value: "EASY" | "MODERATE" | "TOUGHEST") =>
                       setFormData((prev) => ({
                         ...prev,
                         aiSettings: { ...prev.aiSettings, difficultyLevel: value },
@@ -1537,7 +2069,7 @@ export default function QuestionPaperManagement() {
                     <SelectContent>
                       <SelectItem value="EASY">Easy</SelectItem>
                       <SelectItem value="MODERATE">Moderate</SelectItem>
-                      <SelectItem value="HARD">Hard</SelectItem>
+                      <SelectItem value="TOUGHEST">Toughest</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1574,12 +2106,20 @@ export default function QuestionPaperManagement() {
                   />
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
 
-          {/* Validation Status Display */}
+          {/* Step Validation Status Display */}
           {(() => {
-            const validation = validateQuestionPaperForm();
+            let validation;
+            if (currentStep === 1) {
+              validation = validateStep1();
+            } else if (currentStep === 2) {
+              validation = validateStep2();
+            } else {
+              validation = validateStep3();
+            }
+
             if (!validation.isValid) {
               return (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
@@ -1607,23 +2147,51 @@ export default function QuestionPaperManagement() {
                 <div className="flex items-center">
                   <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
                   <span className="text-sm font-medium text-green-800">
-                    All validation requirements are met. Ready to create question paper.
+                    Step {currentStep} validation passed. Ready to proceed.
                   </span>
                 </div>
               </div>
             );
           })()}
 
-          <div className="flex justify-end space-x-2 pt-4">
+          {/* Navigation Buttons */}
+          <div className="flex justify-between pt-4">
+            <div className="flex space-x-2">
+              {currentStep > 1 && (
             <Button
               variant="outline"
-              onClick={() => setIsCreateDialogOpen(false)}
+                  onClick={handlePreviousStep}
+                >
+                  Previous
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsCreateDialogOpen(false);
+                  resetForm();
+                }}
             >
               Cancel
             </Button>
+            </div>
+            <div className="flex space-x-2">
+              {currentStep < 3 ? (
             <Button
-              onClick={handleCreateQuestionPaper}
+                  onClick={handleNextStep}
               className="bg-blue-600 hover:bg-blue-700"
+                  disabled={(() => {
+                    if (currentStep === 1) return !validateStep1().isValid;
+                    if (currentStep === 2) return !validateStep2().isValid;
+                    return false;
+                  })()}
+                >
+                  Next
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleCreateQuestionPaper}
+                  className="bg-green-600 hover:bg-green-700"
               disabled={isCreating || !validateQuestionPaperForm().isValid}
             >
               {isCreating ? (
@@ -1635,6 +2203,8 @@ export default function QuestionPaperManagement() {
                 "Create Question Paper"
               )}
             </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1672,7 +2242,7 @@ export default function QuestionPaperManagement() {
                 <div>
                   <Label className="font-medium">Total Marks</Label>
                   <div className="mt-1">
-                    {selectedQuestionPaper.markDistribution.totalMarks}
+                    {selectedQuestionPaper.markDistribution?.totalMarks || 'N/A'}
                   </div>
                 </div>
               </div>

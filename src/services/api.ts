@@ -1519,7 +1519,7 @@ export interface Exam {
   title: string;
   description?: string;
   examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'UNIT_WISE' | 'PAGE_WISE' | 'TERM_TEST' | 'ANNUAL_EXAM';
-  subjectId: string;
+  subjectIds: string[]; // Changed to array for multiple subjects
   classId: string;
   duration: number; // in minutes
   status: 'DRAFT' | 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
@@ -1546,7 +1546,7 @@ export interface CreateExamRequest {
   title: string;
   description?: string;
   examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'UNIT_WISE' | 'PAGE_WISE' | 'TERM_TEST' | 'ANNUAL_EXAM';
-  subjectId: string;
+  subjectIds: string[]; // Changed to array for multiple subjects
   classId: string;
   adminId?: string; // Optional, will be set from auth if not provided
   duration: number;
@@ -1832,6 +1832,28 @@ export const questionPaperAPI = {
       return await handleApiResponse<QuestionPaper>(response);
     } catch (error) {
       console.error('Error generating complete AI question paper:', error);
+      throw error;
+    }
+  },
+
+  // Upload pattern file
+  uploadPattern: async (file: File): Promise<{ patternId: string; fileName: string; filePath: string; fileSize: number; mimeType: string; uploadedAt: string }> => {
+    try {
+      const formData = new FormData();
+      formData.append('patternFile', file);
+
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/upload-pattern`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          // Don't set Content-Type, let browser set it for FormData
+        },
+        body: formData,
+      });
+      const result = await handleApiResponse<{ patternId: string; fileName: string; filePath: string; fileSize: number; mimeType: string; uploadedAt: string }>(response);
+      return result;
+    } catch (error) {
+      console.error('Error uploading pattern file:', error);
       throw error;
     }
   },

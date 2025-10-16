@@ -1910,6 +1910,81 @@ export const questionPaperAPI = {
       console.error('Error publishing question paper:', error);
       throw error;
     }
+  },
+
+  // Get questions for a question paper
+  getQuestions: async (id: string): Promise<Question[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/questions`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, questions: Question[]}>(response);
+      return result.questions;
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      throw error;
+    }
+  },
+
+  // Update a question
+  updateQuestion: async (questionPaperId: string, questionId: string, question: Partial<Question>): Promise<Question> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${questionPaperId}/questions/${questionId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(question),
+      });
+      const result = await handleApiResponse<{success: boolean, question: Question}>(response);
+      return result.question;
+    } catch (error) {
+      console.error('Error updating question:', error);
+      throw error;
+    }
+  },
+
+  // Regenerate PDF for a question paper
+  regeneratePDF: async (id: string): Promise<QuestionPaper> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/regenerate-pdf`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<QuestionPaper>(response);
+    } catch (error) {
+      console.error('Error regenerating PDF:', error);
+      throw error;
+    }
+  },
+
+  // Delete a question
+  deleteQuestion: async (questionPaperId: string, questionId: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${questionPaperId}/questions/${questionId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleApiResponse<void>(response);
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      throw error;
+    }
+  },
+
+  // Add a new question to a question paper
+  addQuestion: async (questionPaperId: string, question: Omit<Question, 'id' | 'createdAt' | 'updatedAt'>): Promise<Question> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${questionPaperId}/questions`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(question),
+      });
+      const result = await handleApiResponse<{success: boolean, question: Question}>(response);
+      return result.question;
+    } catch (error) {
+      console.error('Error adding question:', error);
+      throw error;
+    }
   }
 };
 

@@ -71,6 +71,8 @@ import {
   classManagementAPI,
   examsAPI,
 } from "@/services/api";
+import PDFEditor from "@/components/PDFEditor";
+import EnhancedPDFEditor from "@/components/EnhancedPDFEditor";
 
 // Question Types
 const QUESTION_TYPES = [
@@ -225,6 +227,9 @@ export default function QuestionPaperManagement() {
 
   // Multi-subject handling
   const [selectedSubjects, setSelectedSubjects] = useState<any[]>([]);
+  const [subjectDistributions, setSubjectDistributions] = useState<{[subjectId: string]: any}>({});
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingQuestionPaper, setEditingQuestionPaper] = useState<QuestionPaper | null>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -385,6 +390,23 @@ export default function QuestionPaperManagement() {
       
       for (const subjectData of selectedSubjects) {
         const subject = subjects.find(s => s._id === subjectData._id);
+        const subjectDistribution = subjectDistributions[subjectData._id];
+        
+        // Use subject-specific distribution if available, otherwise use global distribution
+        const markDistribution = subjectDistribution?.markDistribution || adjustedMarkDistribution;
+        const bloomsDistribution = subjectDistribution?.bloomsDistribution || formData.bloomsDistribution;
+        const questionTypeDistribution = subjectDistribution?.questionTypeDistribution || formData.questionTypeDistribution;
+        const customMarks = subjectDistribution?.customMarks || [];
+        
+        // Calculate total marks for this subject including custom marks
+        const standardMarks = 
+          (markDistribution.oneMark || 0) * 1 +
+          (markDistribution.twoMark || 0) * 2 +
+          (markDistribution.threeMark || 0) * 3 +
+          (markDistribution.fiveMark || 0) * 5;
+        
+        const customMarksTotal = customMarks.reduce((sum: number, custom: any) => sum + (custom.mark * custom.count), 0);
+        const subjectTotalMarks = standardMarks + customMarksTotal;
         
         // Generate question paper for this subject
         const aiRequest = {
@@ -394,19 +416,19 @@ export default function QuestionPaperManagement() {
           subjectId: subjectData._id,
           classId: selectedExam.classId || selectedExam.classId?._id,
           markDistribution: {
-            ...adjustedMarkDistribution,
-            totalMarks: actualTotalMarks,
+            ...markDistribution,
+            totalMarks: subjectTotalMarks,
           },
-          bloomsDistribution: formData.bloomsDistribution,
+          bloomsDistribution: bloomsDistribution,
           questionTypeDistribution: (() => {
             // Convert question counts to percentages for backend compatibility
             const converted: any = {};
             const markCategories = ['oneMark', 'twoMark', 'threeMark', 'fiveMark'] as const;
             
             for (const mark of markCategories) {
-              if (formData.markDistribution[mark] > 0) {
-                const distributions = formData.questionTypeDistribution[mark] || [];
-                const totalQuestions = formData.markDistribution[mark];
+              if (markDistribution[mark] > 0) {
+                const distributions = questionTypeDistribution[mark] || [];
+                const totalQuestions = markDistribution[mark];
                 
                 converted[mark] = distributions.map(dist => ({
                   type: dist.type,
@@ -805,54 +827,64 @@ export default function QuestionPaperManagement() {
   const validateStep2 = () => {
     const errors: string[] = [];
     
-    // Mark distribution validation
-    const totalFromQuestions =
-      formData.markDistribution.oneMark * 1 +
-      formData.markDistribution.twoMark * 2 +
-      formData.markDistribution.threeMark * 3 +
-      formData.markDistribution.fiveMark * 5;
-
-    const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
-    const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
-
-    const totalQuestions = 
-      formData.markDistribution.oneMark +
-      formData.markDistribution.twoMark +
-      formData.markDistribution.threeMark +
-      formData.markDistribution.fiveMark +
-      customMarks.reduce((sum, custom) => sum + custom.count, 0);
-
-    if (totalQuestions === 0) {
-      errors.push("At least one question must be configured");
-    }
-
-    if (formData.markDistribution.totalMarks <= 0) {
-      errors.push("Total marks must be greater than 0");
-    }
-
-    if (formData.markDistribution.totalMarks === 100 && totalFromAllQuestions !== 100) {
-      errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`);
-    }
-
-    // Question type distribution validation
-    const markCategories = ['oneMark', 'twoMark', 'threeMark', 'fiveMark'] as const;
-    for (const mark of markCategories) {
-      if (formData.markDistribution[mark] > 0) {
-        const total = getQuestionTypeTotal(mark);
-        const maxQuestions = getMaxQuestionsForMark(mark);
-        if (total > maxQuestions) {
-          errors.push(`Question type distribution for ${mark.replace('Mark', ' Mark')} cannot exceed ${maxQuestions} questions. Current total: ${total} questions`);
+    // For multi-subject exams, validation is handled in subject-specific sections
+    if (selectedSubjects.length > 1) {
+      // Validate that each subject has at least some questions configured
+      for (const subjectData of selectedSubjects) {
+        const distribution = subjectDistributions[subjectData._id];
+        if (!distribution || !distribution.markDistribution) {
+          errors.push(`Please configure mark distribution for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}`);
+          continue;
+        }
+        
+        const subjectTotalQuestions = 
+          (distribution.markDistribution.oneMark || 0) +
+          (distribution.markDistribution.twoMark || 0) +
+          (distribution.markDistribution.threeMark || 0) +
+          (distribution.markDistribution.fiveMark || 0) +
+          (distribution.customMarks || []).reduce((sum: number, custom: any) => sum + custom.count, 0);
+        
+        if (subjectTotalQuestions === 0) {
+          errors.push(`At least one question must be configured for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}`);
+        }
+        
+        // Validate Blooms taxonomy totals 100%
+        const bloomsTotal = (distribution.bloomsDistribution || []).reduce(
+          (sum: number, dist: any) => sum + dist.percentage, 0
+        );
+        if (bloomsTotal !== 100) {
+          errors.push(`Blooms taxonomy percentages must add up to exactly 100% for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}. Current total: ${bloomsTotal}%`);
         }
       }
-    }
+    } else {
+      // For single subject exams, use the global form data
+      const totalFromQuestions =
+        formData.markDistribution.oneMark * 1 +
+        formData.markDistribution.twoMark * 2 +
+        formData.markDistribution.threeMark * 3 +
+        formData.markDistribution.fiveMark * 5;
 
-    // Blooms Taxonomy distribution validation
-    const bloomsTotal = formData.bloomsDistribution.reduce(
-      (sum, dist) => sum + dist.percentage,
-      0
-    );
-    if (bloomsTotal !== 100) {
-      errors.push(`Blooms taxonomy percentages must add up to exactly 100%. Current total: ${bloomsTotal}%`);
+      const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+      const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
+
+      const totalQuestions = 
+        formData.markDistribution.oneMark +
+        formData.markDistribution.twoMark +
+        formData.markDistribution.threeMark +
+        formData.markDistribution.fiveMark +
+        customMarks.reduce((sum, custom) => sum + custom.count, 0);
+
+      if (totalQuestions === 0) {
+        errors.push("At least one question must be configured");
+      }
+
+      if (formData.markDistribution.totalMarks <= 0) {
+        errors.push("Total marks must be greater than 0");
+      }
+
+      if (formData.markDistribution.totalMarks === 100 && totalFromAllQuestions !== 100) {
+        errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`);
+      }
     }
 
     return {
@@ -925,57 +957,66 @@ export default function QuestionPaperManagement() {
       }
     }
 
-    // Mark distribution validation
-    const totalFromQuestions =
-      formData.markDistribution.oneMark * 1 +
-      formData.markDistribution.twoMark * 2 +
-      formData.markDistribution.threeMark * 3 +
-      formData.markDistribution.fiveMark * 5;
-
-    const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
-    const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
-
-    // Validate that at least some questions are configured
-    const totalQuestions = 
-      formData.markDistribution.oneMark +
-      formData.markDistribution.twoMark +
-      formData.markDistribution.threeMark +
-      formData.markDistribution.fiveMark +
-      customMarks.reduce((sum, custom) => sum + custom.count, 0);
-
-    if (totalQuestions === 0) {
-      errors.push("At least one question must be configured");
-    }
-
-    // Validate total marks configuration
-    if (formData.markDistribution.totalMarks <= 0) {
-      errors.push("Total marks must be greater than 0");
-    }
-
-    // If total marks is set to 100, ensure question marks add up to 100
-    if (formData.markDistribution.totalMarks === 100 && totalFromAllQuestions !== 100) {
-      errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`);
-    }
-
-    // Question type distribution validation for each mark category
-    const markCategories = ['oneMark', 'twoMark', 'threeMark', 'fiveMark'] as const;
-    for (const mark of markCategories) {
-      if (formData.markDistribution[mark] > 0) {
-        const total = getQuestionTypeTotal(mark);
-        const maxQuestions = getMaxQuestionsForMark(mark);
-        if (total > maxQuestions) {
-          errors.push(`Question type distribution for ${mark.replace('Mark', ' Mark')} cannot exceed ${maxQuestions} questions. Current total: ${total} questions`);
+    // For multi-subject exams, validate each subject individually
+    if (selectedSubjects.length > 1) {
+      for (const subjectData of selectedSubjects) {
+        const distribution = subjectDistributions[subjectData._id];
+        if (!distribution || !distribution.markDistribution) {
+          errors.push(`Please configure mark distribution for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}`);
+          continue;
+        }
+        
+        const subjectTotalQuestions = 
+          (distribution.markDistribution.oneMark || 0) +
+          (distribution.markDistribution.twoMark || 0) +
+          (distribution.markDistribution.threeMark || 0) +
+          (distribution.markDistribution.fiveMark || 0) +
+          (distribution.customMarks || []).reduce((sum: number, custom: any) => sum + custom.count, 0);
+        
+        if (subjectTotalQuestions === 0) {
+          errors.push(`At least one question must be configured for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}`);
+        }
+        
+        // Validate Blooms taxonomy totals 100%
+        const bloomsTotal = (distribution.bloomsDistribution || []).reduce(
+          (sum: number, dist: any) => sum + dist.percentage, 0
+        );
+        if (bloomsTotal !== 100) {
+          errors.push(`Blooms taxonomy percentages must add up to exactly 100% for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}. Current total: ${bloomsTotal}%`);
         }
       }
-    }
+    } else {
+      // For single subject exams, use the global form data
+      const totalFromQuestions =
+        formData.markDistribution.oneMark * 1 +
+        formData.markDistribution.twoMark * 2 +
+        formData.markDistribution.threeMark * 3 +
+        formData.markDistribution.fiveMark * 5;
 
-    // Blooms Taxonomy distribution validation
-    const bloomsTotal = formData.bloomsDistribution.reduce(
-      (sum, dist) => sum + dist.percentage,
-      0
-    );
-    if (bloomsTotal !== 100) {
-      errors.push(`Blooms taxonomy percentages must add up to exactly 100%. Current total: ${bloomsTotal}%`);
+      const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+      const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
+
+      // Validate that at least some questions are configured
+      const totalQuestions = 
+        formData.markDistribution.oneMark +
+        formData.markDistribution.twoMark +
+        formData.markDistribution.threeMark +
+        formData.markDistribution.fiveMark +
+        customMarks.reduce((sum, custom) => sum + custom.count, 0);
+
+      if (totalQuestions === 0) {
+        errors.push("At least one question must be configured");
+      }
+
+      // Validate total marks configuration
+      if (formData.markDistribution.totalMarks <= 0) {
+        errors.push("Total marks must be greater than 0");
+      }
+
+      // If total marks is set to 100, ensure question marks add up to 100
+      if (formData.markDistribution.totalMarks === 100 && totalFromAllQuestions !== 100) {
+        errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`);
+      }
     }
 
     return {
@@ -1183,6 +1224,16 @@ export default function QuestionPaperManagement() {
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          console.log("Opening edit dialog for question paper:", paper);
+                          setEditingQuestionPaper(paper);
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit PDF
+                      </DropdownMenuItem>
                       {paper.status === "DRAFT" && (
                         <DropdownMenuItem
                           onClick={() => handleGenerateQuestionPaper(paper)}
@@ -1322,8 +1373,38 @@ export default function QuestionPaperManagement() {
                       // Set selected subjects based on exam
                       if (selectedExam?.subjectIds) {
                         setSelectedSubjects(selectedExam.subjectIds);
+                        // Initialize subject-specific distributions
+                        const distributions: {[subjectId: string]: any} = {};
+                        selectedExam.subjectIds.forEach((subject: any) => {
+                          distributions[subject._id] = {
+                            markDistribution: {
+                              oneMark: 0,
+                              twoMark: 0,
+                              threeMark: 0,
+                              fiveMark: 0,
+                              totalMarks: 0,
+                            },
+                            bloomsDistribution: [
+                              { level: "REMEMBER", percentage: 20 },
+                              { level: "UNDERSTAND", percentage: 30 },
+                              { level: "APPLY", percentage: 25 },
+                              { level: "ANALYZE", percentage: 15 },
+                              { level: "EVALUATE", percentage: 7 },
+                              { level: "CREATE", percentage: 3 },
+                            ],
+                            questionTypeDistribution: {
+                              oneMark: [],
+                              twoMark: [],
+                              threeMark: [],
+                              fiveMark: [],
+                            },
+                            customMarks: []
+                          };
+                        });
+                        setSubjectDistributions(distributions);
                       } else {
                         setSelectedSubjects([]);
+                        setSubjectDistributions({});
                       }
                     }}
                   >
@@ -1408,23 +1489,45 @@ export default function QuestionPaperManagement() {
             <div className="space-y-6">
               <h3 className="text-lg font-semibold">Distribution Settings</h3>
               
-
-              {/* Basic Mark Distribution */}
+              {/* Subject-Specific Distribution for Multi-Subject Exams */}
+              {selectedSubjects.length > 1 && (
               <div className="space-y-4">
-                <h4 className="text-md font-semibold">Mark Distribution</h4>
+                  <h4 className="text-lg font-semibold">Subject-Specific Distribution</h4>
+                  <p className="text-sm text-gray-600">
+                    Configure different distributions for each subject in the exam
+                  </p>
+                  
+                  {selectedSubjects.map((subjectData) => {
+                    const subject = subjects.find(s => s._id === subjectData._id);
+                    const distribution = subjectDistributions[subjectData._id] || {};
+                    return (
+                      <Card key={subjectData._id} className="p-4">
+                        <CardHeader>
+                          <CardTitle className="text-base">{subject?.name || 'Unknown Subject'}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Mark Distribution for this subject */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Mark Distribution</Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <Label htmlFor="oneMark">1 Mark Questions</Label>
+                                <Label htmlFor={`${subjectData._id}-oneMark`}>1 Mark Questions</Label>
                     <Input
-                      id="oneMark"
+                                  id={`${subjectData._id}-oneMark`}
                       type="number"
-                      value={formData.markDistribution.oneMark || ""}
+                                  value={distribution.markDistribution?.oneMark || 0}
                       onChange={(e) => {
-                        const value =
-                          e.target.value === ""
-                            ? 0
-                            : Math.max(0, parseInt(e.target.value) || 0);
-                        updateMarkDistribution("oneMark", value);
+                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                    setSubjectDistributions(prev => ({
+                                      ...prev,
+                                      [subjectData._id]: {
+                                        ...prev[subjectData._id],
+                                        markDistribution: {
+                                          ...prev[subjectData._id]?.markDistribution,
+                                          oneMark: value
+                                        }
+                                      }
+                                    }));
                       }}
                       onFocus={(e) => e.target.select()}
                       min="0"
@@ -1433,17 +1536,23 @@ export default function QuestionPaperManagement() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="twoMark">2 Mark Questions</Label>
+                                <Label htmlFor={`${subjectData._id}-twoMark`}>2 Mark Questions</Label>
                     <Input
-                      id="twoMark"
+                                  id={`${subjectData._id}-twoMark`}
                       type="number"
-                      value={formData.markDistribution.twoMark || ""}
+                                  value={distribution.markDistribution?.twoMark || 0}
                       onChange={(e) => {
-                        const value =
-                          e.target.value === ""
-                            ? 0
-                            : Math.max(0, parseInt(e.target.value) || 0);
-                        updateMarkDistribution("twoMark", value);
+                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                    setSubjectDistributions(prev => ({
+                                      ...prev,
+                                      [subjectData._id]: {
+                                        ...prev[subjectData._id],
+                                        markDistribution: {
+                                          ...prev[subjectData._id]?.markDistribution,
+                                          twoMark: value
+                                        }
+                                      }
+                                    }));
                       }}
                       onFocus={(e) => e.target.select()}
                       min="0"
@@ -1452,17 +1561,23 @@ export default function QuestionPaperManagement() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="threeMark">3 Mark Questions</Label>
+                                <Label htmlFor={`${subjectData._id}-threeMark`}>3 Mark Questions</Label>
                     <Input
-                      id="threeMark"
+                                  id={`${subjectData._id}-threeMark`}
                       type="number"
-                      value={formData.markDistribution.threeMark || ""}
+                                  value={distribution.markDistribution?.threeMark || 0}
                       onChange={(e) => {
-                        const value =
-                          e.target.value === ""
-                            ? 0
-                            : Math.max(0, parseInt(e.target.value) || 0);
-                        updateMarkDistribution("threeMark", value);
+                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                    setSubjectDistributions(prev => ({
+                                      ...prev,
+                                      [subjectData._id]: {
+                                        ...prev[subjectData._id],
+                                        markDistribution: {
+                                          ...prev[subjectData._id]?.markDistribution,
+                                          threeMark: value
+                                        }
+                                      }
+                                    }));
                       }}
                       onFocus={(e) => e.target.select()}
                       min="0"
@@ -1471,116 +1586,125 @@ export default function QuestionPaperManagement() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="fiveMark">5 Mark Questions</Label>
+                                <Label htmlFor={`${subjectData._id}-fiveMark`}>5 Mark Questions</Label>
                     <Input
-                      id="fiveMark"
+                                  id={`${subjectData._id}-fiveMark`}
                       type="number"
-                      value={formData.markDistribution.fiveMark || ""}
+                                  value={distribution.markDistribution?.fiveMark || 0}
                       onChange={(e) => {
-                        const value =
-                          e.target.value === ""
-                            ? 0
-                            : Math.max(0, parseInt(e.target.value) || 0);
-                        updateMarkDistribution("fiveMark", value);
+                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                                    setSubjectDistributions(prev => ({
+                                      ...prev,
+                                      [subjectData._id]: {
+                                        ...prev[subjectData._id],
+                                        markDistribution: {
+                                          ...prev[subjectData._id]?.markDistribution,
+                                          fiveMark: value
+                                        }
+                                      }
+                                    }));
                       }}
                       onFocus={(e) => e.target.select()}
                       min="0"
                       max="100"
                       placeholder="0"
                     />
+                              </div>
                   </div>
                 </div>
 
-                {/* Mark Distribution Summary */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-sm mb-2">
-                    Mark Distribution Summary
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                          {/* Blooms Taxonomy Distribution for this subject */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Blooms Taxonomy Distribution</Label>
+                            <div className="space-y-4">
+                              {BLOOMS_LEVELS.map((level) => (
+                                <div key={level.id} className="space-y-2">
+                                  <div className="flex justify-between items-center">
                     <div>
-                      <span className="text-gray-600">1 Mark Questions:</span>
-                      <span className="ml-2 font-medium">
-                        {formData.markDistribution.oneMark} × 1 ={" "}
-                        {formData.markDistribution.oneMark * 1} marks
+                                      <Label className="font-medium">{level.name}</Label>
+                                      <p className="text-sm text-gray-600">{level.description}</p>
+                    </div>
+                                    <span className="text-sm font-medium">
+                                      {distribution.bloomsDistribution?.find((d: any) => d.level === level.id)?.percentage || 0}%
                       </span>
                     </div>
-                    <div>
-                      <span className="text-gray-600">2 Mark Questions:</span>
-                      <span className="ml-2 font-medium">
-                        {formData.markDistribution.twoMark} × 2 ={" "}
-                        {formData.markDistribution.twoMark * 2} marks
+                                  <Slider
+                                    value={[
+                                      distribution.bloomsDistribution?.find((d: any) => d.level === level.id)?.percentage || 0,
+                                    ]}
+                                    onValueChange={([value]) => {
+                                      setSubjectDistributions(prev => ({
+                                        ...prev,
+                                        [subjectData._id]: {
+                                          ...prev[subjectData._id],
+                                          bloomsDistribution: (prev[subjectData._id]?.bloomsDistribution || [])
+                                            .filter((d: any) => d.level !== level.id)
+                                            .concat([{ level: level.id, percentage: value }])
+                                        }
+                                      }));
+                                    }}
+                                    max={100}
+                                    step={1}
+                                    className="w-full"
+                                  />
+                    </div>
+                              ))}
+                            </div>
+                            
+                            {/* Blooms Distribution Summary */}
+                            <div className="bg-blue-50 p-4 rounded-lg">
+                              <h4 className="font-medium text-sm mb-2">Distribution Summary</h4>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                {BLOOMS_LEVELS.map((level) => {
+                                  const percentage = distribution.bloomsDistribution?.find((d: any) => d.level === level.id)?.percentage || 0;
+                                  return (
+                                    <div key={level.id} className="flex justify-between">
+                                      <span className="text-gray-600">{level.name}:</span>
+                                      <span className={`font-medium ${percentage > 0 ? "text-blue-600" : "text-gray-400"}`}>
+                                        {percentage}%
                       </span>
                     </div>
-                    <div>
-                      <span className="text-gray-600">3 Mark Questions:</span>
-                      <span className="ml-2 font-medium">
-                        {formData.markDistribution.threeMark} × 3 ={" "}
-                        {formData.markDistribution.threeMark * 3} marks
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">5 Mark Questions:</span>
-                      <span className="ml-2 font-medium">
-                        {formData.markDistribution.fiveMark} × 5 ={" "}
-                        {formData.markDistribution.fiveMark * 5} marks
-                      </span>
-                    </div>
+                                  );
+                                })}
                   </div>
                   <div className="mt-3 pt-3 border-t">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">
-                        Total Marks from Standard Questions:
-                      </span>
-                      <span className="font-medium text-blue-600">
-                        {formData.markDistribution.oneMark * 1 +
-                          formData.markDistribution.twoMark * 2 +
-                          formData.markDistribution.threeMark * 3 +
-                          formData.markDistribution.fiveMark * 5}
-                      </span>
-                    </div>
-                    {customMarks.length > 0 && (
-                      <div className="flex justify-between items-center mt-2">
-                        <span className="text-gray-600">
-                          Total Marks from Custom Questions:
-                        </span>
-                        <span className="font-medium text-green-600">
-                          {customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                      <span className="text-gray-600 font-semibold">
-                        Auto-calculated Total Marks:
-                      </span>
-                      <span className="font-bold text-green-600">
-                        {formData.markDistribution.totalMarks}
+                                  <span className="text-gray-600 font-medium">Total:</span>
+                                  <span className={`font-bold ${
+                                    (distribution.bloomsDistribution || []).reduce((sum: number, dist: any) => sum + dist.percentage, 0) === 100
+                                      ? "text-green-600"
+                                      : "text-red-600"
+                                  }`}>
+                                    {(distribution.bloomsDistribution || []).reduce((sum: number, dist: any) => sum + dist.percentage, 0)}%
                       </span>
                     </div>
-                    {formData.markDistribution.totalMarks === 100 &&
-                      (formData.markDistribution.oneMark * 1 +
-                        formData.markDistribution.twoMark * 2 +
-                        formData.markDistribution.threeMark * 3 +
-                        formData.markDistribution.fiveMark * 5 +
-                        customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0)) !==
-                        100 && (
+                                {(distribution.bloomsDistribution || []).reduce((sum: number, dist: any) => sum + dist.percentage, 0) !== 100 && (
                         <div className="mt-2 text-red-600 text-sm">
-                          ⚠️ Total marks from questions must equal exactly 100.
-                          Please adjust the distribution.
+                                    ⚠️ Blooms taxonomy percentages must add up to exactly 100%. Please adjust the distribution.
                         </div>
                       )}
                   </div>
                 </div>
               </div>
 
-              {/* Custom Marks Section */}
-              <div className="space-y-4">
+                          {/* Custom Marks for this subject */}
+                          <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-md font-semibold">Custom Marks Questions</h4>
+                              <Label className="text-sm font-medium">Custom Marks Questions</Label>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={addCustomMark}
+                                onClick={() => {
+                                  const newCustomMark = { mark: 0, count: 0 };
+                                  setSubjectDistributions(prev => ({
+                                    ...prev,
+                                    [subjectData._id]: {
+                                      ...prev[subjectData._id],
+                                      customMarks: [...(prev[subjectData._id]?.customMarks || []), newCustomMark]
+                                    }
+                                  }));
+                                }}
                     className="text-blue-600 border-blue-600 hover:bg-blue-50"
                   >
                     <Plus className="w-4 h-4 mr-1" />
@@ -1588,46 +1712,53 @@ export default function QuestionPaperManagement() {
                   </Button>
                 </div>
                 
-                {/* Warning about custom marks */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <div className="flex items-start">
-                    <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
-                    <div className="text-sm text-yellow-800">
-                      <strong>Note:</strong> Custom marks will be automatically distributed into standard categories (1, 2, 3, 5 marks) for backend compatibility. 
-                      The total marks calculation will remain accurate.
-                    </div>
-                  </div>
-                </div>
-                
-                {customMarks.length > 0 && (
+                            {(distribution.customMarks || []).length > 0 && (
                   <div className="space-y-3">
-                    {customMarks.map((custom, index) => (
+                                {(distribution.customMarks || []).map((custom: any, index: number) => (
                       <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
                         <div className="flex-1">
-                          <Label htmlFor={`customMark-${index}`}>Mark Value</Label>
+                                      <Label htmlFor={`${subjectData._id}-customMark-${index}`}>Mark Value</Label>
                           <Input
-                            id={`customMark-${index}`}
+                                        id={`${subjectData._id}-customMark-${index}`}
                             type="number"
                             value={custom.mark || ""}
                             onChange={(e) => {
                               const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                              updateCustomMark(index, 'mark', value);
-                            }}
+                                          setSubjectDistributions(prev => ({
+                                            ...prev,
+                                            [subjectData._id]: {
+                                              ...prev[subjectData._id],
+                                              customMarks: prev[subjectData._id]?.customMarks?.map((cm: any, i: number) => 
+                                                i === index ? { ...cm, mark: value } : cm
+                                              ) || []
+                                            }
+                                          }));
+                                        }}
+                                        onFocus={(e) => e.target.select()}
                             min="1"
                             max="100"
                             placeholder="e.g., 4"
                           />
                         </div>
                         <div className="flex-1">
-                          <Label htmlFor={`customCount-${index}`}>Number of Questions</Label>
+                                      <Label htmlFor={`${subjectData._id}-customCount-${index}`}>Number of Questions</Label>
                           <Input
-                            id={`customCount-${index}`}
+                                        id={`${subjectData._id}-customCount-${index}`}
                             type="number"
                             value={custom.count || ""}
                             onChange={(e) => {
                               const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                              updateCustomMark(index, 'count', value);
-                            }}
+                                          setSubjectDistributions(prev => ({
+                                            ...prev,
+                                            [subjectData._id]: {
+                                              ...prev[subjectData._id],
+                                              customMarks: prev[subjectData._id]?.customMarks?.map((cm: any, i: number) => 
+                                                i === index ? { ...cm, count: value } : cm
+                                              ) || []
+                                            }
+                                          }));
+                                        }}
+                                        onFocus={(e) => e.target.select()}
                             min="0"
                             max="100"
                             placeholder="e.g., 5"
@@ -1641,7 +1772,15 @@ export default function QuestionPaperManagement() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => removeCustomMark(index)}
+                                        onClick={() => {
+                                          setSubjectDistributions(prev => ({
+                                            ...prev,
+                                            [subjectData._id]: {
+                                              ...prev[subjectData._id],
+                                              customMarks: prev[subjectData._id]?.customMarks?.filter((_: any, i: number) => i !== index) || []
+                                            }
+                                          }));
+                                        }}
                             className="text-red-600 border-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1649,31 +1788,16 @@ export default function QuestionPaperManagement() {
                         </div>
                       </div>
                     ))}
-                    
-                    {/* Custom Marks Summary */}
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Custom Marks Total:</span>
-                        <span className="text-sm font-bold text-blue-600">
-                          {customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0)} marks
-                        </span>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Question Type Distribution per Mark */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">
-                  Question Type Distribution per Mark Category
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Enter the number of questions for each type. Total cannot exceed the number of questions you specified above.
-                </p>
+                          {/* Question Type Distribution for this subject */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Question Type Distribution</Label>
                 <Accordion type="multiple" className="w-full">
                   <AccordionItem value="oneMark">
-                    <AccordionTrigger>1 Mark Questions ({formData.markDistribution.oneMark})</AccordionTrigger>
+                                <AccordionTrigger>1 Mark Questions ({distribution.markDistribution?.oneMark || 0})</AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4">
                         {QUESTION_TYPES.map((type) => (
@@ -1681,20 +1805,30 @@ export default function QuestionPaperManagement() {
                             <div className="flex justify-between items-center">
                               <div>
                                 <Label className="font-medium">{type.name}</Label>
-                                <p className="text-sm text-gray-600">
-                                  {type.description}
-                                </p>
+                                            <p className="text-sm text-gray-600">{type.description}</p>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <Input
                                   type="number"
-                                  value={getQuestionTypeCount("oneMark", type.id) || ""}
+                                              value={distribution.questionTypeDistribution?.oneMark?.find((d: any) => d.type === type.id)?.questionCount || ""}
                                   onChange={(e) => {
                                     const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                    updateQuestionTypeDistribution("oneMark", type.id, value);
-                                  }}
+                                                setSubjectDistributions(prev => ({
+                                                  ...prev,
+                                                  [subjectData._id]: {
+                                                    ...prev[subjectData._id],
+                                                    questionTypeDistribution: {
+                                                      ...prev[subjectData._id]?.questionTypeDistribution,
+                                                      oneMark: (prev[subjectData._id]?.questionTypeDistribution?.oneMark || [])
+                                                        .filter((d: any) => d.type !== type.id)
+                                                        .concat(value > 0 ? [{ type: type.id, questionCount: value }] : [])
+                                                    }
+                                                  }
+                                                }));
+                                              }}
+                                              onFocus={(e) => e.target.select()}
                                   min="0"
-                                  max={formData.markDistribution.oneMark}
+                                              max={distribution.markDistribution?.oneMark || 0}
                                   className="w-20"
                                   placeholder="0"
                                 />
@@ -1703,32 +1837,12 @@ export default function QuestionPaperManagement() {
                             </div>
                           </div>
                         ))}
-                        {/* Summary for this mark */}
-                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Total Questions:</span>
-                            <span
-                              className={`font-bold ${
-                                getQuestionTypeTotal("oneMark") <= formData.markDistribution.oneMark
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {getQuestionTypeTotal("oneMark")} / {formData.markDistribution.oneMark}
-                            </span>
-                          </div>
-                          {getQuestionTypeTotal("oneMark") > formData.markDistribution.oneMark && (
-                            <div className="mt-2 text-red-600 text-sm">
-                              ⚠️ Total questions cannot exceed {formData.markDistribution.oneMark}.
-                            </div>
-                          )}
-                        </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
 
                   <AccordionItem value="twoMark">
-                    <AccordionTrigger>2 Mark Questions ({formData.markDistribution.twoMark})</AccordionTrigger>
+                                <AccordionTrigger>2 Mark Questions ({distribution.markDistribution?.twoMark || 0})</AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4">
                         {QUESTION_TYPES.map((type) => (
@@ -1736,20 +1850,30 @@ export default function QuestionPaperManagement() {
                             <div className="flex justify-between items-center">
                               <div>
                                 <Label className="font-medium">{type.name}</Label>
-                                <p className="text-sm text-gray-600">
-                                  {type.description}
-                                </p>
+                                            <p className="text-sm text-gray-600">{type.description}</p>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <Input
                                   type="number"
-                                  value={getQuestionTypeCount("twoMark", type.id) || ""}
+                                              value={distribution.questionTypeDistribution?.twoMark?.find((d: any) => d.type === type.id)?.questionCount || ""}
                                   onChange={(e) => {
                                     const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                    updateQuestionTypeDistribution("twoMark", type.id, value);
-                                  }}
+                                                setSubjectDistributions(prev => ({
+                                                  ...prev,
+                                                  [subjectData._id]: {
+                                                    ...prev[subjectData._id],
+                                                    questionTypeDistribution: {
+                                                      ...prev[subjectData._id]?.questionTypeDistribution,
+                                                      twoMark: (prev[subjectData._id]?.questionTypeDistribution?.twoMark || [])
+                                                        .filter((d: any) => d.type !== type.id)
+                                                        .concat(value > 0 ? [{ type: type.id, questionCount: value }] : [])
+                                                    }
+                                                  }
+                                                }));
+                                              }}
+                                              onFocus={(e) => e.target.select()}
                                   min="0"
-                                  max={formData.markDistribution.twoMark}
+                                              max={distribution.markDistribution?.twoMark || 0}
                                   className="w-20"
                                   placeholder="0"
                                 />
@@ -1758,32 +1882,12 @@ export default function QuestionPaperManagement() {
                             </div>
                           </div>
                         ))}
-                        {/* Summary for this mark */}
-                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Total Questions:</span>
-                            <span
-                              className={`font-bold ${
-                                getQuestionTypeTotal("twoMark") <= formData.markDistribution.twoMark
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {getQuestionTypeTotal("twoMark")} / {formData.markDistribution.twoMark}
-                            </span>
-                          </div>
-                          {getQuestionTypeTotal("twoMark") > formData.markDistribution.twoMark && (
-                            <div className="mt-2 text-red-600 text-sm">
-                              ⚠️ Total questions cannot exceed {formData.markDistribution.twoMark}.
-                            </div>
-                          )}
-                        </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
 
                   <AccordionItem value="threeMark">
-                    <AccordionTrigger>3 Mark Questions ({formData.markDistribution.threeMark})</AccordionTrigger>
+                                <AccordionTrigger>3 Mark Questions ({distribution.markDistribution?.threeMark || 0})</AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4">
                         {QUESTION_TYPES.map((type) => (
@@ -1791,20 +1895,30 @@ export default function QuestionPaperManagement() {
                             <div className="flex justify-between items-center">
                               <div>
                                 <Label className="font-medium">{type.name}</Label>
-                                <p className="text-sm text-gray-600">
-                                  {type.description}
-                                </p>
+                                            <p className="text-sm text-gray-600">{type.description}</p>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <Input
                                   type="number"
-                                  value={getQuestionTypeCount("threeMark", type.id) || ""}
+                                              value={distribution.questionTypeDistribution?.threeMark?.find((d: any) => d.type === type.id)?.questionCount || ""}
                                   onChange={(e) => {
                                     const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                    updateQuestionTypeDistribution("threeMark", type.id, value);
-                                  }}
+                                                setSubjectDistributions(prev => ({
+                                                  ...prev,
+                                                  [subjectData._id]: {
+                                                    ...prev[subjectData._id],
+                                                    questionTypeDistribution: {
+                                                      ...prev[subjectData._id]?.questionTypeDistribution,
+                                                      threeMark: (prev[subjectData._id]?.questionTypeDistribution?.threeMark || [])
+                                                        .filter((d: any) => d.type !== type.id)
+                                                        .concat(value > 0 ? [{ type: type.id, questionCount: value }] : [])
+                                                    }
+                                                  }
+                                                }));
+                                              }}
+                                              onFocus={(e) => e.target.select()}
                                   min="0"
-                                  max={formData.markDistribution.threeMark}
+                                              max={distribution.markDistribution?.threeMark || 0}
                                   className="w-20"
                                   placeholder="0"
                                 />
@@ -1813,32 +1927,12 @@ export default function QuestionPaperManagement() {
                             </div>
                           </div>
                         ))}
-                        {/* Summary for this mark */}
-                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Total Questions:</span>
-                            <span
-                              className={`font-bold ${
-                                getQuestionTypeTotal("threeMark") <= formData.markDistribution.threeMark
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {getQuestionTypeTotal("threeMark")} / {formData.markDistribution.threeMark}
-                            </span>
-                          </div>
-                          {getQuestionTypeTotal("threeMark") > formData.markDistribution.threeMark && (
-                            <div className="mt-2 text-red-600 text-sm">
-                              ⚠️ Total questions cannot exceed {formData.markDistribution.threeMark}.
-                            </div>
-                          )}
-                        </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
 
                   <AccordionItem value="fiveMark">
-                    <AccordionTrigger>5 Mark Questions ({formData.markDistribution.fiveMark})</AccordionTrigger>
+                                <AccordionTrigger>5 Mark Questions ({distribution.markDistribution?.fiveMark || 0})</AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4">
                         {QUESTION_TYPES.map((type) => (
@@ -1846,20 +1940,30 @@ export default function QuestionPaperManagement() {
                             <div className="flex justify-between items-center">
                               <div>
                                 <Label className="font-medium">{type.name}</Label>
-                                <p className="text-sm text-gray-600">
-                                  {type.description}
-                                </p>
+                                            <p className="text-sm text-gray-600">{type.description}</p>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <Input
                                   type="number"
-                                  value={getQuestionTypeCount("fiveMark", type.id) || ""}
+                                              value={distribution.questionTypeDistribution?.fiveMark?.find((d: any) => d.type === type.id)?.questionCount || ""}
                                   onChange={(e) => {
                                     const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                    updateQuestionTypeDistribution("fiveMark", type.id, value);
-                                  }}
+                                                setSubjectDistributions(prev => ({
+                                                  ...prev,
+                                                  [subjectData._id]: {
+                                                    ...prev[subjectData._id],
+                                                    questionTypeDistribution: {
+                                                      ...prev[subjectData._id]?.questionTypeDistribution,
+                                                      fiveMark: (prev[subjectData._id]?.questionTypeDistribution?.fiveMark || [])
+                                                        .filter((d: any) => d.type !== type.id)
+                                                        .concat(value > 0 ? [{ type: type.id, questionCount: value }] : [])
+                                                    }
+                                                  }
+                                                }));
+                                              }}
+                                              onFocus={(e) => e.target.select()}
                                   min="0"
-                                  max={formData.markDistribution.fiveMark}
+                                              max={distribution.markDistribution?.fiveMark || 0}
                                   className="w-20"
                                   placeholder="0"
                                 />
@@ -1868,193 +1972,20 @@ export default function QuestionPaperManagement() {
                             </div>
                           </div>
                         ))}
-                        {/* Summary for this mark */}
-                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Total Questions:</span>
-                            <span
-                              className={`font-bold ${
-                                getQuestionTypeTotal("fiveMark") <= formData.markDistribution.fiveMark
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {getQuestionTypeTotal("fiveMark")} / {formData.markDistribution.fiveMark}
-                              </span>
-                            </div>
-                          {getQuestionTypeTotal("fiveMark") > formData.markDistribution.fiveMark && (
-                            <div className="mt-2 text-red-600 text-sm">
-                              ⚠️ Total questions cannot exceed {formData.markDistribution.fiveMark}.
-                            </div>
-                          )}
-                        </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
-
-                  {/* Custom Marks Question Type Distribution */}
-                  {customMarks.map((custom, index) => (
-                    <AccordionItem key={`custom-${custom.mark}-${index}`} value={`custom-${custom.mark}-${index}`}>
-                      <AccordionTrigger>
-                        {custom.mark} Mark Questions ({custom.count})
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-4">
-                          {QUESTION_TYPES.map((type) => (
-                            <div key={type.id} className="space-y-2">
-                              <div className="flex justify-between items-center">
-                                <div>
-                                  <Label className="font-medium">{type.name}</Label>
-                                  <p className="text-sm text-gray-600">
-                                    {type.description}
-                                  </p>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Input
-                                    type="number"
-                                    value={getQuestionTypeCount(`custom-${custom.mark}-${index}`, type.id) || ""}
-                                    onChange={(e) => {
-                                      const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                      updateQuestionTypeDistribution(`custom-${custom.mark}-${index}`, type.id, value);
-                                    }}
-                                    min="0"
-                                    max={custom.count}
-                                    className="w-20"
-                                    placeholder="0"
-                                  />
-                                  <span className="text-sm text-gray-500">questions</span>
-                                </div>
-                              </div>
-                          </div>
-                        ))}
-                          {/* Summary for this custom mark */}
-                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                          <div className="flex justify-between items-center">
-                              <span className="text-gray-600 font-medium">Total Questions:</span>
-                            <span
-                              className={`font-bold ${
-                                  getQuestionTypeTotal(`custom-${custom.mark}-${index}`) <= custom.count
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                                {getQuestionTypeTotal(`custom-${custom.mark}-${index}`)} / {custom.count}
-                            </span>
-                          </div>
-                            {getQuestionTypeTotal(`custom-${custom.mark}-${index}`) > custom.count && (
-                            <div className="mt-2 text-red-600 text-sm">
-                                ⚠️ Total questions cannot exceed {custom.count}.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  ))}
                 </Accordion>
               </div>
-
-              {/* Blooms Taxonomy Distribution */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">
-                  Blooms Taxonomy Distribution
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Configure the distribution of questions across different
-                  cognitive levels according to Bloom's Taxonomy.
-                </p>
-
-                {/* Blooms Distribution Summary */}
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-sm mb-2">
-                    Distribution Summary
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    {BLOOMS_LEVELS.map((level) => {
-                      const percentage =
-                        formData.bloomsDistribution.find(
-                          (d) => d.level === level.id
-                        )?.percentage || 0;
-                      return (
-                        <div key={level.id} className="flex justify-between">
-                          <span className="text-gray-600">{level.name}:</span>
-                          <span
-                            className={`font-medium ${
-                              percentage > 0 ? "text-blue-600" : "text-gray-400"
-                            }`}
-                          >
-                            {percentage}%
-                          </span>
-                        </div>
+                        </CardContent>
+                      </Card>
                       );
                     })}
                   </div>
-                  <div className="mt-3 pt-3 border-t">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 font-medium">Total:</span>
-                      <span
-                        className={`font-bold ${
-                          formData.bloomsDistribution.reduce(
-                            (sum, dist) => sum + dist.percentage,
-                            0
-                          ) === 100
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {formData.bloomsDistribution.reduce(
-                          (sum, dist) => sum + dist.percentage,
-                          0
-                        )}
-                        %
-                      </span>
-                    </div>
-                    {formData.bloomsDistribution.reduce(
-                      (sum, dist) => sum + dist.percentage,
-                      0
-                    ) !== 100 && (
-                      <div className="mt-2 text-red-600 text-sm">
-                        ⚠️ Blooms taxonomy percentages must add up to exactly
-                        100%. Please adjust the distribution.
-                      </div>
-                    )}
-                  </div>
-                </div>
+              )}
 
-                <div className="space-y-4">
-                  {BLOOMS_LEVELS.map((level) => (
-                    <div key={level.id} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <Label className="font-medium">{level.name}</Label>
-                          <p className="text-sm text-gray-600">
-                            {level.description}
-                          </p>
-                        </div>
-                        <span className="text-sm font-medium">
-                          {formData.bloomsDistribution.find(
-                            (d) => d.level === level.id
-                          )?.percentage || 0}
-                          %
-                        </span>
-                      </div>
-                      <Slider
-                        value={[
-                          formData.bloomsDistribution.find(
-                            (d) => d.level === level.id
-                          )?.percentage || 0,
-                        ]}
-                        onValueChange={([value]) =>
-                          updateBloomsDistribution(level.id, value)
-                        }
-                        max={100}
-                        step={1}
-                        className="w-full"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+
+
             </div>
           )}
 
@@ -2327,6 +2258,22 @@ export default function QuestionPaperManagement() {
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Enhanced PDF Editor Dialog */}
+      {editingQuestionPaper && (
+        <EnhancedPDFEditor
+          questionPaper={editingQuestionPaper}
+          isOpen={isEditDialogOpen}
+          onClose={() => {
+            setIsEditDialogOpen(false);
+            setEditingQuestionPaper(null);
+          }}
+          onUpdate={() => {
+            // Reload question papers after editing
+            loadData();
+          }}
+        />
       )}
     </div>
   );

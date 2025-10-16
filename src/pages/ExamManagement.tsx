@@ -68,6 +68,11 @@ export default function ExamManagement() {
   const [customExamType, setCustomExamType] = useState('');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
+  // Filter subjects based on selected class
+  const filteredSubjects = formData.classId 
+    ? subjects.filter(subject => subject.classIds?.includes(formData.classId))
+    : [];
+
   useEffect(() => {
     loadData();
   }, []);
@@ -259,7 +264,7 @@ export default function ExamManagement() {
     try {
       // Try backend API first
       await examsAPI.delete(id);
-      setExams(prev => prev.filter(exam => exam.id !== id));
+        setExams(prev => prev.filter(exam => exam._id !== id));
       toast({
         title: "Success",
         description: "Exam deleted successfully",
@@ -530,7 +535,7 @@ export default function ExamManagement() {
                           <span>
                             {exam.subjectIds && exam.subjectIds.length > 0 ? (
                               exam.subjectIds.map(subjectId => {
-                                const subject = subjects.find(s => s.id === subjectId);
+                                const subject = subjects.find(s => s._id === subjectId._id);
                                 return subject ? subject.name : 'Unknown Subject';
                               }).join(', ')
                             ) : (
@@ -551,7 +556,7 @@ export default function ExamManagement() {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => handleDelete(exam.id)}
+                            onClick={() => handleDelete(exam._id)}
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           Delete
@@ -710,64 +715,75 @@ export default function ExamManagement() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="subjects">Subjects</Label>
-                  <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                    {subjects.length === 0 ? (
-                      <p className="text-sm text-gray-500">No subjects available. Create subjects first.</p>
-                    ) : (
-                      subjects.map((subject) => (
-                        <div key={subject.id} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`subject-${subject.id}`}
-                            checked={formData.subjectIds.includes(subject.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  subjectIds: [...prev.subjectIds, subject.id]
-                                }));
-                              } else {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  subjectIds: prev.subjectIds.filter(id => id !== subject.id)
-                                }));
-                              }
-                            }}
-                            className="rounded border-gray-300"
-                          />
-                          <Label htmlFor={`subject-${subject.id}`} className="text-sm">
-                            {subject.name} ({subject.code})
-                          </Label>
-                        </div>
-                      ))
-                    )}
-                    {formData.subjectIds.length === 0 && (
-                      <p className="text-sm text-red-500">Please select at least one subject</p>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="class">Class</Label>
+                  <Label htmlFor="class">Class *</Label>
                   <Select 
                     value={formData.classId} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, classId: value }))}
+                    onValueChange={(value) => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        classId: value,
+                        subjectIds: [] // Clear subjects when class changes
+                      }));
+                    }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select class" />
+                      <SelectValue placeholder="Select class first" />
                     </SelectTrigger>
                     <SelectContent>
                       {classes.length === 0 ? (
                         <SelectItem value="" disabled>No classes available. Create classes first.</SelectItem>
                       ) : (
                         classes.map((cls) => (
-                          <SelectItem key={cls.id} value={cls.id}>
+                          <SelectItem key={cls.id} value={cls._id}>
                             {cls.name}
                           </SelectItem>
                         ))
                       )}
                     </SelectContent>
                   </Select>
+                  {!formData.classId && (
+                    <p className="text-sm text-red-500 mt-1">Please select a class first</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="subjects">Subjects *</Label>
+                  <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                    {!formData.classId ? (
+                      <p className="text-sm text-gray-500">Please select a class first to see available subjects</p>
+                    ) : filteredSubjects.length === 0 ? (
+                      <p className="text-sm text-gray-500">No subjects available for the selected class</p>
+                    ) : (
+                      filteredSubjects.map((subject) => (
+                        <div key={subject._id} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`subject-${subject._id}`}
+                            checked={formData.subjectIds.includes(subject._id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  subjectIds: [...prev.subjectIds, subject._id]
+                                }));
+                              } else {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  subjectIds: prev.subjectIds.filter(id => id !== subject._id)
+                                }));
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <Label htmlFor={`subject-${subject._id}`} className="text-sm">
+                            {subject.name} ({subject.code})
+                          </Label>
+                        </div>
+                      ))
+                    )}
+                    {formData.classId && formData.subjectIds.length === 0 && (
+                      <p className="text-sm text-red-500">Please select at least one subject</p>
+                    )}
+                  </div>
                 </div>
               </div>
               
@@ -860,3 +876,4 @@ export default function ExamManagement() {
     </div>
   );
 }
+

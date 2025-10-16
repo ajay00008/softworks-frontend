@@ -223,6 +223,9 @@ export default function QuestionPaperManagement() {
     },
   });
 
+  // Multi-subject handling
+  const [selectedSubjects, setSelectedSubjects] = useState<any[]>([]);
+
   // Load data on mount
   useEffect(() => {
     loadData();
@@ -371,93 +374,107 @@ export default function QuestionPaperManagement() {
         adjustedMarkDistribution.threeMark * 3 +
         adjustedMarkDistribution.fiveMark * 5;
       
-      console.log("Mark calculation debug:", {
-        oneMark: formData.markDistribution.oneMark,
-        twoMark: formData.markDistribution.twoMark,
-        threeMark: formData.markDistribution.threeMark,
-        fiveMark: formData.markDistribution.fiveMark,
-        totalFromQuestions,
-        customMarksTotal,
-        actualTotalMarks,
-        customMarks,
-        adjustedMarkDistribution,
-        adjustedTotalFromQuestions,
-        matches: adjustedTotalFromQuestions === actualTotalMarks
-      });
-      
       // If there's a mismatch, adjust the fiveMark category to match
       if (adjustedTotalFromQuestions !== actualTotalMarks) {
         const difference = actualTotalMarks - adjustedTotalFromQuestions;
         adjustedMarkDistribution.fiveMark += Math.ceil(difference / 5);
       }
 
-      // Generate question paper directly using AI
-      const aiRequest = {
-        title: formData.title,
-        description: formData.description,
-        examId: formData.examId,
-        subjectId: selectedExam.subjectId || selectedExam.subjectId?._id,
-        classId: selectedExam.classId || selectedExam.classId?._id,
-        markDistribution: {
-          ...adjustedMarkDistribution,
-          totalMarks: actualTotalMarks, // Use the calculated total marks
-        },
-        bloomsDistribution: formData.bloomsDistribution,
-        questionTypeDistribution: (() => {
-          // Convert question counts to percentages for backend compatibility
-          const converted: any = {};
-          const markCategories = ['oneMark', 'twoMark', 'threeMark', 'fiveMark'] as const;
-          
-          for (const mark of markCategories) {
-            if (formData.markDistribution[mark] > 0) {
-              const distributions = formData.questionTypeDistribution[mark] || [];
-              const totalQuestions = formData.markDistribution[mark];
-              
-              converted[mark] = distributions.map(dist => ({
-                type: dist.type,
-                percentage: totalQuestions > 0 ? Math.round((dist.questionCount / totalQuestions) * 100) : 0
-              }));
+      // Create question papers for each subject
+      const createdQuestionPapers = [];
+      
+      for (const subjectData of selectedSubjects) {
+        const subject = subjects.find(s => s._id === subjectData._id);
+        
+        // Generate question paper for this subject
+        const aiRequest = {
+          title: `${subject?.name || 'Subject'} - ${formData.title}`,
+          description: formData.description,
+          examId: formData.examId,
+          subjectId: subjectData._id,
+          classId: selectedExam.classId || selectedExam.classId?._id,
+          markDistribution: {
+            ...adjustedMarkDistribution,
+            totalMarks: actualTotalMarks,
+          },
+          bloomsDistribution: formData.bloomsDistribution,
+          questionTypeDistribution: (() => {
+            // Convert question counts to percentages for backend compatibility
+            const converted: any = {};
+            const markCategories = ['oneMark', 'twoMark', 'threeMark', 'fiveMark'] as const;
+            
+            for (const mark of markCategories) {
+              if (formData.markDistribution[mark] > 0) {
+                const distributions = formData.questionTypeDistribution[mark] || [];
+                const totalQuestions = formData.markDistribution[mark];
+                
+                converted[mark] = distributions.map(dist => ({
+                  type: dist.type,
+                  percentage: totalQuestions > 0 ? Math.round((dist.questionCount / totalQuestions) * 100) : 0
+                }));
+              }
             }
-          }
+            
+            return converted;
+          })(),
+          aiSettings: formData.aiSettings,
+        };
+
+        // Add pattern ID to request if pattern was uploaded
+        if (uploadedPatternId) {
+          (aiRequest as any).patternId = uploadedPatternId;
+        }
+
+        // Add syllabus ID from subject data if available
+        if (subject?.syllabus?.id) {
+          (aiRequest as any).syllabusId = subject.syllabus.id;
+        }
+
+        try {
+          const generatedQuestionPaper = await questionPaperAPI.generateCompleteAI(
+            aiRequest as any
+          );
           
-          return converted;
-        })(),
-        aiSettings: formData.aiSettings,
-      };
-
-      // Add pattern ID to request if pattern was uploaded
-      if (uploadedPatternId) {
-        (aiRequest as any).patternId = uploadedPatternId;
+          // Extract the question paper from the response
+          const responseData = generatedQuestionPaper as any;
+          
+          if (responseData && responseData.questionPaper) {
+            createdQuestionPapers.push(responseData.questionPaper);
+            console.log(`Question paper created for ${subject?.name}:`, responseData.questionPaper);
+          }
+        } catch (error) {
+          console.error(`Error creating question paper for ${subject?.name}:`, error);
+          toast({
+            title: "Warning",
+            description: `Failed to create question paper for ${subject?.name}`,
+            variant: "destructive",
+          });
+        }
       }
 
-      const generatedQuestionPaper = await questionPaperAPI.generateCompleteAI(
-        aiRequest as any
-      );
-      console.log("generatedQuestionPaper", generatedQuestionPaper);
-      
-      // Extract the question paper from the response
-      const responseData = generatedQuestionPaper as any;
-      console.log("questionPaper from response:", responseData?.questionPaper);
-      
-      // Add the generated question paper to the list
-      if (responseData && responseData.questionPaper) {
-        console.log("Adding question paper to list:", responseData.questionPaper);
-        setQuestionPapers((prev) => [responseData.questionPaper, ...prev]);
+      // Add all created question papers to the list
+      if (createdQuestionPapers.length > 0) {
+        setQuestionPapers((prev) => [...createdQuestionPapers, ...prev]);
+        
+        toast({
+          title: "Success",
+          description: `${createdQuestionPapers.length} question paper(s) generated successfully with AI`,
+        });
       } else {
-        console.log("No question paper found in response");
+        toast({
+          title: "Error",
+          description: "No question papers were created",
+          variant: "destructive",
+        });
       }
 
-      toast({
-        title: "Success",
-        description: "Question paper generated successfully with AI",
-      });
       setIsCreateDialogOpen(false);
       resetForm();
     } catch (error) {
-      console.error("Error generating question paper:", error);
+      console.error("Error generating question papers:", error);
       toast({
         title: "Error",
-        description: "Failed to generate question paper",
+        description: "Failed to generate question papers",
         variant: "destructive",
       });
     } finally {
@@ -603,6 +620,7 @@ export default function QuestionPaperManagement() {
     setCustomMarks([]);
     setUploadedPattern(null);
     setUploadedPatternId(null);
+    setSelectedSubjects([]);
   };
 
   const updateMarkDistribution = (field: string, value: number) => {
@@ -898,8 +916,8 @@ export default function QuestionPaperManagement() {
         errors.push("Selected exam is not valid or not found");
       } else {
         // Check if exam has required subject and class information
-        if (!selectedExam.subjectId) {
-          errors.push("Selected exam does not have a valid subject");
+        if (!selectedExam.subjectIds || selectedExam.subjectIds.length === 0) {
+          errors.push("Selected exam does not have any subjects");
         }
         if (!selectedExam.classId) {
           errors.push("Selected exam does not have a valid class");
@@ -1299,10 +1317,14 @@ export default function QuestionPaperManagement() {
                       const selectedExam = exams.find(exam => exam._id === value);
                       setFormData((prev) => ({ 
                         ...prev, 
-                        examId: value,
-                        // Auto-select the first subject if exam has multiple subjects
-                        subjectId: selectedExam?.subjectIds?.[0] || ''
+                        examId: value
                       }));
+                      // Set selected subjects based on exam
+                      if (selectedExam?.subjectIds) {
+                        setSelectedSubjects(selectedExam.subjectIds);
+                      } else {
+                        setSelectedSubjects([]);
+                      }
                     }}
                   >
                     <SelectTrigger>
@@ -1320,6 +1342,49 @@ export default function QuestionPaperManagement() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Selected Subjects Display */}
+                {selectedSubjects.length > 0 && (
+                  <div>
+                    <Label>Selected Subjects ({selectedSubjects.length})</Label>
+                    <div className="mt-2 space-y-3">
+                      {selectedSubjects.map((subjectData) => {
+                        const subject = subjects.find(s => s._id === subjectData._id);
+                        return (
+                          <div key={subjectData._id} className="border rounded-lg p-4 bg-gray-50">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <h4 className="font-medium">{subject?.name || 'Unknown Subject'}</h4>
+                                <p className="text-sm text-gray-600">{subject?.code || ''}</p>
+                                {subject?.syllabus && (
+                                  <p className="text-xs text-green-600 mt-1">
+                                    ✓ Syllabus available
+                                  </p>
+                                )}
+                              </div>
+                              <Badge variant="outline">
+                                {selectedSubjects.length > 1 ? 'Multi-Subject' : 'Single Subject'}
+                              </Badge>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {selectedSubjects.length > 1 && (
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-start">
+                          <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+                          <div className="text-sm text-blue-800">
+                            <strong>Multi-Subject Exam:</strong> {selectedSubjects.length} question papers will be created - one for each subject. 
+                            Each question paper will use the existing syllabus from the subject data.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 <div>
                   <Label htmlFor="description">Description</Label>
                   <Textarea

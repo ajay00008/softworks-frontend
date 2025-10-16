@@ -987,7 +987,7 @@ export const subjectManagementAPI = {
 
       const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: getAuthHeadersForUpload(),
         body: formData,
       });
       return await handleApiResponse<Subject>(response);
@@ -1845,7 +1845,7 @@ export const questionPaperAPI = {
       const response = await fetch(`${API_BASE_URL}/admin/question-papers/upload-pattern`, {
         method: 'POST',
         headers: {
-          ...getAuthHeaders(),
+          ...getAuthHeadersForUpload(),
           // Don't set Content-Type, let browser set it for FormData
         },
         body: formData,
@@ -1866,7 +1866,7 @@ export const questionPaperAPI = {
 
       const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/upload-pdf`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: getAuthHeadersForUpload(),
         body: formData,
       });
       return await handleApiResponse<QuestionPaper>(response);
@@ -2079,7 +2079,7 @@ export const syllabusAPI = {
 
       const response = await fetch(`${API_BASE_URL}/admin/syllabi/${id}/upload`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: getAuthHeadersForUpload(),
         body: formData,
       });
       return await handleApiResponse<Syllabus>(response);

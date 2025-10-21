@@ -87,7 +87,6 @@ interface StaffAccess {
   updatedAt: string;
 }
 
-
 interface Teacher {
   id: string;
   name: string;
@@ -175,7 +174,6 @@ const AccessPrivileges = () => {
       setSubjects(subjectsResponse.subjects || []);
       setStaffAccessList(staffAccessResponse.data || []);
     } catch (error) {
-      console.error('Error loading data:', error);
       // Set empty arrays as fallback to prevent blank screen
       setTeachers([]);
       setClasses([]);
@@ -224,7 +222,6 @@ const AccessPrivileges = () => {
         throw new Error('Failed to create access');
       }
     } catch (error) {
-      console.error('Error creating access:', error);
       toast({
         title: "Error",
         description: "Failed to create access privileges",
@@ -294,7 +291,6 @@ const AccessPrivileges = () => {
         throw new Error('Failed to update access');
       }
     } catch (error) {
-      console.error('Error updating access:', error);
       toast({
         title: "Error",
         description: "Failed to update access privileges",
@@ -317,7 +313,6 @@ const AccessPrivileges = () => {
         throw new Error('Failed to delete access');
       }
     } catch (error) {
-      console.error('Error deleting access:', error);
       toast({
         title: "Error",
         description: "Failed to delete access privileges",

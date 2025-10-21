@@ -63,8 +63,6 @@ const sampleQuestions: QuestionExportData[] = [
 // Test function to demonstrate the new PDF export with jsPDF
 export async function testPDFExport() {
   try {
-    console.log('Testing PDF export with jsPDF...');
-    
     // Test 1: Export questions with answers and explanations
     await PDFExportService.exportQuestionsToPDF(sampleQuestions, {
       title: 'Sample Question Bank',
@@ -75,8 +73,6 @@ export async function testPDFExport() {
       chapter: 'Sample Chapter',
       filename: 'sample-questions-with-answers.pdf'
     });
-    
-    console.log('✅ Questions with answers exported successfully');
     
     // Test 2: Export as question paper
     await PDFExportService.exportQuestionPaper(sampleQuestions, {
@@ -90,8 +86,6 @@ export async function testPDFExport() {
       filename: 'sample-question-paper.pdf'
     });
     
-    console.log('✅ Question paper exported successfully');
-    
     // Test 3: Export answer key
     await PDFExportService.exportAnswerKey(sampleQuestions, {
       title: 'Sample Answer Key',
@@ -101,14 +95,10 @@ export async function testPDFExport() {
       filename: 'sample-answer-key.pdf'
     });
     
-    console.log('✅ Answer key exported successfully');
-    
-    console.log('🎉 All PDF exports completed successfully with jsPDF!');
-    console.log('✨ Features: Browser-compatible, smart spacing (8pts between questions only), clean design with jsPDF');
+    , clean design with jsPDF');
     
   } catch (error) {
-    console.error('❌ Error testing PDF export:', error);
-  }
+    }
 }
 
 // Export the test function for use in components

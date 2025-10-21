@@ -124,8 +124,7 @@ const PerformanceAnalytics = () => {
 
   const handleExportReport = () => {
     // Implement export functionality
-    console.log('Exporting performance report...');
-  };
+    };
 
   const handlePrintReport = () => {
     // Implement print functionality

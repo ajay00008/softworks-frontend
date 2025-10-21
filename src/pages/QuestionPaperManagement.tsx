@@ -72,7 +72,7 @@ import {
   examsAPI,
 } from "@/services/api";
 import PDFEditor from "@/components/PDFEditor";
-import EnhancedPDFEditor from "@/components/EnhancedPDFEditor";
+import SimplifiedPDFEditor from "@/components/SimplifiedPDFEditor";
 
 // Question Types
 const QUESTION_TYPES = [
@@ -186,9 +186,13 @@ export default function QuestionPaperManagement() {
     useState<QuestionPaper | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [customMarks, setCustomMarks] = useState<{mark: number, count: number}[]>([]);
+  const [customMarks, setCustomMarks] = useState<
+    { mark: number; count: number }[]
+  >([]);
   const [uploadedPattern, setUploadedPattern] = useState<File | null>(null);
-  const [uploadedPatternId, setUploadedPatternId] = useState<string | null>(null);
+  const [uploadedPatternId, setUploadedPatternId] = useState<string | null>(
+    null
+  );
   const { toast } = useToast();
 
   // Form state
@@ -227,9 +231,12 @@ export default function QuestionPaperManagement() {
 
   // Multi-subject handling
   const [selectedSubjects, setSelectedSubjects] = useState<any[]>([]);
-  const [subjectDistributions, setSubjectDistributions] = useState<{[subjectId: string]: any}>({});
+  const [subjectDistributions, setSubjectDistributions] = useState<{
+    [subjectId: string]: any;
+  }>({});
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingQuestionPaper, setEditingQuestionPaper] = useState<QuestionPaper | null>(null);
+  const [editingQuestionPaper, setEditingQuestionPaper] =
+    useState<QuestionPaper | null>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -281,16 +288,9 @@ export default function QuestionPaperManagement() {
       setQuestionPapers(questionPapersResponse?.questionPapers || []);
       setSubjects(subjectsResponse?.subjects || []);
       setClasses(classesResponse?.classes || []);
-      
+
       // Debug log to check data structure
-      console.log("Question papers data:", questionPapersResponse?.questionPapers);
-      console.log("Current questionPapers state:", questionPapers);
-      console.log("examsResponse", examsResponse);
-      console.log("questionPapersResponse", questionPapersResponse);
-      console.log("subjectsResponse", subjectsResponse);
-      console.log("classesResponse", classesResponse);
-    } catch (error) {
-      console.error("Error loading data:", error);
+      } catch (error) {
       toast({
         title: "Error",
         description: "Failed to load data",
@@ -304,7 +304,7 @@ export default function QuestionPaperManagement() {
   const handleCreateQuestionPaper = async () => {
     try {
       setIsCreating(true);
-      
+
       // Use comprehensive validation
       const validation = validateQuestionPaperForm();
       if (!validation.isValid) {
@@ -334,23 +334,26 @@ export default function QuestionPaperManagement() {
         formData.markDistribution.twoMark * 2 +
         formData.markDistribution.threeMark * 3 +
         formData.markDistribution.fiveMark * 5;
-      
-      const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+
+      const customMarksTotal = customMarks.reduce(
+        (sum, custom) => sum + custom.mark * custom.count,
+        0
+      );
       const actualTotalMarks = totalFromQuestions + customMarksTotal;
-      
+
       // Distribute custom marks into existing categories for backend compatibility
       let adjustedMarkDistribution = { ...formData.markDistribution };
-      
+
       // If we have custom marks, distribute them intelligently
       if (customMarksTotal > 0) {
         // Distribute custom marks based on their mark values
-        customMarks.forEach(custom => {
+        customMarks.forEach((custom) => {
           if (custom.mark > 0 && custom.count > 0) {
             const totalCustomMarks = custom.mark * custom.count;
-            
+
             // Distribute based on mark value:
             // 1-2 marks -> oneMark or twoMark
-            // 3-4 marks -> threeMark  
+            // 3-4 marks -> threeMark
             // 5+ marks -> fiveMark
             if (custom.mark <= 2) {
               // Distribute between oneMark and twoMark
@@ -361,24 +364,29 @@ export default function QuestionPaperManagement() {
               }
             } else if (custom.mark <= 4) {
               // Distribute to threeMark - convert to equivalent 3-mark questions
-              const equivalentThreeMarkQuestions = Math.ceil(totalCustomMarks / 3);
-              adjustedMarkDistribution.threeMark += equivalentThreeMarkQuestions;
+              const equivalentThreeMarkQuestions = Math.ceil(
+                totalCustomMarks / 3
+              );
+              adjustedMarkDistribution.threeMark +=
+                equivalentThreeMarkQuestions;
             } else {
               // Distribute to fiveMark - convert to equivalent 5-mark questions
-              const equivalentFiveMarkQuestions = Math.ceil(totalCustomMarks / 5);
+              const equivalentFiveMarkQuestions = Math.ceil(
+                totalCustomMarks / 5
+              );
               adjustedMarkDistribution.fiveMark += equivalentFiveMarkQuestions;
             }
           }
         });
       }
-      
+
       // Validate that adjusted distribution matches expected total
-      const adjustedTotalFromQuestions = 
+      const adjustedTotalFromQuestions =
         adjustedMarkDistribution.oneMark * 1 +
         adjustedMarkDistribution.twoMark * 2 +
         adjustedMarkDistribution.threeMark * 3 +
         adjustedMarkDistribution.fiveMark * 5;
-      
+
       // If there's a mismatch, adjust the fiveMark category to match
       if (adjustedTotalFromQuestions !== actualTotalMarks) {
         const difference = actualTotalMarks - adjustedTotalFromQuestions;
@@ -387,30 +395,38 @@ export default function QuestionPaperManagement() {
 
       // Create question papers for each subject
       const createdQuestionPapers = [];
-      
+
       for (const subjectData of selectedSubjects) {
-        const subject = subjects.find(s => s._id === subjectData._id);
+        const subject = subjects.find((s) => s._id === subjectData._id);
         const subjectDistribution = subjectDistributions[subjectData._id];
-        
+
         // Use subject-specific distribution if available, otherwise use global distribution
-        const markDistribution = subjectDistribution?.markDistribution || adjustedMarkDistribution;
-        const bloomsDistribution = subjectDistribution?.bloomsDistribution || formData.bloomsDistribution;
-        const questionTypeDistribution = subjectDistribution?.questionTypeDistribution || formData.questionTypeDistribution;
+        const markDistribution =
+          subjectDistribution?.markDistribution || adjustedMarkDistribution;
+        const bloomsDistribution =
+          subjectDistribution?.bloomsDistribution ||
+          formData.bloomsDistribution;
+        const questionTypeDistribution =
+          subjectDistribution?.questionTypeDistribution ||
+          formData.questionTypeDistribution;
         const customMarks = subjectDistribution?.customMarks || [];
-        
+
         // Calculate total marks for this subject including custom marks
-        const standardMarks = 
+        const standardMarks =
           (markDistribution.oneMark || 0) * 1 +
           (markDistribution.twoMark || 0) * 2 +
           (markDistribution.threeMark || 0) * 3 +
           (markDistribution.fiveMark || 0) * 5;
-        
-        const customMarksTotal = customMarks.reduce((sum: number, custom: any) => sum + (custom.mark * custom.count), 0);
+
+        const customMarksTotal = customMarks.reduce(
+          (sum: number, custom: any) => sum + custom.mark * custom.count,
+          0
+        );
         const subjectTotalMarks = standardMarks + customMarksTotal;
-        
+
         // Generate question paper for this subject
         const aiRequest = {
-          title: `${subject?.name || 'Subject'} - ${formData.title}`,
+          title: `${subject?.name || "Subject"} - ${formData.title}`,
           description: formData.description,
           examId: formData.examId,
           subjectId: subjectData._id,
@@ -423,20 +439,28 @@ export default function QuestionPaperManagement() {
           questionTypeDistribution: (() => {
             // Convert question counts to percentages for backend compatibility
             const converted: any = {};
-            const markCategories = ['oneMark', 'twoMark', 'threeMark', 'fiveMark'] as const;
-            
+            const markCategories = [
+              "oneMark",
+              "twoMark",
+              "threeMark",
+              "fiveMark",
+            ] as const;
+
             for (const mark of markCategories) {
               if (markDistribution[mark] > 0) {
                 const distributions = questionTypeDistribution[mark] || [];
                 const totalQuestions = markDistribution[mark];
-                
-                converted[mark] = distributions.map(dist => ({
+
+                converted[mark] = distributions.map((dist) => ({
                   type: dist.type,
-                  percentage: totalQuestions > 0 ? Math.round((dist.questionCount / totalQuestions) * 100) : 0
+                  percentage:
+                    totalQuestions > 0
+                      ? Math.round((dist.questionCount / totalQuestions) * 100)
+                      : 0,
                 }));
               }
             }
-            
+
             return converted;
           })(),
           aiSettings: formData.aiSettings,
@@ -453,19 +477,16 @@ export default function QuestionPaperManagement() {
         }
 
         try {
-          const generatedQuestionPaper = await questionPaperAPI.generateCompleteAI(
-            aiRequest as any
-          );
-          
+          const generatedQuestionPaper =
+            await questionPaperAPI.generateCompleteAI(aiRequest as any);
+
           // Extract the question paper from the response
           const responseData = generatedQuestionPaper as any;
-          
+
           if (responseData && responseData.questionPaper) {
             createdQuestionPapers.push(responseData.questionPaper);
-            console.log(`Question paper created for ${subject?.name}:`, responseData.questionPaper);
-          }
+            }
         } catch (error) {
-          console.error(`Error creating question paper for ${subject?.name}:`, error);
           toast({
             title: "Warning",
             description: `Failed to create question paper for ${subject?.name}`,
@@ -477,7 +498,7 @@ export default function QuestionPaperManagement() {
       // Add all created question papers to the list
       if (createdQuestionPapers.length > 0) {
         setQuestionPapers((prev) => [...createdQuestionPapers, ...prev]);
-        
+
         toast({
           title: "Success",
           description: `${createdQuestionPapers.length} question paper(s) generated successfully with AI`,
@@ -493,7 +514,6 @@ export default function QuestionPaperManagement() {
       setIsCreateDialogOpen(false);
       resetForm();
     } catch (error) {
-      console.error("Error generating question papers:", error);
       toast({
         title: "Error",
         description: "Failed to generate question papers",
@@ -508,7 +528,6 @@ export default function QuestionPaperManagement() {
     try {
       // Generate question paper using AI
       const result = await questionPaperAPI.generateAI(questionPaper._id);
-      console.log("result", result);
       // Update the question paper in state
       setQuestionPapers((prev) =>
         prev.map((paper) => (paper._id === questionPaper._id ? result : paper))
@@ -519,7 +538,6 @@ export default function QuestionPaperManagement() {
         description: "Question paper generated successfully",
       });
     } catch (error) {
-      console.error("Error generating question paper:", error);
       toast({
         title: "Error",
         description: "Failed to generate question paper",
@@ -537,40 +555,41 @@ export default function QuestionPaperManagement() {
         });
         return;
       }
-  
+
       const downloadUrl = questionPaper.generatedPdf.downloadUrl;
-      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "");
+      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(
+        /\/api\/?$/,
+        ""
+      );
       const path = downloadUrl?.startsWith("/public")
         ? downloadUrl
         : `/public/${downloadUrl}`;
       const fullDownloadUrl = `${baseUrl}${path}`;
-  
-      console.log("Downloading from:", fullDownloadUrl);
-  
+
       // Fetch the PDF as a blob
       const response = await fetch(fullDownloadUrl);
       if (!response.ok) throw new Error("Failed to fetch PDF");
-  
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-  
+
       // Create a hidden link element
       const link = document.createElement("a");
       link.href = url;
-      link.download = questionPaper.generatedPdf.fileName || "question-paper.pdf";
+      link.download =
+        questionPaper.generatedPdf.fileName || "question-paper.pdf";
       document.body.appendChild(link);
       link.click();
-  
+
       // Cleanup
       link.remove();
       window.URL.revokeObjectURL(url);
-  
+
       toast({
         title: "Download Started",
         description: `Downloading ${questionPaper.generatedPdf.fileName}`,
       });
     } catch (error) {
-      console.error("Error downloading question paper:", error);
       toast({
         title: "Error",
         description: "Failed to download question paper",
@@ -578,8 +597,6 @@ export default function QuestionPaperManagement() {
       });
     }
   };
-  
-  
 
   const handleDeleteQuestionPaper = async (questionPaper: QuestionPaper) => {
     try {
@@ -596,7 +613,6 @@ export default function QuestionPaperManagement() {
         description: "Question paper deleted successfully",
       });
     } catch (error) {
-      console.error("Error deleting question paper:", error);
       toast({
         title: "Error",
         description: "Failed to delete question paper",
@@ -660,7 +676,10 @@ export default function QuestionPaperManagement() {
         newMarkDistribution.fiveMark * 5;
 
       // Add custom marks
-      const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+      const customMarksTotal = customMarks.reduce(
+        (sum, custom) => sum + custom.mark * custom.count,
+        0
+      );
       const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
 
       // Always auto-fill total marks
@@ -686,62 +705,71 @@ export default function QuestionPaperManagement() {
     });
   };
 
-
   const addCustomMark = () => {
-    setCustomMarks(prev => [...prev, { mark: 0, count: 0 }]);
+    setCustomMarks((prev) => [...prev, { mark: 0, count: 0 }]);
   };
 
-  const updateCustomMark = (index: number, field: 'mark' | 'count', value: number) => {
-    setCustomMarks(prev => {
+  const updateCustomMark = (
+    index: number,
+    field: "mark" | "count",
+    value: number
+  ) => {
+    setCustomMarks((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
-      
+
       // Calculate total marks from all questions including custom marks
       const totalFromQuestions =
         formData.markDistribution.oneMark * 1 +
         formData.markDistribution.twoMark * 2 +
         formData.markDistribution.threeMark * 3 +
         formData.markDistribution.fiveMark * 5;
-      
-      const customMarksTotal = updated.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+
+      const customMarksTotal = updated.reduce(
+        (sum, custom) => sum + custom.mark * custom.count,
+        0
+      );
       const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
-      
+
       // Update total marks in form data
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         markDistribution: {
           ...prev.markDistribution,
           totalMarks: totalFromAllQuestions,
         },
       }));
-      
+
       return updated;
     });
   };
 
   const removeCustomMark = (index: number) => {
-    setCustomMarks(prev => {
+    setCustomMarks((prev) => {
       const updated = prev.filter((_, i) => i !== index);
-      
+
       // Calculate total marks from all questions including remaining custom marks
       const totalFromQuestions =
         formData.markDistribution.oneMark * 1 +
         formData.markDistribution.twoMark * 2 +
         formData.markDistribution.threeMark * 3 +
         formData.markDistribution.fiveMark * 5;
-      
-      const customMarksTotal = updated.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+
+      const customMarksTotal = updated.reduce(
+        (sum, custom) => sum + custom.mark * custom.count,
+        0
+      );
       const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
-      
+
       // Update total marks in form data
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         markDistribution: {
           ...prev.markDistribution,
           totalMarks: totalFromAllQuestions,
         },
       }));
-      
+
       return updated;
     });
   };
@@ -755,7 +783,11 @@ export default function QuestionPaperManagement() {
     }));
   };
 
-  const updateQuestionTypeDistribution = (mark: string, type: string, questionCount: number) => {
+  const updateQuestionTypeDistribution = (
+    mark: string,
+    type: string,
+    questionCount: number
+  ) => {
     setFormData((prev) => {
       const distributions = { ...prev.questionTypeDistribution };
       let dists = distributions[mark] || [];
@@ -781,26 +813,32 @@ export default function QuestionPaperManagement() {
   };
 
   const getQuestionTypeCount = (mark: string, type: string) => {
-    return formData.questionTypeDistribution[mark]?.find((d) => d.type === type)?.questionCount || 0;
+    return (
+      formData.questionTypeDistribution[mark]?.find((d) => d.type === type)
+        ?.questionCount || 0
+    );
   };
 
   const getQuestionTypeTotal = (mark: string) => {
-    return (formData.questionTypeDistribution[mark] || []).reduce((sum, d) => sum + (d.questionCount || 0), 0);
+    return (formData.questionTypeDistribution[mark] || []).reduce(
+      (sum, d) => sum + (d.questionCount || 0),
+      0
+    );
   };
 
   const getMaxQuestionsForMark = (mark: string) => {
-    if (mark === 'oneMark') return formData.markDistribution.oneMark;
-    if (mark === 'twoMark') return formData.markDistribution.twoMark;
-    if (mark === 'threeMark') return formData.markDistribution.threeMark;
-    if (mark === 'fiveMark') return formData.markDistribution.fiveMark;
-    
+    if (mark === "oneMark") return formData.markDistribution.oneMark;
+    if (mark === "twoMark") return formData.markDistribution.twoMark;
+    if (mark === "threeMark") return formData.markDistribution.threeMark;
+    if (mark === "fiveMark") return formData.markDistribution.fiveMark;
+
     // For custom marks, find the corresponding custom mark
-    const customMark = customMarks.find(custom => {
-      if (custom.mark <= 2) return mark === 'oneMark' || mark === 'twoMark';
-      if (custom.mark <= 4) return mark === 'threeMark';
-      return mark === 'fiveMark';
+    const customMark = customMarks.find((custom) => {
+      if (custom.mark <= 2) return mark === "oneMark" || mark === "twoMark";
+      if (custom.mark <= 4) return mark === "threeMark";
+      return mark === "fiveMark";
     });
-    
+
     return customMark ? customMark.count : 0;
   };
 
@@ -820,40 +858,59 @@ export default function QuestionPaperManagement() {
     }
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   };
 
   const validateStep2 = () => {
     const errors: string[] = [];
-    
+
     // For multi-subject exams, validation is handled in subject-specific sections
     if (selectedSubjects.length > 1) {
       // Validate that each subject has at least some questions configured
       for (const subjectData of selectedSubjects) {
         const distribution = subjectDistributions[subjectData._id];
         if (!distribution || !distribution.markDistribution) {
-          errors.push(`Please configure mark distribution for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}`);
+          errors.push(
+            `Please configure mark distribution for ${
+              subjects.find((s) => s._id === subjectData._id)?.name ||
+              "this subject"
+            }`
+          );
           continue;
         }
-        
-        const subjectTotalQuestions = 
+
+        const subjectTotalQuestions =
           (distribution.markDistribution.oneMark || 0) +
           (distribution.markDistribution.twoMark || 0) +
           (distribution.markDistribution.threeMark || 0) +
           (distribution.markDistribution.fiveMark || 0) +
-          (distribution.customMarks || []).reduce((sum: number, custom: any) => sum + custom.count, 0);
-        
+          (distribution.customMarks || []).reduce(
+            (sum: number, custom: any) => sum + custom.count,
+            0
+          );
+
         if (subjectTotalQuestions === 0) {
-          errors.push(`At least one question must be configured for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}`);
+          errors.push(
+            `At least one question must be configured for ${
+              subjects.find((s) => s._id === subjectData._id)?.name ||
+              "this subject"
+            }`
+          );
         }
-        
+
         // Validate Blooms taxonomy totals 100%
         const bloomsTotal = (distribution.bloomsDistribution || []).reduce(
-          (sum: number, dist: any) => sum + dist.percentage, 0
+          (sum: number, dist: any) => sum + dist.percentage,
+          0
         );
         if (bloomsTotal !== 100) {
-          errors.push(`Blooms taxonomy percentages must add up to exactly 100% for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}. Current total: ${bloomsTotal}%`);
+          errors.push(
+            `Blooms taxonomy percentages must add up to exactly 100% for ${
+              subjects.find((s) => s._id === subjectData._id)?.name ||
+              "this subject"
+            }. Current total: ${bloomsTotal}%`
+          );
         }
       }
     } else {
@@ -864,10 +921,13 @@ export default function QuestionPaperManagement() {
         formData.markDistribution.threeMark * 3 +
         formData.markDistribution.fiveMark * 5;
 
-      const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+      const customMarksTotal = customMarks.reduce(
+        (sum, custom) => sum + custom.mark * custom.count,
+        0
+      );
       const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
 
-      const totalQuestions = 
+      const totalQuestions =
         formData.markDistribution.oneMark +
         formData.markDistribution.twoMark +
         formData.markDistribution.threeMark +
@@ -882,14 +942,19 @@ export default function QuestionPaperManagement() {
         errors.push("Total marks must be greater than 0");
       }
 
-      if (formData.markDistribution.totalMarks === 100 && totalFromAllQuestions !== 100) {
-        errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`);
+      if (
+        formData.markDistribution.totalMarks === 100 &&
+        totalFromAllQuestions !== 100
+      ) {
+        errors.push(
+          `When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`
+        );
       }
     }
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   };
 
@@ -897,7 +962,7 @@ export default function QuestionPaperManagement() {
     // Step 3 (AI Settings) doesn't require validation as all fields are optional
     return {
       isValid: true,
-      errors: []
+      errors: [],
     };
   };
 
@@ -923,11 +988,11 @@ export default function QuestionPaperManagement() {
         return;
       }
     }
-    setCurrentStep(prev => Math.min(prev + 1, 3));
+    setCurrentStep((prev) => Math.min(prev + 1, 3));
   };
 
   const handlePreviousStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
   // Comprehensive validation function for question paper creation
@@ -962,27 +1027,46 @@ export default function QuestionPaperManagement() {
       for (const subjectData of selectedSubjects) {
         const distribution = subjectDistributions[subjectData._id];
         if (!distribution || !distribution.markDistribution) {
-          errors.push(`Please configure mark distribution for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}`);
+          errors.push(
+            `Please configure mark distribution for ${
+              subjects.find((s) => s._id === subjectData._id)?.name ||
+              "this subject"
+            }`
+          );
           continue;
         }
-        
-        const subjectTotalQuestions = 
+
+        const subjectTotalQuestions =
           (distribution.markDistribution.oneMark || 0) +
           (distribution.markDistribution.twoMark || 0) +
           (distribution.markDistribution.threeMark || 0) +
           (distribution.markDistribution.fiveMark || 0) +
-          (distribution.customMarks || []).reduce((sum: number, custom: any) => sum + custom.count, 0);
-        
+          (distribution.customMarks || []).reduce(
+            (sum: number, custom: any) => sum + custom.count,
+            0
+          );
+
         if (subjectTotalQuestions === 0) {
-          errors.push(`At least one question must be configured for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}`);
+          errors.push(
+            `At least one question must be configured for ${
+              subjects.find((s) => s._id === subjectData._id)?.name ||
+              "this subject"
+            }`
+          );
         }
-        
+
         // Validate Blooms taxonomy totals 100%
         const bloomsTotal = (distribution.bloomsDistribution || []).reduce(
-          (sum: number, dist: any) => sum + dist.percentage, 0
+          (sum: number, dist: any) => sum + dist.percentage,
+          0
         );
         if (bloomsTotal !== 100) {
-          errors.push(`Blooms taxonomy percentages must add up to exactly 100% for ${subjects.find(s => s._id === subjectData._id)?.name || 'this subject'}. Current total: ${bloomsTotal}%`);
+          errors.push(
+            `Blooms taxonomy percentages must add up to exactly 100% for ${
+              subjects.find((s) => s._id === subjectData._id)?.name ||
+              "this subject"
+            }. Current total: ${bloomsTotal}%`
+          );
         }
       }
     } else {
@@ -993,11 +1077,14 @@ export default function QuestionPaperManagement() {
         formData.markDistribution.threeMark * 3 +
         formData.markDistribution.fiveMark * 5;
 
-      const customMarksTotal = customMarks.reduce((sum, custom) => sum + (custom.mark * custom.count), 0);
+      const customMarksTotal = customMarks.reduce(
+        (sum, custom) => sum + custom.mark * custom.count,
+        0
+      );
       const totalFromAllQuestions = totalFromQuestions + customMarksTotal;
 
       // Validate that at least some questions are configured
-      const totalQuestions = 
+      const totalQuestions =
         formData.markDistribution.oneMark +
         formData.markDistribution.twoMark +
         formData.markDistribution.threeMark +
@@ -1014,14 +1101,19 @@ export default function QuestionPaperManagement() {
       }
 
       // If total marks is set to 100, ensure question marks add up to 100
-      if (formData.markDistribution.totalMarks === 100 && totalFromAllQuestions !== 100) {
-        errors.push(`When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`);
+      if (
+        formData.markDistribution.totalMarks === 100 &&
+        totalFromAllQuestions !== 100
+      ) {
+        errors.push(
+          `When total marks is 100, question marks must add up to exactly 100. Current total: ${totalFromAllQuestions}`
+        );
       }
     }
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   };
 
@@ -1202,94 +1294,95 @@ export default function QuestionPaperManagement() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {questionPapers.map((paper) => {
-            console.log("Rendering paper:", paper);
             return (
-            <Card key={paper._id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{paper.title}</CardTitle>
-                    <CardDescription>{paper.description}</CardDescription>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem
-                        onClick={() => setSelectedQuestionPaper(paper)}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          console.log("Opening edit dialog for question paper:", paper);
-                          setEditingQuestionPaper(paper);
-                          setIsEditDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit PDF
-                      </DropdownMenuItem>
-                      {paper.status === "DRAFT" && (
+              <Card
+                key={paper._id}
+                className="hover:shadow-lg transition-shadow"
+              >
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{paper.title}</CardTitle>
+                      <CardDescription>{paper.description}</CardDescription>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
                         <DropdownMenuItem
-                          onClick={() => handleGenerateQuestionPaper(paper)}
+                          onClick={() => setSelectedQuestionPaper(paper)}
                         >
-                          <Wand2 className="w-4 h-4 mr-2" />
-                          Generate with AI
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Details
                         </DropdownMenuItem>
-                      )}
-                      {paper.status === "GENERATED" && paper.generatedPdf && (
                         <DropdownMenuItem
-                          onClick={() => handleDownloadQuestionPaper(paper)}
+                          onClick={() => {
+                            setEditingQuestionPaper(paper);
+                            setIsEditDialogOpen(true);
+                          }}
                         >
-                          <Download className="w-4 h-4 mr-2" />
-                          Download PDF
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit PDF
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteQuestionPaper(paper)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Status</span>
-                    {getStatusBadge(paper.status)}
+                        {paper.status === "DRAFT" && (
+                          <DropdownMenuItem
+                            onClick={() => handleGenerateQuestionPaper(paper)}
+                          >
+                            <Wand2 className="w-4 h-4 mr-2" />
+                            Generate with AI
+                          </DropdownMenuItem>
+                        )}
+                        {paper.status === "GENERATED" && paper.generatedPdf && (
+                          <DropdownMenuItem
+                            onClick={() => handleDownloadQuestionPaper(paper)}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download PDF
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteQuestionPaper(paper)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Type</span>
-                    <Badge variant="outline">{paper.type}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Total Marks</span>
-                    <span className="font-medium">
-                      {paper.markDistribution?.totalMarks || 'N/A'}
-                    </span>
-                  </div>
-                  {paper.generatedPdf && (
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">
-                        PDF Generated
-                      </span>
-                      <span className="text-sm text-green-600">
-                        ✓ Available
+                      <span className="text-sm text-gray-600">Status</span>
+                      {getStatusBadge(paper.status)}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Type</span>
+                      <Badge variant="outline">{paper.type}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Total Marks</span>
+                      <span className="font-medium">
+                        {paper.markDistribution?.totalMarks || "N/A"}
                       </span>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    {paper.generatedPdf && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">
+                          PDF Generated
+                        </span>
+                        <span className="text-sm text-green-600">
+                          ✓ Available
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
@@ -1308,34 +1401,64 @@ export default function QuestionPaperManagement() {
           {/* Step Progress Indicator */}
           <div className="flex items-center justify-center space-x-4 mb-6">
             <div className="flex items-center space-x-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-              }`}>
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  currentStep >= 1
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-600"
+                }`}
+              >
                 1
               </div>
-              <span className={`text-sm ${currentStep >= 1 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+              <span
+                className={`text-sm ${
+                  currentStep >= 1
+                    ? "text-blue-600 font-medium"
+                    : "text-gray-500"
+                }`}
+              >
                 Basic Info
               </span>
             </div>
             <div className="w-8 h-0.5 bg-gray-200"></div>
             <div className="flex items-center space-x-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-              }`}>
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  currentStep >= 2
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-600"
+                }`}
+              >
                 2
               </div>
-              <span className={`text-sm ${currentStep >= 2 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+              <span
+                className={`text-sm ${
+                  currentStep >= 2
+                    ? "text-blue-600 font-medium"
+                    : "text-gray-500"
+                }`}
+              >
                 Distribution
               </span>
             </div>
             <div className="w-8 h-0.5 bg-gray-200"></div>
             <div className="flex items-center space-x-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-              }`}>
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  currentStep >= 3
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-600"
+                }`}
+              >
                 3
               </div>
-              <span className={`text-sm ${currentStep >= 3 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+              <span
+                className={`text-sm ${
+                  currentStep >= 3
+                    ? "text-blue-600 font-medium"
+                    : "text-gray-500"
+                }`}
+              >
                 AI Settings
               </span>
             </div>
@@ -1365,16 +1488,18 @@ export default function QuestionPaperManagement() {
                   <Select
                     value={formData.examId}
                     onValueChange={(value) => {
-                      const selectedExam = exams.find(exam => exam._id === value);
-                      setFormData((prev) => ({ 
-                        ...prev, 
-                        examId: value
+                      const selectedExam = exams.find(
+                        (exam) => exam._id === value
+                      );
+                      setFormData((prev) => ({
+                        ...prev,
+                        examId: value,
                       }));
                       // Set selected subjects based on exam
                       if (selectedExam?.subjectIds) {
                         setSelectedSubjects(selectedExam.subjectIds);
                         // Initialize subject-specific distributions
-                        const distributions: {[subjectId: string]: any} = {};
+                        const distributions: { [subjectId: string]: any } = {};
                         selectedExam.subjectIds.forEach((subject: any) => {
                           distributions[subject._id] = {
                             markDistribution: {
@@ -1385,12 +1510,12 @@ export default function QuestionPaperManagement() {
                               totalMarks: 0,
                             },
                             bloomsDistribution: [
-                              { level: "REMEMBER", percentage: 20 },
-                              { level: "UNDERSTAND", percentage: 30 },
-                              { level: "APPLY", percentage: 25 },
-                              { level: "ANALYZE", percentage: 15 },
-                              { level: "EVALUATE", percentage: 7 },
-                              { level: "CREATE", percentage: 3 },
+                              { level: "REMEMBER", percentage: 0 },
+                              { level: "UNDERSTAND", percentage: 0 },
+                              { level: "APPLY", percentage: 0 },
+                              { level: "ANALYZE", percentage: 0 },
+                              { level: "EVALUATE", percentage: 0 },
+                              { level: "CREATE", percentage: 0 },
                             ],
                             questionTypeDistribution: {
                               oneMark: [],
@@ -1398,7 +1523,7 @@ export default function QuestionPaperManagement() {
                               threeMark: [],
                               fiveMark: [],
                             },
-                            customMarks: []
+                            customMarks: [],
                           };
                         });
                         setSubjectDistributions(distributions);
@@ -1415,28 +1540,37 @@ export default function QuestionPaperManagement() {
                       {exams.map((exam) => (
                         <SelectItem key={exam._id} value={exam._id}>
                           {exam.title}
-                          {exam.subjectIds && exam.subjectIds.length > 1 && 
-                            ` (${exam.subjectIds.length} subjects)`
-                          }
+                          {exam.subjectIds &&
+                            exam.subjectIds.length > 1 &&
+                            ` (${exam.subjectIds.length} subjects)`}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 {/* Selected Subjects Display */}
                 {selectedSubjects.length > 0 && (
                   <div>
                     <Label>Selected Subjects ({selectedSubjects.length})</Label>
                     <div className="mt-2 space-y-3">
                       {selectedSubjects.map((subjectData) => {
-                        const subject = subjects.find(s => s._id === subjectData._id);
+                        const subject = subjects.find(
+                          (s) => s._id === subjectData._id
+                        );
                         return (
-                          <div key={subjectData._id} className="border rounded-lg p-4 bg-gray-50">
+                          <div
+                            key={subjectData._id}
+                            className="border rounded-lg p-4 bg-gray-50"
+                          >
                             <div className="flex justify-between items-center">
                               <div>
-                                <h4 className="font-medium">{subject?.name || 'Unknown Subject'}</h4>
-                                <p className="text-sm text-gray-600">{subject?.code || ''}</p>
+                                <h4 className="font-medium">
+                                  {subject?.name || "Unknown Subject"}
+                                </h4>
+                                <p className="text-sm text-gray-600">
+                                  {subject?.code || ""}
+                                </p>
                                 {subject?.syllabus && (
                                   <p className="text-xs text-green-600 mt-1">
                                     ✓ Syllabus available
@@ -1444,28 +1578,33 @@ export default function QuestionPaperManagement() {
                                 )}
                               </div>
                               <Badge variant="outline">
-                                {selectedSubjects.length > 1 ? 'Multi-Subject' : 'Single Subject'}
+                                {selectedSubjects.length > 1
+                                  ? "Multi-Subject"
+                                  : "Single Subject"}
                               </Badge>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                    
+
                     {selectedSubjects.length > 1 && (
                       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <div className="flex items-start">
                           <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
                           <div className="text-sm text-blue-800">
-                            <strong>Multi-Subject Exam:</strong> {selectedSubjects.length} question papers will be created - one for each subject. 
-                            Each question paper will use the existing syllabus from the subject data.
+                            <strong>Multi-Subject Exam:</strong>{" "}
+                            {selectedSubjects.length} question papers will be
+                            created - one for each subject. Each question paper
+                            will use the existing syllabus from the subject
+                            data.
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
                 )}
-                
+
                 <div>
                   <Label htmlFor="description">Description</Label>
                   <Textarea
@@ -1488,504 +1627,876 @@ export default function QuestionPaperManagement() {
           {currentStep === 2 && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold">Distribution Settings</h3>
-              
+
               {/* Subject-Specific Distribution for Multi-Subject Exams */}
               {selectedSubjects.length > 1 && (
-              <div className="space-y-4">
-                  <h4 className="text-lg font-semibold">Subject-Specific Distribution</h4>
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold">
+                    Subject-Specific Distribution
+                  </h4>
                   <p className="text-sm text-gray-600">
-                    Configure different distributions for each subject in the exam
+                    Configure different distributions for each subject in the
+                    exam
                   </p>
-                  
+
                   {selectedSubjects.map((subjectData) => {
-                    const subject = subjects.find(s => s._id === subjectData._id);
-                    const distribution = subjectDistributions[subjectData._id] || {};
+                    const subject = subjects.find(
+                      (s) => s._id === subjectData._id
+                    );
+                    const distribution =
+                      subjectDistributions[subjectData._id] || {};
                     return (
                       <Card key={subjectData._id} className="p-4">
                         <CardHeader>
-                          <CardTitle className="text-base">{subject?.name || 'Unknown Subject'}</CardTitle>
+                          <CardTitle className="text-base">
+                            {subject?.name || "Unknown Subject"}
+                          </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           {/* Mark Distribution for this subject */}
                           <div className="space-y-2">
-                            <Label className="text-sm font-medium">Mark Distribution</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                                <Label htmlFor={`${subjectData._id}-oneMark`}>1 Mark Questions</Label>
-                    <Input
+                            <Label className="text-sm font-medium">
+                              Mark Distribution
+                            </Label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div>
+                                <Label htmlFor={`${subjectData._id}-oneMark`}>
+                                  1 Mark Questions
+                                </Label>
+                                <Input
                                   id={`${subjectData._id}-oneMark`}
-                      type="number"
-                                  value={distribution.markDistribution?.oneMark || 0}
-                      onChange={(e) => {
-                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                    setSubjectDistributions(prev => ({
+                                  type="number"
+                                  value={
+                                    distribution.markDistribution?.oneMark || 0
+                                  }
+                                  onChange={(e) => {
+                                    const value =
+                                      e.target.value === ""
+                                        ? 0
+                                        : Math.max(
+                                            0,
+                                            parseInt(e.target.value) || 0
+                                          );
+                                    setSubjectDistributions((prev) => ({
                                       ...prev,
                                       [subjectData._id]: {
                                         ...prev[subjectData._id],
                                         markDistribution: {
-                                          ...prev[subjectData._id]?.markDistribution,
-                                          oneMark: value
-                                        }
-                                      }
+                                          ...prev[subjectData._id]
+                                            ?.markDistribution,
+                                          oneMark: value,
+                                        },
+                                      },
                                     }));
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      max="100"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                                <Label htmlFor={`${subjectData._id}-twoMark`}>2 Mark Questions</Label>
-                    <Input
-                                  id={`${subjectData._id}-twoMark`}
-                      type="number"
-                                  value={distribution.markDistribution?.twoMark || 0}
-                      onChange={(e) => {
-                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                    setSubjectDistributions(prev => ({
-                                      ...prev,
-                                      [subjectData._id]: {
-                                        ...prev[subjectData._id],
-                                        markDistribution: {
-                                          ...prev[subjectData._id]?.markDistribution,
-                                          twoMark: value
-                                        }
-                                      }
-                                    }));
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      max="100"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                                <Label htmlFor={`${subjectData._id}-threeMark`}>3 Mark Questions</Label>
-                    <Input
-                                  id={`${subjectData._id}-threeMark`}
-                      type="number"
-                                  value={distribution.markDistribution?.threeMark || 0}
-                      onChange={(e) => {
-                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                    setSubjectDistributions(prev => ({
-                                      ...prev,
-                                      [subjectData._id]: {
-                                        ...prev[subjectData._id],
-                                        markDistribution: {
-                                          ...prev[subjectData._id]?.markDistribution,
-                                          threeMark: value
-                                        }
-                                      }
-                                    }));
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      max="100"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                                <Label htmlFor={`${subjectData._id}-fiveMark`}>5 Mark Questions</Label>
-                    <Input
-                                  id={`${subjectData._id}-fiveMark`}
-                      type="number"
-                                  value={distribution.markDistribution?.fiveMark || 0}
-                      onChange={(e) => {
-                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                    setSubjectDistributions(prev => ({
-                                      ...prev,
-                                      [subjectData._id]: {
-                                        ...prev[subjectData._id],
-                                        markDistribution: {
-                                          ...prev[subjectData._id]?.markDistribution,
-                                          fiveMark: value
-                                        }
-                                      }
-                                    }));
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      max="100"
-                      placeholder="0"
-                    />
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                />
                               </div>
-                  </div>
-                </div>
+                              <div>
+                                <Label htmlFor={`${subjectData._id}-twoMark`}>
+                                  2 Mark Questions
+                                </Label>
+                                <Input
+                                  id={`${subjectData._id}-twoMark`}
+                                  type="number"
+                                  value={
+                                    distribution.markDistribution?.twoMark || 0
+                                  }
+                                  onChange={(e) => {
+                                    const value =
+                                      e.target.value === ""
+                                        ? 0
+                                        : Math.max(
+                                            0,
+                                            parseInt(e.target.value) || 0
+                                          );
+                                    setSubjectDistributions((prev) => ({
+                                      ...prev,
+                                      [subjectData._id]: {
+                                        ...prev[subjectData._id],
+                                        markDistribution: {
+                                          ...prev[subjectData._id]
+                                            ?.markDistribution,
+                                          twoMark: value,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor={`${subjectData._id}-threeMark`}>
+                                  3 Mark Questions
+                                </Label>
+                                <Input
+                                  id={`${subjectData._id}-threeMark`}
+                                  type="number"
+                                  value={
+                                    distribution.markDistribution?.threeMark ||
+                                    0
+                                  }
+                                  onChange={(e) => {
+                                    const value =
+                                      e.target.value === ""
+                                        ? 0
+                                        : Math.max(
+                                            0,
+                                            parseInt(e.target.value) || 0
+                                          );
+                                    setSubjectDistributions((prev) => ({
+                                      ...prev,
+                                      [subjectData._id]: {
+                                        ...prev[subjectData._id],
+                                        markDistribution: {
+                                          ...prev[subjectData._id]
+                                            ?.markDistribution,
+                                          threeMark: value,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor={`${subjectData._id}-fiveMark`}>
+                                  5 Mark Questions
+                                </Label>
+                                <Input
+                                  id={`${subjectData._id}-fiveMark`}
+                                  type="number"
+                                  value={
+                                    distribution.markDistribution?.fiveMark || 0
+                                  }
+                                  onChange={(e) => {
+                                    const value =
+                                      e.target.value === ""
+                                        ? 0
+                                        : Math.max(
+                                            0,
+                                            parseInt(e.target.value) || 0
+                                          );
+                                    setSubjectDistributions((prev) => ({
+                                      ...prev,
+                                      [subjectData._id]: {
+                                        ...prev[subjectData._id],
+                                        markDistribution: {
+                                          ...prev[subjectData._id]
+                                            ?.markDistribution,
+                                          fiveMark: value,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  min="0"
+                                  max="100"
+                                  placeholder="0"
+                                />
+                              </div>
+                            </div>
+                          </div>
 
                           {/* Blooms Taxonomy Distribution for this subject */}
                           <div className="space-y-2">
-                            <Label className="text-sm font-medium">Blooms Taxonomy Distribution</Label>
+                            <Label className="text-sm font-medium">
+                              Blooms Taxonomy Distribution
+                            </Label>
                             <div className="space-y-4">
                               {BLOOMS_LEVELS.map((level) => (
                                 <div key={level.id} className="space-y-2">
                                   <div className="flex justify-between items-center">
-                    <div>
-                                      <Label className="font-medium">{level.name}</Label>
-                                      <p className="text-sm text-gray-600">{level.description}</p>
-                    </div>
+                                    <div>
+                                      <Label className="font-medium">
+                                        {level.name}
+                                      </Label>
+                                      <p className="text-sm text-gray-600">
+                                        {level.description}
+                                      </p>
+                                    </div>
                                     <span className="text-sm font-medium">
-                                      {distribution.bloomsDistribution?.find((d: any) => d.level === level.id)?.percentage || 0}%
-                      </span>
-                    </div>
+                                      {distribution.bloomsDistribution?.find(
+                                        (d: any) => d.level === level.id
+                                      )?.percentage || 0}
+                                      %
+                                    </span>
+                                  </div>
                                   <Slider
                                     value={[
-                                      distribution.bloomsDistribution?.find((d: any) => d.level === level.id)?.percentage || 0,
+                                      distribution.bloomsDistribution?.find(
+                                        (d: any) => d.level === level.id
+                                      )?.percentage || 0,
                                     ]}
                                     onValueChange={([value]) => {
-                                      setSubjectDistributions(prev => ({
+                                      setSubjectDistributions((prev) => ({
                                         ...prev,
                                         [subjectData._id]: {
                                           ...prev[subjectData._id],
-                                          bloomsDistribution: (prev[subjectData._id]?.bloomsDistribution || [])
-                                            .filter((d: any) => d.level !== level.id)
-                                            .concat([{ level: level.id, percentage: value }])
-                                        }
+                                          bloomsDistribution: (
+                                            prev[subjectData._id]
+                                              ?.bloomsDistribution || []
+                                          )
+                                            .filter(
+                                              (d: any) => d.level !== level.id
+                                            )
+                                            .concat([
+                                              {
+                                                level: level.id,
+                                                percentage: value,
+                                              },
+                                            ]),
+                                        },
                                       }));
                                     }}
                                     max={100}
                                     step={1}
                                     className="w-full"
                                   />
-                    </div>
+                                </div>
                               ))}
                             </div>
-                            
+
                             {/* Blooms Distribution Summary */}
                             <div className="bg-blue-50 p-4 rounded-lg">
-                              <h4 className="font-medium text-sm mb-2">Distribution Summary</h4>
+                              <h4 className="font-medium text-sm mb-2">
+                                Distribution Summary
+                              </h4>
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                 {BLOOMS_LEVELS.map((level) => {
-                                  const percentage = distribution.bloomsDistribution?.find((d: any) => d.level === level.id)?.percentage || 0;
+                                  const percentage =
+                                    distribution.bloomsDistribution?.find(
+                                      (d: any) => d.level === level.id
+                                    )?.percentage || 0;
                                   return (
-                                    <div key={level.id} className="flex justify-between">
-                                      <span className="text-gray-600">{level.name}:</span>
-                                      <span className={`font-medium ${percentage > 0 ? "text-blue-600" : "text-gray-400"}`}>
+                                    <div
+                                      key={level.id}
+                                      className="flex justify-between"
+                                    >
+                                      <span className="text-gray-600">
+                                        {level.name}:
+                                      </span>
+                                      <span
+                                        className={`font-medium ${
+                                          percentage > 0
+                                            ? "text-blue-600"
+                                            : "text-gray-400"
+                                        }`}
+                                      >
                                         {percentage}%
-                      </span>
-                    </div>
+                                      </span>
+                                    </div>
                                   );
                                 })}
-                  </div>
-                  <div className="mt-3 pt-3 border-t">
-                    <div className="flex justify-between items-center">
-                                  <span className="text-gray-600 font-medium">Total:</span>
-                                  <span className={`font-bold ${
-                                    (distribution.bloomsDistribution || []).reduce((sum: number, dist: any) => sum + dist.percentage, 0) === 100
-                                      ? "text-green-600"
-                                      : "text-red-600"
-                                  }`}>
-                                    {(distribution.bloomsDistribution || []).reduce((sum: number, dist: any) => sum + dist.percentage, 0)}%
-                      </span>
-                    </div>
-                                {(distribution.bloomsDistribution || []).reduce((sum: number, dist: any) => sum + dist.percentage, 0) !== 100 && (
-                        <div className="mt-2 text-red-600 text-sm">
-                                    ⚠️ Blooms taxonomy percentages must add up to exactly 100%. Please adjust the distribution.
-                        </div>
-                      )}
-                  </div>
-                </div>
-              </div>
+                              </div>
+                              <div className="mt-3 pt-3 border-t">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-gray-600 font-medium">
+                                    Total:
+                                  </span>
+                                  <span
+                                    className={`font-bold ${
+                                      (
+                                        distribution.bloomsDistribution || []
+                                      ).reduce(
+                                        (sum: number, dist: any) =>
+                                          sum + dist.percentage,
+                                        0
+                                      ) === 100
+                                        ? "text-green-600"
+                                        : "text-red-600"
+                                    }`}
+                                  >
+                                    {(
+                                      distribution.bloomsDistribution || []
+                                    ).reduce(
+                                      (sum: number, dist: any) =>
+                                        sum + dist.percentage,
+                                      0
+                                    )}
+                                    %
+                                  </span>
+                                </div>
+                                {(distribution.bloomsDistribution || []).reduce(
+                                  (sum: number, dist: any) =>
+                                    sum + dist.percentage,
+                                  0
+                                ) !== 100 && (
+                                  <div className="mt-2 text-red-600 text-sm">
+                                    ⚠️ Blooms taxonomy percentages must add up
+                                    to exactly 100%. Please adjust the
+                                    distribution.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
 
                           {/* Custom Marks for this subject */}
                           <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                              <Label className="text-sm font-medium">Custom Marks Questions</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
+                            <div className="flex justify-between items-center">
+                              <Label className="text-sm font-medium">
+                                Custom Marks Questions
+                              </Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
                                 onClick={() => {
                                   const newCustomMark = { mark: 0, count: 0 };
-                                  setSubjectDistributions(prev => ({
+                                  setSubjectDistributions((prev) => ({
                                     ...prev,
                                     [subjectData._id]: {
                                       ...prev[subjectData._id],
-                                      customMarks: [...(prev[subjectData._id]?.customMarks || []), newCustomMark]
-                                    }
+                                      customMarks: [
+                                        ...(prev[subjectData._id]
+                                          ?.customMarks || []),
+                                        newCustomMark,
+                                      ],
+                                    },
                                   }));
                                 }}
-                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Custom Mark
-                  </Button>
-                </div>
-                
+                                className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add Custom Mark
+                              </Button>
+                            </div>
+
                             {(distribution.customMarks || []).length > 0 && (
-                  <div className="space-y-3">
-                                {(distribution.customMarks || []).map((custom: any, index: number) => (
-                      <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                        <div className="flex-1">
-                                      <Label htmlFor={`${subjectData._id}-customMark-${index}`}>Mark Value</Label>
-                          <Input
-                                        id={`${subjectData._id}-customMark-${index}`}
-                            type="number"
-                            value={custom.mark || ""}
-                            onChange={(e) => {
-                              const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                          setSubjectDistributions(prev => ({
-                                            ...prev,
-                                            [subjectData._id]: {
-                                              ...prev[subjectData._id],
-                                              customMarks: prev[subjectData._id]?.customMarks?.map((cm: any, i: number) => 
-                                                i === index ? { ...cm, mark: value } : cm
-                                              ) || []
-                                            }
-                                          }));
-                                        }}
-                                        onFocus={(e) => e.target.select()}
-                            min="1"
-                            max="100"
-                            placeholder="e.g., 4"
-                          />
-                        </div>
-                        <div className="flex-1">
-                                      <Label htmlFor={`${subjectData._id}-customCount-${index}`}>Number of Questions</Label>
-                          <Input
-                                        id={`${subjectData._id}-customCount-${index}`}
-                            type="number"
-                            value={custom.count || ""}
-                            onChange={(e) => {
-                              const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                          setSubjectDistributions(prev => ({
-                                            ...prev,
-                                            [subjectData._id]: {
-                                              ...prev[subjectData._id],
-                                              customMarks: prev[subjectData._id]?.customMarks?.map((cm: any, i: number) => 
-                                                i === index ? { ...cm, count: value } : cm
-                                              ) || []
-                                            }
-                                          }));
-                                        }}
-                                        onFocus={(e) => e.target.select()}
-                            min="0"
-                            max="100"
-                            placeholder="e.g., 5"
-                          />
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium">
-                            = {custom.mark * custom.count} marks
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                                        onClick={() => {
-                                          setSubjectDistributions(prev => ({
-                                            ...prev,
-                                            [subjectData._id]: {
-                                              ...prev[subjectData._id],
-                                              customMarks: prev[subjectData._id]?.customMarks?.filter((_: any, i: number) => i !== index) || []
-                                            }
-                                          }));
-                                        }}
-                            className="text-red-600 border-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                              <div className="space-y-3">
+                                {(distribution.customMarks || []).map(
+                                  (custom: any, index: number) => (
+                                    <div
+                                      key={index}
+                                      className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg"
+                                    >
+                                      <div className="flex-1">
+                                        <Label
+                                          htmlFor={`${subjectData._id}-customMark-${index}`}
+                                        >
+                                          Mark Value
+                                        </Label>
+                                        <Input
+                                          id={`${subjectData._id}-customMark-${index}`}
+                                          type="number"
+                                          value={custom.mark || ""}
+                                          onChange={(e) => {
+                                            const value =
+                                              e.target.value === ""
+                                                ? 0
+                                                : Math.max(
+                                                    0,
+                                                    parseInt(e.target.value) ||
+                                                      0
+                                                  );
+                                            setSubjectDistributions((prev) => ({
+                                              ...prev,
+                                              [subjectData._id]: {
+                                                ...prev[subjectData._id],
+                                                customMarks:
+                                                  prev[
+                                                    subjectData._id
+                                                  ]?.customMarks?.map(
+                                                    (cm: any, i: number) =>
+                                                      i === index
+                                                        ? { ...cm, mark: value }
+                                                        : cm
+                                                  ) || [],
+                                              },
+                                            }));
+                                          }}
+                                          onFocus={(e) => e.target.select()}
+                                          min="1"
+                                          max="100"
+                                          placeholder="e.g., 4"
+                                        />
+                                      </div>
+                                      <div className="flex-1">
+                                        <Label
+                                          htmlFor={`${subjectData._id}-customCount-${index}`}
+                                        >
+                                          Number of Questions
+                                        </Label>
+                                        <Input
+                                          id={`${subjectData._id}-customCount-${index}`}
+                                          type="number"
+                                          value={custom.count || ""}
+                                          onChange={(e) => {
+                                            const value =
+                                              e.target.value === ""
+                                                ? 0
+                                                : Math.max(
+                                                    0,
+                                                    parseInt(e.target.value) ||
+                                                      0
+                                                  );
+                                            setSubjectDistributions((prev) => ({
+                                              ...prev,
+                                              [subjectData._id]: {
+                                                ...prev[subjectData._id],
+                                                customMarks:
+                                                  prev[
+                                                    subjectData._id
+                                                  ]?.customMarks?.map(
+                                                    (cm: any, i: number) =>
+                                                      i === index
+                                                        ? {
+                                                            ...cm,
+                                                            count: value,
+                                                          }
+                                                        : cm
+                                                  ) || [],
+                                              },
+                                            }));
+                                          }}
+                                          onFocus={(e) => e.target.select()}
+                                          min="0"
+                                          max="100"
+                                          placeholder="e.g., 5"
+                                        />
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-sm font-medium">
+                                          = {custom.mark * custom.count} marks
+                                        </span>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setSubjectDistributions((prev) => ({
+                                              ...prev,
+                                              [subjectData._id]: {
+                                                ...prev[subjectData._id],
+                                                customMarks:
+                                                  prev[
+                                                    subjectData._id
+                                                  ]?.customMarks?.filter(
+                                                    (_: any, i: number) =>
+                                                      i !== index
+                                                  ) || [],
+                                              },
+                                            }));
+                                          }}
+                                          className="text-red-600 border-red-600 hover:bg-red-50"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            )}
+                          </div>
 
                           {/* Question Type Distribution for this subject */}
                           <div className="space-y-2">
-                            <Label className="text-sm font-medium">Question Type Distribution</Label>
-                <Accordion type="multiple" className="w-full">
-                  <AccordionItem value="oneMark">
-                                <AccordionTrigger>1 Mark Questions ({distribution.markDistribution?.oneMark || 0})</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        {QUESTION_TYPES.map((type) => (
-                          <div key={type.id} className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <Label className="font-medium">{type.name}</Label>
-                                            <p className="text-sm text-gray-600">{type.description}</p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Input
-                                  type="number"
-                                              value={distribution.questionTypeDistribution?.oneMark?.find((d: any) => d.type === type.id)?.questionCount || ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                                setSubjectDistributions(prev => ({
-                                                  ...prev,
-                                                  [subjectData._id]: {
-                                                    ...prev[subjectData._id],
-                                                    questionTypeDistribution: {
-                                                      ...prev[subjectData._id]?.questionTypeDistribution,
-                                                      oneMark: (prev[subjectData._id]?.questionTypeDistribution?.oneMark || [])
-                                                        .filter((d: any) => d.type !== type.id)
-                                                        .concat(value > 0 ? [{ type: type.id, questionCount: value }] : [])
-                                                    }
-                                                  }
-                                                }));
+                            <Label className="text-sm font-medium">
+                              Question Type Distribution
+                            </Label>
+                            <Accordion type="multiple" className="w-full">
+                              <AccordionItem value="oneMark">
+                                <AccordionTrigger>
+                                  1 Mark Questions (
+                                  {distribution.markDistribution?.oneMark || 0})
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-4">
+                                    {QUESTION_TYPES.map((type) => (
+                                      <div key={type.id} className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                          <div>
+                                            <Label className="font-medium">
+                                              {type.name}
+                                            </Label>
+                                            <p className="text-sm text-gray-600">
+                                              {type.description}
+                                            </p>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Input
+                                              type="number"
+                                              value={
+                                                distribution.questionTypeDistribution?.oneMark?.find(
+                                                  (d: any) => d.type === type.id
+                                                )?.questionCount || ""
+                                              }
+                                              onChange={(e) => {
+                                                const value =
+                                                  e.target.value === ""
+                                                    ? 0
+                                                    : Math.max(
+                                                        0,
+                                                        parseInt(
+                                                          e.target.value
+                                                        ) || 0
+                                                      );
+                                                setSubjectDistributions(
+                                                  (prev) => ({
+                                                    ...prev,
+                                                    [subjectData._id]: {
+                                                      ...prev[subjectData._id],
+                                                      questionTypeDistribution:
+                                                        {
+                                                          ...prev[
+                                                            subjectData._id
+                                                          ]
+                                                            ?.questionTypeDistribution,
+                                                          oneMark: (
+                                                            prev[
+                                                              subjectData._id
+                                                            ]
+                                                              ?.questionTypeDistribution
+                                                              ?.oneMark || []
+                                                          )
+                                                            .filter(
+                                                              (d: any) =>
+                                                                d.type !==
+                                                                type.id
+                                                            )
+                                                            .concat(
+                                                              value > 0
+                                                                ? [
+                                                                    {
+                                                                      type: type.id,
+                                                                      questionCount:
+                                                                        value,
+                                                                    },
+                                                                  ]
+                                                                : []
+                                                            ),
+                                                        },
+                                                    },
+                                                  })
+                                                );
                                               }}
                                               onFocus={(e) => e.target.select()}
-                                  min="0"
-                                              max={distribution.markDistribution?.oneMark || 0}
-                                  className="w-20"
-                                  placeholder="0"
-                                />
-                                <span className="text-sm text-gray-500">questions</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                                              min="0"
+                                              max={
+                                                distribution.markDistribution
+                                                  ?.oneMark || 0
+                                              }
+                                              className="w-20"
+                                              placeholder="0"
+                                            />
+                                            <span className="text-sm text-gray-500">
+                                              questions
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
 
-                  <AccordionItem value="twoMark">
-                                <AccordionTrigger>2 Mark Questions ({distribution.markDistribution?.twoMark || 0})</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        {QUESTION_TYPES.map((type) => (
-                          <div key={type.id} className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <Label className="font-medium">{type.name}</Label>
-                                            <p className="text-sm text-gray-600">{type.description}</p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Input
-                                  type="number"
-                                              value={distribution.questionTypeDistribution?.twoMark?.find((d: any) => d.type === type.id)?.questionCount || ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                                setSubjectDistributions(prev => ({
-                                                  ...prev,
-                                                  [subjectData._id]: {
-                                                    ...prev[subjectData._id],
-                                                    questionTypeDistribution: {
-                                                      ...prev[subjectData._id]?.questionTypeDistribution,
-                                                      twoMark: (prev[subjectData._id]?.questionTypeDistribution?.twoMark || [])
-                                                        .filter((d: any) => d.type !== type.id)
-                                                        .concat(value > 0 ? [{ type: type.id, questionCount: value }] : [])
-                                                    }
-                                                  }
-                                                }));
+                              <AccordionItem value="twoMark">
+                                <AccordionTrigger>
+                                  2 Mark Questions (
+                                  {distribution.markDistribution?.twoMark || 0})
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-4">
+                                    {QUESTION_TYPES.map((type) => (
+                                      <div key={type.id} className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                          <div>
+                                            <Label className="font-medium">
+                                              {type.name}
+                                            </Label>
+                                            <p className="text-sm text-gray-600">
+                                              {type.description}
+                                            </p>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Input
+                                              type="number"
+                                              value={
+                                                distribution.questionTypeDistribution?.twoMark?.find(
+                                                  (d: any) => d.type === type.id
+                                                )?.questionCount || ""
+                                              }
+                                              onChange={(e) => {
+                                                const value =
+                                                  e.target.value === ""
+                                                    ? 0
+                                                    : Math.max(
+                                                        0,
+                                                        parseInt(
+                                                          e.target.value
+                                                        ) || 0
+                                                      );
+                                                setSubjectDistributions(
+                                                  (prev) => ({
+                                                    ...prev,
+                                                    [subjectData._id]: {
+                                                      ...prev[subjectData._id],
+                                                      questionTypeDistribution:
+                                                        {
+                                                          ...prev[
+                                                            subjectData._id
+                                                          ]
+                                                            ?.questionTypeDistribution,
+                                                          twoMark: (
+                                                            prev[
+                                                              subjectData._id
+                                                            ]
+                                                              ?.questionTypeDistribution
+                                                              ?.twoMark || []
+                                                          )
+                                                            .filter(
+                                                              (d: any) =>
+                                                                d.type !==
+                                                                type.id
+                                                            )
+                                                            .concat(
+                                                              value > 0
+                                                                ? [
+                                                                    {
+                                                                      type: type.id,
+                                                                      questionCount:
+                                                                        value,
+                                                                    },
+                                                                  ]
+                                                                : []
+                                                            ),
+                                                        },
+                                                    },
+                                                  })
+                                                );
                                               }}
                                               onFocus={(e) => e.target.select()}
-                                  min="0"
-                                              max={distribution.markDistribution?.twoMark || 0}
-                                  className="w-20"
-                                  placeholder="0"
-                                />
-                                <span className="text-sm text-gray-500">questions</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                                              min="0"
+                                              max={
+                                                distribution.markDistribution
+                                                  ?.twoMark || 0
+                                              }
+                                              className="w-20"
+                                              placeholder="0"
+                                            />
+                                            <span className="text-sm text-gray-500">
+                                              questions
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
 
-                  <AccordionItem value="threeMark">
-                                <AccordionTrigger>3 Mark Questions ({distribution.markDistribution?.threeMark || 0})</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        {QUESTION_TYPES.map((type) => (
-                          <div key={type.id} className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <Label className="font-medium">{type.name}</Label>
-                                            <p className="text-sm text-gray-600">{type.description}</p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Input
-                                  type="number"
-                                              value={distribution.questionTypeDistribution?.threeMark?.find((d: any) => d.type === type.id)?.questionCount || ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                                setSubjectDistributions(prev => ({
-                                                  ...prev,
-                                                  [subjectData._id]: {
-                                                    ...prev[subjectData._id],
-                                                    questionTypeDistribution: {
-                                                      ...prev[subjectData._id]?.questionTypeDistribution,
-                                                      threeMark: (prev[subjectData._id]?.questionTypeDistribution?.threeMark || [])
-                                                        .filter((d: any) => d.type !== type.id)
-                                                        .concat(value > 0 ? [{ type: type.id, questionCount: value }] : [])
-                                                    }
-                                                  }
-                                                }));
+                              <AccordionItem value="threeMark">
+                                <AccordionTrigger>
+                                  3 Mark Questions (
+                                  {distribution.markDistribution?.threeMark ||
+                                    0}
+                                  )
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-4">
+                                    {QUESTION_TYPES.map((type) => (
+                                      <div key={type.id} className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                          <div>
+                                            <Label className="font-medium">
+                                              {type.name}
+                                            </Label>
+                                            <p className="text-sm text-gray-600">
+                                              {type.description}
+                                            </p>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Input
+                                              type="number"
+                                              value={
+                                                distribution.questionTypeDistribution?.threeMark?.find(
+                                                  (d: any) => d.type === type.id
+                                                )?.questionCount || ""
+                                              }
+                                              onChange={(e) => {
+                                                const value =
+                                                  e.target.value === ""
+                                                    ? 0
+                                                    : Math.max(
+                                                        0,
+                                                        parseInt(
+                                                          e.target.value
+                                                        ) || 0
+                                                      );
+                                                setSubjectDistributions(
+                                                  (prev) => ({
+                                                    ...prev,
+                                                    [subjectData._id]: {
+                                                      ...prev[subjectData._id],
+                                                      questionTypeDistribution:
+                                                        {
+                                                          ...prev[
+                                                            subjectData._id
+                                                          ]
+                                                            ?.questionTypeDistribution,
+                                                          threeMark: (
+                                                            prev[
+                                                              subjectData._id
+                                                            ]
+                                                              ?.questionTypeDistribution
+                                                              ?.threeMark || []
+                                                          )
+                                                            .filter(
+                                                              (d: any) =>
+                                                                d.type !==
+                                                                type.id
+                                                            )
+                                                            .concat(
+                                                              value > 0
+                                                                ? [
+                                                                    {
+                                                                      type: type.id,
+                                                                      questionCount:
+                                                                        value,
+                                                                    },
+                                                                  ]
+                                                                : []
+                                                            ),
+                                                        },
+                                                    },
+                                                  })
+                                                );
                                               }}
                                               onFocus={(e) => e.target.select()}
-                                  min="0"
-                                              max={distribution.markDistribution?.threeMark || 0}
-                                  className="w-20"
-                                  placeholder="0"
-                                />
-                                <span className="text-sm text-gray-500">questions</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                                              min="0"
+                                              max={
+                                                distribution.markDistribution
+                                                  ?.threeMark || 0
+                                              }
+                                              className="w-20"
+                                              placeholder="0"
+                                            />
+                                            <span className="text-sm text-gray-500">
+                                              questions
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
 
-                  <AccordionItem value="fiveMark">
-                                <AccordionTrigger>5 Mark Questions ({distribution.markDistribution?.fiveMark || 0})</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        {QUESTION_TYPES.map((type) => (
-                          <div key={type.id} className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <Label className="font-medium">{type.name}</Label>
-                                            <p className="text-sm text-gray-600">{type.description}</p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Input
-                                  type="number"
-                                              value={distribution.questionTypeDistribution?.fiveMark?.find((d: any) => d.type === type.id)?.questionCount || ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                                                setSubjectDistributions(prev => ({
-                                                  ...prev,
-                                                  [subjectData._id]: {
-                                                    ...prev[subjectData._id],
-                                                    questionTypeDistribution: {
-                                                      ...prev[subjectData._id]?.questionTypeDistribution,
-                                                      fiveMark: (prev[subjectData._id]?.questionTypeDistribution?.fiveMark || [])
-                                                        .filter((d: any) => d.type !== type.id)
-                                                        .concat(value > 0 ? [{ type: type.id, questionCount: value }] : [])
-                                                    }
-                                                  }
-                                                }));
+                              <AccordionItem value="fiveMark">
+                                <AccordionTrigger>
+                                  5 Mark Questions (
+                                  {distribution.markDistribution?.fiveMark || 0}
+                                  )
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-4">
+                                    {QUESTION_TYPES.map((type) => (
+                                      <div key={type.id} className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                          <div>
+                                            <Label className="font-medium">
+                                              {type.name}
+                                            </Label>
+                                            <p className="text-sm text-gray-600">
+                                              {type.description}
+                                            </p>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Input
+                                              type="number"
+                                              value={
+                                                distribution.questionTypeDistribution?.fiveMark?.find(
+                                                  (d: any) => d.type === type.id
+                                                )?.questionCount || ""
+                                              }
+                                              onChange={(e) => {
+                                                const value =
+                                                  e.target.value === ""
+                                                    ? 0
+                                                    : Math.max(
+                                                        0,
+                                                        parseInt(
+                                                          e.target.value
+                                                        ) || 0
+                                                      );
+                                                setSubjectDistributions(
+                                                  (prev) => ({
+                                                    ...prev,
+                                                    [subjectData._id]: {
+                                                      ...prev[subjectData._id],
+                                                      questionTypeDistribution:
+                                                        {
+                                                          ...prev[
+                                                            subjectData._id
+                                                          ]
+                                                            ?.questionTypeDistribution,
+                                                          fiveMark: (
+                                                            prev[
+                                                              subjectData._id
+                                                            ]
+                                                              ?.questionTypeDistribution
+                                                              ?.fiveMark || []
+                                                          )
+                                                            .filter(
+                                                              (d: any) =>
+                                                                d.type !==
+                                                                type.id
+                                                            )
+                                                            .concat(
+                                                              value > 0
+                                                                ? [
+                                                                    {
+                                                                      type: type.id,
+                                                                      questionCount:
+                                                                        value,
+                                                                    },
+                                                                  ]
+                                                                : []
+                                                            ),
+                                                        },
+                                                    },
+                                                  })
+                                                );
+                                              ;
                                               }}
                                               onFocus={(e) => e.target.select()}
-                                  min="0"
-                                              max={distribution.markDistribution?.fiveMark || 0}
-                                  className="w-20"
-                                  placeholder="0"
-                                />
-                                <span className="text-sm text-gray-500">questions</span>
-                              </div>
-                            </div>
+                                              min="0"
+                                              max={
+                                                distribution.markDistribution
+                                                  ?.fiveMark || 0
+                                              }
+                                              className="w-20"
+                                              placeholder="0"
+                                            />
+                                            <span className="text-sm text-gray-500">
+                                              questions
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
                           </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
                         </CardContent>
                       </Card>
-                      );
-                    })}
-                  </div>
+                    );
+                  })}
+                </div>
               )}
-
-
-
             </div>
           )}
 
@@ -1995,9 +2506,12 @@ export default function QuestionPaperManagement() {
               <div className="space-y-4">
                 {/* Upload Question Paper Pattern */}
                 <div>
-                  <Label htmlFor="patternUpload">Upload Question Paper Pattern (Optional)</Label>
+                  <Label htmlFor="patternUpload">
+                    Upload Question Paper Pattern (Optional)
+                  </Label>
                   <p className="text-sm text-gray-600 mb-2">
-                    Upload a PDF or image of a question paper pattern to help AI generate similar format
+                    Upload a PDF or image of a question paper pattern to help AI
+                    generate similar format
                   </p>
                   <div className="flex items-center space-x-4">
                     <Input
@@ -2009,14 +2523,15 @@ export default function QuestionPaperManagement() {
                         if (file) {
                           setUploadedPattern(file);
                           try {
-                            const result = await questionPaperAPI.uploadPattern(file);
+                            const result = await questionPaperAPI.uploadPattern(
+                              file
+                            );
                             setUploadedPatternId(result.patternId);
                             toast({
                               title: "Pattern uploaded",
                               description: "Pattern file uploaded successfully",
                             });
                           } catch (error) {
-                            console.error('Error uploading pattern:', error);
                             toast({
                               title: "Upload failed",
                               description: "Failed to upload pattern file",
@@ -2043,7 +2558,7 @@ export default function QuestionPaperManagement() {
                         >
                           Remove
                         </Button>
-                </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -2055,7 +2570,10 @@ export default function QuestionPaperManagement() {
                     onValueChange={(value: "EASY" | "MODERATE" | "TOUGHEST") =>
                       setFormData((prev) => ({
                         ...prev,
-                        aiSettings: { ...prev.aiSettings, difficultyLevel: value },
+                        aiSettings: {
+                          ...prev.aiSettings,
+                          difficultyLevel: value,
+                        },
                       }))
                     }
                   >
@@ -2076,7 +2594,10 @@ export default function QuestionPaperManagement() {
                     onValueChange={([value]) =>
                       setFormData((prev) => ({
                         ...prev,
-                        aiSettings: { ...prev.aiSettings, twistedQuestionsPercentage: value },
+                        aiSettings: {
+                          ...prev.aiSettings,
+                          twistedQuestionsPercentage: value,
+                        },
                       }))
                     }
                     max={100}
@@ -2087,14 +2608,19 @@ export default function QuestionPaperManagement() {
                   </span>
                 </div>
                 <div>
-                  <Label htmlFor="customInstructions">Custom Instructions</Label>
+                  <Label htmlFor="customInstructions">
+                    Custom Instructions
+                  </Label>
                   <Textarea
                     id="customInstructions"
                     value={formData.aiSettings.customInstructions}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        aiSettings: { ...prev.aiSettings, customInstructions: e.target.value },
+                        aiSettings: {
+                          ...prev.aiSettings,
+                          customInstructions: e.target.value,
+                        },
                       }))
                     }
                     placeholder="Additional instructions for AI generation"
@@ -2154,10 +2680,7 @@ export default function QuestionPaperManagement() {
           <div className="flex justify-between pt-4">
             <div className="flex space-x-2">
               {currentStep > 1 && (
-            <Button
-              variant="outline"
-                  onClick={handlePreviousStep}
-                >
+                <Button variant="outline" onClick={handlePreviousStep}>
                   Previous
                 </Button>
               )}
@@ -2167,15 +2690,15 @@ export default function QuestionPaperManagement() {
                   setIsCreateDialogOpen(false);
                   resetForm();
                 }}
-            >
-              Cancel
-            </Button>
+              >
+                Cancel
+              </Button>
             </div>
             <div className="flex space-x-2">
               {currentStep < 3 ? (
-            <Button
+                <Button
                   onClick={handleNextStep}
-              className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-blue-600 hover:bg-blue-700"
                   disabled={(() => {
                     if (currentStep === 1) return !validateStep1().isValid;
                     if (currentStep === 2) return !validateStep2().isValid;
@@ -2188,17 +2711,17 @@ export default function QuestionPaperManagement() {
                 <Button
                   onClick={handleCreateQuestionPaper}
                   className="bg-green-600 hover:bg-green-700"
-              disabled={isCreating || !validateQuestionPaperForm().isValid}
-            >
-              {isCreating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creating...
-                </>
-              ) : (
-                "Create Question Paper"
-              )}
-            </Button>
+                  disabled={isCreating || !validateQuestionPaperForm().isValid}
+                >
+                  {isCreating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Question Paper"
+                  )}
+                </Button>
               )}
             </div>
           </div>
@@ -2238,7 +2761,8 @@ export default function QuestionPaperManagement() {
                 <div>
                   <Label className="font-medium">Total Marks</Label>
                   <div className="mt-1">
-                    {selectedQuestionPaper.markDistribution?.totalMarks || 'N/A'}
+                    {selectedQuestionPaper.markDistribution?.totalMarks ||
+                      "N/A"}
                   </div>
                 </div>
               </div>
@@ -2262,7 +2786,7 @@ export default function QuestionPaperManagement() {
 
       {/* Enhanced PDF Editor Dialog */}
       {editingQuestionPaper && (
-        <EnhancedPDFEditor
+        <SimplifiedPDFEditor
           questionPaper={editingQuestionPaper}
           isOpen={isEditDialogOpen}
           onClose={() => {
@@ -2277,4 +2801,4 @@ export default function QuestionPaperManagement() {
       )}
     </div>
   );
-} 
+}

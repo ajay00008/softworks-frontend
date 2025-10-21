@@ -194,7 +194,6 @@ const PerformanceAnalytics = () => {
       
       setPerformanceData(mockData);
     } catch (error) {
-      console.error('Error loading performance data:', error);
       toast({
         title: "Error",
         description: "Failed to load performance data",

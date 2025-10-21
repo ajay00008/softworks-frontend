@@ -48,6 +48,7 @@ export default function PDFEditor({
   const [uploading, setUploading] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [iframeError, setIframeError] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,8 +59,17 @@ export default function PDFEditor({
 
   const loadPDFPreview = () => {
     if (questionPaper.generatedPdf?.downloadUrl) {
-      setPreviewUrl(questionPaper.generatedPdf.downloadUrl);
+      const downloadUrl = questionPaper.generatedPdf.downloadUrl;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "");
+      const path = downloadUrl?.startsWith("/public") ? downloadUrl : `/public/${downloadUrl}`;
+      const fullDownloadUrl = `${baseUrl}${path}`;
+      setPreviewUrl(fullDownloadUrl);
+      setIframeError(false);
     }
+  };
+
+  const handleIframeError = () => {
+    setIframeError(true);
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,7 +134,6 @@ export default function PDFEditor({
       onUpdate();
       onClose();
     } catch (error) {
-      console.error("Error uploading PDF:", error);
       toast({
         title: "Error",
         description: "Failed to upload PDF",
@@ -166,7 +175,6 @@ export default function PDFEditor({
         description: "PDF download initiated",
       });
     } catch (error) {
-      console.error("Error downloading PDF:", error);
       toast({
         title: "Error",
         description: "Failed to download PDF",
@@ -218,15 +226,44 @@ export default function PDFEditor({
             </div>
 
             {previewUrl ? (
-              <div className="border rounded-lg overflow-hidden">
-                <iframe
-                  src={previewUrl}
-                  width="100%"
-                  height="600"
-                  className="border-0"
-                  title="Question Paper PDF Preview"
-                />
-              </div>
+              iframeError ? (
+                <div className="text-center py-12 border rounded-lg bg-gray-50">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    PDF Preview Not Available
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    The PDF cannot be displayed in the browser due to security restrictions.
+                  </p>
+                  <div className="flex justify-center space-x-4">
+                    <Button
+                      onClick={handleDownloadOriginal}
+                      variant="outline"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download PDF
+                    </Button>
+                    <Button
+                      onClick={() => window.open(previewUrl, '_blank')}
+                      variant="outline"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <iframe
+                    src={previewUrl}
+                    width="100%"
+                    height="600"
+                    className="border-0"
+                    title="Question Paper PDF Preview"
+                    onError={handleIframeError}
+                  />
+                </div>
+              )
             ) : (
               <div className="text-center py-12 border rounded-lg">
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />

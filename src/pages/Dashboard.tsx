@@ -43,8 +43,7 @@ const Dashboard = () => {
           totalQuestions: 128 // Mock data
         });
       } catch (error) {
-        console.error('Error loading stats:', error);
-      } finally {
+        } finally {
         setIsLoading(false);
       }
     };

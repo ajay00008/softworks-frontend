@@ -100,23 +100,16 @@ export default function ExamManagement() {
         subjectManagementAPI.getAll().catch(() => null),
         classManagementAPI.getAll().catch(() => null)
       ]);
-      console.log("examsResponse",examsResponse)
-      console.log("subjectsResponse",subjectsResponse)
-      console.log("classesResponse",classesResponse)
-
       if (examsResponse && subjectsResponse && classesResponse) {
         // Backend data available
         setExams(examsResponse?.data || examsResponse?.exams || []);
         setSubjects(subjectsResponse.subjects || []);
         setClasses(classesResponse.classes || []);
-        console.log('✅ Loaded data from backend');
-      } else {
+        } else {
         // Fallback to mock data
-        console.log('⚠️ Backend unavailable, using mock data');
         // loadMockData();
       }
     } catch (error) {
-      console.error('Error loading data:', error);
       // Fallback to mock data on error
       // loadMockData();
     } finally {
@@ -206,8 +199,6 @@ export default function ExamManagement() {
       
       // Try backend API first
       const response = await examsAPI.create(apiData);
-      console.log('Exam creation response:', response);
-      
       // Handle different response structures
       const newExam = (response as any).exam || response;
       setExams(prev => [newExam, ...prev]);
@@ -222,7 +213,6 @@ export default function ExamManagement() {
       setIsCreateDialogOpen(false);
       resetForm();
     } catch (error) {
-      console.error('Backend create failed, using mock data:', error);
       // Fallback to mock creation
       const finalExamType = isCustomExamType ? 'UNIT_TEST' : formData.examType;
       
@@ -270,7 +260,6 @@ export default function ExamManagement() {
         description: "Exam deleted successfully",
       });
     } catch (error) {
-      console.error('Backend delete failed, using mock data:', error);
       // Fallback to mock deletion
       setExams(prev => prev.filter(exam => exam.id !== id));
       toast({

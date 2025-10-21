@@ -84,7 +84,6 @@ const TeacherDashboard = () => {
       setTeacherAccess(accessResponse.data);
       setStats(statsResponse.data);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
       toast({
         title: "Error",
         description: "Failed to load dashboard data",

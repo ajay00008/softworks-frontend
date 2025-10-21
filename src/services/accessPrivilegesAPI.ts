@@ -34,7 +34,6 @@ export const accessPrivilegesAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any[]; total?: number }>(response);
     } catch (error) {
-      console.error('Error fetching staff access:', error);
       throw error;
     }
   },
@@ -48,7 +47,6 @@ export const accessPrivilegesAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching staff access by ID:', error);
       throw error;
     }
   },
@@ -90,7 +88,6 @@ export const accessPrivilegesAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error creating staff access:', error);
       throw error;
     }
   },
@@ -131,7 +128,6 @@ export const accessPrivilegesAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error updating staff access:', error);
       throw error;
     }
   },
@@ -145,7 +141,6 @@ export const accessPrivilegesAPI = {
       });
       return await handleApiResponse<{ success: boolean; message?: string }>(response);
     } catch (error) {
-      console.error('Error deleting staff access:', error);
       throw error;
     }
   },

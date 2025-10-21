@@ -158,11 +158,11 @@ const Students = () => {
   const loadStudents = async () => {
     try {
       const response = await studentsAPI.getAll();
-      console.log('Students API response:', response); // Debug log
-      console.log('Students data:', response.students); // Debug log
+      // Debug log
+      // Debug log
       setStudents(response.students || []);
     } catch (error) {
-      console.error('Error loading students:', error); // Debug log
+      // Debug log
       toast({
         title: "Error",
         description: "Failed to load students",
@@ -187,7 +187,7 @@ const Students = () => {
   };
 
   const handleEditClick = (student: Student) => {
-    console.log('Editing student:', student); // Debug log
+    // Debug log
     setEditStudent(student);
     setFormData({
       email: student.email || '',
@@ -248,8 +248,7 @@ const Students = () => {
           ...payload,
           isActive: true,
         });
-console.log("newStudent",newStudent)
-        setStudents([...students, newStudent]);
+setStudents([...students, newStudent]);
 
         toast({
           title: "Success",

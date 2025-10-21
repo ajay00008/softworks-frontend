@@ -107,7 +107,6 @@ class PrintingSharingService {
       const blob = await response.blob();
       this.downloadBlob(blob, `student-sheet-${studentId}-${examId}.pdf`);
     } catch (error) {
-      console.error('Error printing student sheet:', error);
       throw error;
     }
   }
@@ -139,7 +138,6 @@ class PrintingSharingService {
       const blob = await response.blob();
       this.downloadBlob(blob, `all-sheets-${examId}.pdf`);
     } catch (error) {
-      console.error('Error printing all sheets:', error);
       throw error;
     }
   }
@@ -162,7 +160,6 @@ class PrintingSharingService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error generating exam report:', error);
       throw error;
     }
   }
@@ -188,7 +185,6 @@ class PrintingSharingService {
       const blob = await response.blob();
       this.downloadBlob(blob, `exam-report-${examId}.pdf`);
     } catch (error) {
-      console.error('Error printing exam report:', error);
       throw error;
     }
   }
@@ -220,9 +216,7 @@ class PrintingSharingService {
       }
 
       const result = await response.json();
-      console.log('WhatsApp message sent:', result);
-    } catch (error) {
-      console.error('Error sending WhatsApp message:', error);
+      } catch (error) {
       throw error;
     }
   }
@@ -254,9 +248,7 @@ class PrintingSharingService {
       }
 
       const result = await response.json();
-      console.log('Email sent:', result);
-    } catch (error) {
-      console.error('Error sending email:', error);
+      } catch (error) {
       throw error;
     }
   }
@@ -278,7 +270,6 @@ class PrintingSharingService {
         await this.sendEmailResults(studentId, examId, options);
       }
     } catch (error) {
-      console.error('Error sending results:', error);
       throw error;
     }
   }
@@ -298,7 +289,6 @@ class PrintingSharingService {
         await this.sendResults(studentId, examId, options);
         results.success.push(studentId);
       } catch (error) {
-        console.error(`Failed to send results for student ${studentId}:`, error);
         results.failed.push(studentId);
       }
     }

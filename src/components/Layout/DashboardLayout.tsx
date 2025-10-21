@@ -79,14 +79,10 @@ const DashboardLayout = () => {
   // Get current user role
   const currentUser = authAPI.getCurrentUser();
   const userRole = currentUser?.role;
-  console.log(currentUser, userRole),"test";
 
   // Handle role-based redirection
   React.useEffect(() => {
-    console.log('DashboardLayout - User role:', userRole, 'Current path:', location.pathname);
-    
     if (!userRole) {
-      console.log('No user role, redirecting to login');
       navigate('/login');
       return;
     }
@@ -98,19 +94,16 @@ const DashboardLayout = () => {
 
     // If super admin is on regular admin routes, redirect to super admin dashboard
     if (isSuperAdmin && location.pathname === '/dashboard') {
-      console.log('Super admin on regular dashboard, redirecting to super admin dashboard');
       navigate('/dashboard/super-admin');
       return;
     }
 
     // If regular admin tries to access super admin routes, redirect to regular dashboard
     if (userRole === 'admin' && (location.pathname.includes('/super-admin') || location.pathname.includes('/admin-management'))) {
-      console.log('Regular admin trying to access super admin routes, redirecting to regular dashboard');
       navigate('/dashboard');
       return;
     }
 
-    console.log('No redirection needed, showing content');
     setIsRedirecting(false);
   }, [userRole, location.pathname, navigate]);
 
@@ -135,8 +128,7 @@ const DashboardLayout = () => {
       });
       navigate('/login');
     } catch (error) {
-      console.error('Logout error:', error);
-    }
+      }
   };
 
   const isActive = (href: string) => {

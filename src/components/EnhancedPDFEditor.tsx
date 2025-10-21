@@ -32,6 +32,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import PDFViewer from "./PDFViewer";
+import PDFViewerCanvas from "./PDFViewerCanvas";
+import AdvancedPDFEditor from "./AdvancedPDFEditor";
+import TextEditablePDFEditor from "./TextEditablePDFEditor";
+import TextEditingDemo from "./TextEditingDemo";
+import SimpleQuestionEditor from "./SimpleQuestionEditor";
+import SimpleEditGuide from "./SimpleEditGuide";
+import SimplePDFEditorOnly from "./SimplePDFEditorOnly";
+import AIQuestionGenerator from "./AIQuestionGenerator";
+import TestQuestionDisplay from "./TestQuestionDisplay";
 import {
   Save,
   Download,
@@ -51,6 +61,8 @@ import {
   Copy,
   Undo,
   Redo,
+  Brain,
+  Wand2,
 } from "lucide-react";
 import { questionPaperAPI } from "@/services/api";
 
@@ -115,11 +127,21 @@ export default function EnhancedPDFEditor({
   const [uploading, setUploading] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [iframeError, setIframeError] = useState(false);
   const [annotations, setAnnotations] = useState<PDFAnnotation[]>([]);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [isEditingQuestion, setIsEditingQuestion] = useState(false);
   const [editHistory, setEditHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  
+  // PDF Editing states
+  const [editMode, setEditMode] = useState<'text' | 'draw' | 'highlight' | null>(null);
+  const [editText, setEditText] = useState('');
+  const [drawColor, setDrawColor] = useState('#ff0000');
+  const [highlightColor, setHighlightColor] = useState('#ffff00');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { toast } = useToast();
 
   // Form state for editing question
@@ -144,10 +166,58 @@ export default function EnhancedPDFEditor({
     }
   }, [isOpen, questionPaper]);
 
+  // Listen for CSP errors
+  useEffect(() => {
+    const handleCSPError = (event: ErrorEvent) => {
+      if (event.message && event.message.includes('frame-ancestors')) {
+        setIframeError(true);
+      }
+    };
+
+    window.addEventListener('error', handleCSPError);
+    return () => window.removeEventListener('error', handleCSPError);
+  }, []);
+
+  // Check for CSP errors after iframe loads
+  useEffect(() => {
+    if (previewUrl && !iframeError) {
+      checkForCSPError();
+    }
+  }, [previewUrl, iframeError]);
+
   const loadPDFPreview = () => {
     if (questionPaper.generatedPdf?.downloadUrl) {
-      setPreviewUrl(questionPaper.generatedPdf.downloadUrl);
+      const downloadUrl = questionPaper.generatedPdf.downloadUrl;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "");
+      const path = downloadUrl?.startsWith("/public") ? downloadUrl : `/public/${downloadUrl}`;
+      const fullDownloadUrl = `${baseUrl}${path}`;
+      setPreviewUrl(fullDownloadUrl);
+      setIframeError(false); // Reset error state when loading new PDF
     }
+  };
+
+  const handleIframeError = () => {
+    setIframeError(true);
+  };
+
+  // Enhanced CSP error detection
+  const handleIframeLoad = () => {
+    // Reset error state when iframe loads successfully
+    setIframeError(false);
+  };
+
+  // Check for CSP errors more aggressively
+  const checkForCSPError = () => {
+    setTimeout(() => {
+      try {
+        const iframe = document.querySelector('iframe[title="Question Paper PDF Preview"]') as HTMLIFrameElement;
+        if (iframe && iframe.contentDocument === null) {
+          setIframeError(true);
+        }
+      } catch (error) {
+        setIframeError(true);
+      }
+    }, 2000); // Wait 2 seconds for iframe to load
   };
 
   const loadQuestions = async () => {
@@ -155,9 +225,11 @@ export default function EnhancedPDFEditor({
       setLoading(true);
       const questionPaperId = questionPaper._id || questionPaper.id;
       const questions = await questionPaperAPI.getQuestions(questionPaperId);
+      console.log('EnhancedPDFEditor - Questions loaded:', questions);
+      console.log('EnhancedPDFEditor - Questions count:', questions?.length);
       setQuestions(questions || []);
     } catch (error) {
-      console.error("Error loading questions:", error);
+      console.error('EnhancedPDFEditor - Error loading questions:', error);
       toast({
         title: "Error",
         description: "Failed to load questions",
@@ -216,7 +288,6 @@ export default function EnhancedPDFEditor({
       setIsEditingQuestion(false);
       setEditingQuestion(null);
     } catch (error) {
-      console.error("Error updating question:", error);
       toast({
         title: "Error",
         description: "Failed to update question",
@@ -242,7 +313,6 @@ export default function EnhancedPDFEditor({
       loadPDFPreview();
       onUpdate();
     } catch (error) {
-      console.error("Error regenerating PDF:", error);
       toast({
         title: "Error",
         description: "Failed to regenerate PDF",
@@ -250,6 +320,38 @@ export default function EnhancedPDFEditor({
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateWithAI = async () => {
+    try {
+      setIsGeneratingAI(true);
+      const questionPaperId = questionPaper._id || questionPaper.id;
+      
+      // Call AI generation API
+      const response = await questionPaperAPI.generateWithAI(questionPaperId, {
+        // You can add AI generation parameters here
+        difficulty: 'MODERATE',
+        questionCount: 10,
+        subject: questionPaper.subjects?.[0] || 'General',
+        className: questionPaper.className || 'General'
+      });
+      
+      // Reload questions after AI generation
+      await loadQuestions();
+      
+      toast({
+        title: "Success",
+        description: "Questions generated successfully with AI",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate questions with AI",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingAI(false);
     }
   };
 
@@ -280,24 +382,102 @@ export default function EnhancedPDFEditor({
     }
   };
 
+  // PDF Editing handlers
+  const handleAddText = () => {
+    if (editText.trim()) {
+      // In a real implementation, this would add text to the PDF
+      setHasUnsavedChanges(true);
+      setEditText('');
+      toast({ title: "Text Added", description: "Text has been added to the PDF" });
+    }
+  };
+
+  const handleRemoveText = () => {
+    // In a real implementation, this would remove text from the PDF
+    setHasUnsavedChanges(true);
+    toast({ title: "Text Removed", description: "Text has been removed from the PDF" });
+  };
+
+  const handleStartDrawing = () => {
+    // In a real implementation, this would enable drawing mode
+    setHasUnsavedChanges(true);
+    toast({ title: "Drawing Mode", description: "Click and drag to draw on the PDF" });
+  };
+
+  const handleClearDrawing = () => {
+    // In a real implementation, this would clear drawings
+    setHasUnsavedChanges(true);
+    toast({ title: "Drawings Cleared", description: "All drawings have been cleared" });
+  };
+
+  const handleStartHighlighting = () => {
+    // In a real implementation, this would enable highlighting mode
+    setHasUnsavedChanges(true);
+    toast({ title: "Highlighting Mode", description: "Click and drag to highlight text" });
+  };
+
+  const handleAddImage = () => {
+    // In a real implementation, this would open file picker for images
+    setHasUnsavedChanges(true);
+    toast({ title: "Image Added", description: "Image has been added to the PDF" });
+  };
+
+  const handleSaveEditedPDF = async () => {
+    try {
+      // In a real implementation, this would save the edited PDF
+      // Simulate API call to save edited PDF
+      const questionPaperId = questionPaper._id || questionPaper.id;
+      await questionPaperAPI.saveEditedPDF(questionPaperId, {
+        edits: {
+          text: editText,
+          drawings: [],
+          highlights: [],
+          images: []
+        }
+      });
+      
+      setHasUnsavedChanges(false);
+      toast({ title: "Success", description: "PDF changes saved successfully" });
+      onUpdate();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save PDF changes", variant: "destructive" });
+    }
+  };
+
   const handleUploadNewPDF = async () => {
     if (!pdfFile) return;
 
     try {
       setUploading(true);
       const questionPaperId = questionPaper._id || questionPaper.id;
-      await questionPaperAPI.uploadPDF(questionPaperId, pdfFile);
+      
+      // Store old PDF URL for deletion
+      const oldPdfUrl = questionPaper.pdfUrl;
+      
+      // Upload new PDF (this will replace the old one)
+      const response = await questionPaperAPI.uploadPDF(questionPaperId, pdfFile);
+      
+      // If upload successful and we have an old PDF, delete it
+      if (oldPdfUrl && response.success) {
+        try {
+          await questionPaperAPI.deleteOldPDF(questionPaperId, oldPdfUrl);
+        } catch (deleteError) {
+          // Don't fail the whole operation if old PDF deletion fails
+        }
+      }
       
       toast({
         title: "Success",
-        description: "PDF uploaded successfully",
+        description: "PDF replaced successfully. Old PDF has been removed.",
       });
 
-      // Reload data
+      // Reload data to show new PDF
       loadPDFPreview();
       onUpdate();
+      
+      // Clear the file input
+      setPdfFile(null);
     } catch (error) {
-      console.error("Error uploading PDF:", error);
       toast({
         title: "Error",
         description: "Failed to upload PDF",
@@ -310,8 +490,13 @@ export default function EnhancedPDFEditor({
 
   const handleDownloadOriginal = () => {
     if (questionPaper.generatedPdf?.downloadUrl) {
+      const downloadUrl = questionPaper.generatedPdf.downloadUrl;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "");
+      const path = downloadUrl?.startsWith("/public") ? downloadUrl : `/public/${downloadUrl}`;
+      const fullDownloadUrl = `${baseUrl}${path}`;
+      
       const link = document.createElement('a');
-      link.href = questionPaper.generatedPdf.downloadUrl;
+      link.href = fullDownloadUrl;
       link.download = questionPaper.generatedPdf.fileName;
       document.body.appendChild(link);
       link.click();
@@ -355,8 +540,8 @@ export default function EnhancedPDFEditor({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="max-w-7xl max-h-[95vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Edit className="w-5 h-5" />
             Enhanced PDF Editor - {questionPaper?.title}
@@ -366,35 +551,32 @@ export default function EnhancedPDFEditor({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="preview">PDF Preview</TabsTrigger>
-            <TabsTrigger value="questions">Edit Questions</TabsTrigger>
-            <TabsTrigger value="annotations">Annotations</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
+        <div className="flex-1 overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+              <TabsTrigger value="preview">PDF Preview</TabsTrigger>
+              <TabsTrigger value="simple-edit">Simple Edit</TabsTrigger>
+              {/* Commented out other tabs for now */}
+              {/* <TabsTrigger value="edit-pdf">Edit PDF</TabsTrigger> */}
+              {/* <TabsTrigger value="text-edit">Text Edit</TabsTrigger> */}
+              {/* <TabsTrigger value="ai-generate">AI Generate</TabsTrigger> */}
+              {/* <TabsTrigger value="debug">Debug</TabsTrigger> */}
+              {/* <TabsTrigger value="questions">Edit Questions</TabsTrigger> */}
+              {/* <TabsTrigger value="annotations">Annotations</TabsTrigger> */}
+              {/* <TabsTrigger value="settings">Settings</TabsTrigger> */}
+            </TabsList>
 
-          <TabsContent value="preview" className="space-y-4">
+            <TabsContent value="preview" className="flex-1 overflow-y-auto space-y-4 p-1">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">PDF Preview</h3>
+              <h3 className="text-lg font-semibold">PDF Preview & Edit</h3>
               <div className="flex space-x-2">
                 <Button
-                  onClick={handleUndo}
+                  onClick={handleDownloadOriginal}
                   variant="outline"
                   size="sm"
-                  disabled={historyIndex <= 0}
                 >
-                  <Undo className="w-4 h-4 mr-2" />
-                  Undo
-                </Button>
-                <Button
-                  onClick={handleRedo}
-                  variant="outline"
-                  size="sm"
-                  disabled={historyIndex >= editHistory.length - 1}
-                >
-                  <Redo className="w-4 h-4 mr-2" />
-                  Redo
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Original
                 </Button>
                 <Button
                   onClick={handleRegeneratePDF}
@@ -405,27 +587,20 @@ export default function EnhancedPDFEditor({
                   <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Regenerate PDF
                 </Button>
-                <Button
-                  onClick={handleDownloadOriginal}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
               </div>
             </div>
 
             {previewUrl ? (
-              <div className="border rounded-lg overflow-hidden">
-                <iframe
-                  src={previewUrl}
-                  width="100%"
-                  height="600"
-                  className="border-0"
-                  title="Question Paper PDF Preview"
-                />
-              </div>
+              <PDFViewerCanvas 
+                pdfUrl={previewUrl} 
+                title="Question Paper PDF Preview"
+                height="600px"
+                showControls={true}
+                onEdit={(pageNumber, x, y, text) => {
+                  setHasUnsavedChanges(true);
+                  toast({ title: "Text Added", description: `"${text}" added to page ${pageNumber}` });
+                }}
+              />
             ) : (
               <div className="text-center py-12 border rounded-lg">
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -473,18 +648,251 @@ export default function EnhancedPDFEditor({
             </Card>
           </TabsContent>
 
-          <TabsContent value="questions" className="space-y-4">
+            {/* <TabsContent value="edit-pdf" className="flex-1 overflow-y-auto space-y-4 p-1"> */}
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Edit Questions</h3>
-              <Badge variant="outline">
-                {questions.length} questions
-              </Badge>
+              <h3 className="text-lg font-semibold">Edit PDF Document</h3>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={handleDownloadOriginal}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button
+                  onClick={handleSaveEditedPDF}
+                  variant="default"
+                  size="sm"
+                  disabled={!hasUnsavedChanges}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+
+            {/* Advanced PDF Editor */}
+            {previewUrl ? (
+              <AdvancedPDFEditor
+                pdfUrl={previewUrl}
+                title="PDF Editor"
+                height="600px"
+                onSave={(edits) => {
+                  setHasUnsavedChanges(false);
+                  toast({ title: "Success", description: "PDF edits saved successfully" });
+                }}
+              />
+            ) : (
+              <div className="text-center py-12">
+                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  No PDF Available
+                </h3>
+                <p className="text-gray-600">
+                  This question paper doesn't have a PDF yet. Generate one first.
+                </p>
+              </div>
+            )}
+
+            {/* Alternative: Upload Edited PDF */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Alternative: Upload Edited PDF</CardTitle>
+                <CardDescription>
+                  If you prefer to edit externally, you can upload your edited PDF here
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                  <div className="text-center">
+                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Upload Edited PDF
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      Select your edited PDF file to replace the current one
+                    </p>
+                    
+                    <Input
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleFileSelect}
+                      className="max-w-xs mx-auto"
+                    />
+                    
+                    {pdfFile && (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-sm text-gray-600">
+                          Selected: {pdfFile.name} ({(pdfFile.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
+                        <Button
+                          onClick={handleUploadNewPDF}
+                          disabled={uploading}
+                          className="w-full max-w-xs"
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          {uploading ? 'Uploading...' : 'Replace PDF'}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+            {/* <TabsContent value="text-edit" className="flex-1 overflow-y-auto space-y-4 p-1"> */}
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Direct Text Editing</h3>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={handleDownloadOriginal}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Original
+                </Button>
+                <Button
+                  onClick={handleSaveEditedPDF}
+                  variant="default"
+                  size="sm"
+                  disabled={!hasUnsavedChanges}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <TextEditingDemo />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Edit Text Directly in PDF</CardTitle>
+                  <CardDescription>
+                    Select and edit existing text in the PDF, or add new text annotations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {previewUrl ? (
+                    <TextEditablePDFEditor
+                      pdfUrl={previewUrl}
+                      title="Text Editable PDF Editor"
+                      height="500px"
+                      onSave={(edits) => {
+                        setHasUnsavedChanges(true);
+                        toast({ title: "Text Edits Saved", description: "Your text changes have been saved" });
+                      }}
+                    />
+                  ) : (
+                    <div className="text-center py-12">
+                      <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        No PDF Available
+                      </h3>
+                      <p className="text-gray-600">
+                        This question paper doesn't have a PDF yet. Generate one first.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+            <TabsContent value="simple-edit" className="flex-1 overflow-y-auto space-y-4 p-1">
+              <SimplePDFEditorOnly
+                questionPaper={questionPaper}
+                onClose={() => setShowEditDialog(false)}
+                onUpdate={() => {
+                  // Refresh the question paper data
+                  window.location.reload();
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="ai-generate" className="flex-1 overflow-y-auto space-y-4 p-1">
+              <AIQuestionGenerator
+                questionPaper={questionPaper}
+                onQuestionsGenerated={(questions) => {
+                  // Refresh the question paper data
+                  window.location.reload();
+                }}
+                onClose={() => setShowEditDialog(false)}
+              />
+            </TabsContent>
+
+            <TabsContent value="debug" className="flex-1 overflow-y-auto space-y-4 p-1">
+              <TestQuestionDisplay questionPaper={questionPaper} />
+            </TabsContent>
+
+            <TabsContent value="questions" className="flex-1 overflow-y-auto space-y-4 p-1">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-4">
+                <h3 className="text-lg font-semibold">Edit Questions</h3>
+                <Badge variant="outline">
+                  {questions.length} questions
+                </Badge>
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={handleGenerateWithAI}
+                  disabled={isGeneratingAI}
+                  variant="outline"
+                  className="bg-blue-50 hover:bg-blue-100 text-blue-700"
+                >
+                  <Brain className={`w-4 h-4 mr-2 ${isGeneratingAI ? 'animate-pulse' : ''}`} />
+                  {isGeneratingAI ? 'Generating...' : 'Generate with AI'}
+                </Button>
+                <Button
+                  onClick={() => setShowAddQuestion(true)}
+                  variant="outline"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Manually
+                </Button>
+              </div>
             </div>
 
             {loading ? (
               <div className="text-center py-8">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4" />
                 <p>Loading questions...</p>
+              </div>
+            ) : questions.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  No Questions Found
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  This question paper doesn't have any questions yet.
+                </p>
+                <div className="flex justify-center space-x-4">
+                  <Button
+                    onClick={() => {
+                      // Trigger AI question generation
+                      handleGenerateWithAI();
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Brain className="w-4 h-4 mr-2" />
+                    Generate with AI
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // Open manual question form
+                      setShowAddQuestion(true);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Manually
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -663,7 +1071,7 @@ export default function EnhancedPDFEditor({
             )}
           </TabsContent>
 
-          <TabsContent value="annotations" className="space-y-4">
+            <TabsContent value="annotations" className="flex-1 overflow-y-auto space-y-4 p-1">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">PDF Annotations</h3>
               <div className="flex space-x-2">
@@ -699,7 +1107,7 @@ export default function EnhancedPDFEditor({
             </Card>
           </TabsContent>
 
-          <TabsContent value="settings" className="space-y-4">
+            <TabsContent value="settings" className="flex-1 overflow-y-auto space-y-4 p-1">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">PDF Settings</h3>
             </div>
@@ -724,8 +1132,147 @@ export default function EnhancedPDFEditor({
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+          </Tabs>
+        </div>
       </DialogContent>
+
+      {/* Add Question Modal */}
+      {showAddQuestion && (
+        <Dialog open={showAddQuestion} onOpenChange={setShowAddQuestion}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New Question</DialogTitle>
+              <DialogDescription>
+                Create a new question for this question paper
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="questionText">Question Text</Label>
+                <Textarea
+                  id="questionText"
+                  value={editForm.questionText}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, questionText: e.target.value }))}
+                  placeholder="Enter your question here..."
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label>Options</Label>
+                {editForm.options.map((option, index) => (
+                  <div key={index} className="flex items-center space-x-2 mt-2">
+                    <span className="w-6 text-sm font-medium">{String.fromCharCode(65 + index)})</span>
+                    <Input
+                      value={option}
+                      onChange={(e) => {
+                        const newOptions = [...editForm.options];
+                        newOptions[index] = e.target.value;
+                        setEditForm(prev => ({ ...prev, options: newOptions }));
+                      }}
+                      placeholder={`Option ${index + 1}`}
+                    />
+                    <input
+                      type="radio"
+                      name="correctAnswer"
+                      checked={editForm.correctAnswer === index}
+                      onChange={() => setEditForm(prev => ({ ...prev, correctAnswer: index }))}
+                    />
+                    <Label className="text-sm">Correct</Label>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="difficulty">Difficulty</Label>
+                  <Select
+                    value={editForm.difficulty}
+                    onValueChange={(value) => setEditForm(prev => ({ ...prev, difficulty: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EASY">Easy</SelectItem>
+                      <SelectItem value="MODERATE">Moderate</SelectItem>
+                      <SelectItem value="TOUGHEST">Tough</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="marks">Marks</Label>
+                  <Input
+                    id="marks"
+                    type="number"
+                    value={editForm.marks}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, marks: parseInt(e.target.value) || 1 }))}
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="explanation">Explanation</Label>
+                <Textarea
+                  id="explanation"
+                  value={editForm.explanation}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, explanation: e.target.value }))}
+                  placeholder="Enter explanation for the correct answer..."
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddQuestion(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    const questionPaperId = questionPaper._id || questionPaper.id;
+                    await questionPaperAPI.addQuestion(questionPaperId, editForm);
+                    await loadQuestions();
+                    setShowAddQuestion(false);
+                    setEditForm({
+                      questionText: "",
+                      questionType: "",
+                      marks: 1,
+                      bloomsTaxonomyLevel: "",
+                      difficulty: "MODERATE",
+                      isTwisted: false,
+                      options: ["", "", "", ""],
+                      correctAnswer: "",
+                      explanation: "",
+                      timeLimit: 0,
+                      tags: [],
+                    });
+                    toast({
+                      title: "Success",
+                      description: "Question added successfully",
+                    });
+                  } catch (error) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to add question",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Add Question
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }

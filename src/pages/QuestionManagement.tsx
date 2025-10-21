@@ -134,8 +134,7 @@
 //         // This prevents infinite loading if classes/subjects fail
 //         await loadQuestions();
 //       } catch (error) {
-//         console.error('Error initializing data:', error);
-//         // Still try to load questions even if classes/subjects fail
+//         //         // Still try to load questions even if classes/subjects fail
 //         await loadQuestions();
 //       }
 //     };
@@ -147,8 +146,7 @@
 //   useEffect(() => {
 //     const fallbackTimeout = setTimeout(() => {
 //       if (isLoading) {
-//         console.warn('Loading timeout reached, stopping loading state');
-//         setIsLoading(false);
+//         //         setIsLoading(false);
 //         if (questions.length === 0) {
 //           setError('Loading timeout - please refresh the page');
 //         }
@@ -198,11 +196,7 @@
 //       const classFilter = filters?.class ?? selectedClass;
 //       const difficulty = filters?.difficulty ?? selectedDifficulty;
       
-//       console.log('Filter values:', { search, subject, classFilter, difficulty });
-//       console.log('Passed filters:', filters);
-//       console.log('Current state:', { searchTerm, selectedSubject, selectedClass, selectedDifficulty });
-      
-//       // Add search term if provided
+//       //       //       //       // Add search term if provided
 //       if (search.trim()) {
 //         queryParams.search = search.trim();
 //       }
@@ -210,27 +204,20 @@
 //       // Add filters if not 'all'
 //       if (subject !== 'all') {
 //         queryParams.subjectId = subject;
-//         console.log('Subject filter applied:', subject);
-//       }
+//         //       }
 //       if (classFilter !== 'all') {
 //         queryParams.classId = classFilter;
-//         console.log('Class filter applied:', classFilter);
-//       }
+//         //       }
 //       if (difficulty !== 'all') {
 //         queryParams.difficulty = difficulty.toUpperCase();
-//         console.log('Difficulty filter applied:', difficulty);
-//       }
+//         //       }
       
-//       console.log('Filter parameters being sent to API:', queryParams);
-      
-//       const response = await Promise.race([
+//       //       const response = await Promise.race([
 //         questionsAPI.getAll(queryParams),
 //         timeoutPromise
 //       ]) as any;
       
-//       console.log(response,'responseQuestions');
-      
-//       // Handle case where response.questions might be undefined or null
+//       //       // Handle case where response.questions might be undefined or null
 //       const questionsData = response?.questions || [];
       
 //       // Update pagination info
@@ -263,8 +250,7 @@
 //       }));
 //       setQuestions(uiQuestions);
 //     } catch (error) {
-//       console.error('Error loading questions:', error);
-//       setError('Failed to load questions');
+//       //       setError('Failed to load questions');
 //       // Set empty array on error to prevent blank screen
 //       setQuestions([]);
 //     } finally {
@@ -277,8 +263,7 @@
 //       const response = await classesAPI.getAll();
 //       setClasses(response);
 //     } catch (error) {
-//       console.error('Error loading classes:', error);
-//       // Don't set global error for classes, just log it
+//       //       // Don't set global error for classes, just log it
 //       // Questions can still be loaded without classes
 //       setClasses([]);
 //     }
@@ -289,8 +274,7 @@
 //       const response = await subjectsAPI.getAll(); // Remove the parameter
 //       setSubjects(response);
 //     } catch (error) {
-//       console.error('Error loading subjects:', error);
-//       // Don't set global error for subjects, just log it
+//       //       // Don't set global error for subjects, just log it
 //       // Questions can still be loaded without subjects
 //       setSubjects([]);
 //     }
@@ -299,11 +283,9 @@
 //   const loadSyllabi = async () => {
 //     try {
 //       const response = await syllabusAPI.getAll();
-//       console.log(response,'responseSyllabi');
-//       setSyllabi(response || []);
+//       //       setSyllabi(response || []);
 //     } catch (error) {
-//       console.error('Error loading syllabi:', error);
-//       // Don't set global error for syllabi, just log it
+//       //       // Don't set global error for syllabi, just log it
 //       setSyllabi([]);
 //     }
 //   };
@@ -386,8 +368,7 @@
 //   const handleAIGeneration = async () => {
 //     setIsLoading(true);
 //     try {
-//       console.log(aiForm,'aiForm');
-//       // Get subject and class names for display
+//       //       // Get subject and class names for display
 //       const selectedSubject = subjects.find(s => s._id === aiForm.subject);
 //       const selectedClass = classes.find(c => c.classId === aiForm.class);
       
@@ -443,8 +424,7 @@
 //         description: `Successfully generated ${aiForm.totalQuestions} questions using AI`,
 //       });
 //     } catch (error) {
-//       console.error('AI Generation Error:', error);
-//       toast({
+//       //       toast({
 //         title: "Error",
 //         description: "Failed to generate questions using AI",
 //         variant: "destructive",
@@ -471,8 +451,7 @@
 //         description: `Successfully generated ${response.questions.length} questions from template`,
 //       });
 //     } catch (error) {
-//       console.error('Template Generation Error:', error);
-//       toast({
+//       //       toast({
 //         title: "Error",
 //         description: "Failed to generate questions from template",
 //         variant: "destructive",
@@ -508,12 +487,7 @@
 //       }
 
 //       // Create question using the API
-//       console.log('Creating question with data:', {
-//         questionText: questionForm.question,
-//         subjectId: questionForm.subject,
-//         classId: questionForm.class,
-//         unit: questionForm.unit,
-//         bloomsTaxonomyLevel: questionForm.bloomsLevel.toUpperCase(),
+//       ,
 //         difficulty: questionForm.difficulty.toUpperCase()
 //       });
       
@@ -535,9 +509,7 @@
 //         language: 'ENGLISH'
 //       });
       
-//       console.log('Question created successfully:', newQuestion);
-
-//       // Handle both single question and array of questions
+//       //       // Handle both single question and array of questions
 //       const questionsToAdd = Array.isArray(newQuestion.questions) ? newQuestion.questions : [newQuestion.questions];
       
 //       // Convert to UI format and add to list
@@ -577,8 +549,7 @@
 //         description: "Successfully created new question",
 //       });
 //     } catch (error) {
-//       console.error('Create Question Error:', error);
-//       toast({
+//       //       toast({
 //         title: "Error",
 //         description: "Failed to create question",
 //         variant: "destructive",
@@ -599,8 +570,7 @@
 //         description: "Question has been removed",
 //       });
 //     } catch (error) {
-//       console.error('Delete Question Error:', error);
-//       toast({
+//       //       toast({
 //         title: "Error",
 //         description: "Failed to delete question",
 //         variant: "destructive",
@@ -617,33 +587,17 @@
 //     setEditingQuestion(question);
     
 //     // Debug: Log the question data
-//     console.log('Question data:', question);
-//     console.log('Question ID fields:', {
-//       id: question.id,
-//       _id: question._id,
-//       subjectId: question.subjectId,
-//       classId: question.classId
-//     });
-//     console.log('Available subjects:', subjects);
-//     console.log('Available classes:', classes);
-    
-//     // Find the correct subject and class IDs
+//     //     //     //     //     // Find the correct subject and class IDs
 //     const subjectId = question.subjectId || subjects.find(s => s.name === question.subject)?.id || 
 //                      subjects.find(s => s.name === question.subject)?._id || '';
 //     const classId = question.classId || classes.find(c => c.className === question.class)?._id || 
 //                    classes.find(c => c.name === question.class)?._id || '';
     
-//     console.log('Found subjectId:', subjectId, 'Type:', typeof subjectId);
-//     console.log('Found classId:', classId, 'Type:', typeof classId);
-    
-//     // Ensure IDs are strings
+//     //     //     // Ensure IDs are strings
 //     const validSubjectId = subjectId ? String(subjectId) : '';
 //     const validClassId = classId ? String(classId) : '';
     
-//     console.log('Valid subjectId:', validSubjectId, 'Type:', typeof validSubjectId);
-//     console.log('Valid classId:', validClassId, 'Type:', typeof validClassId);
-    
-//     setEditFormData({
+//     //     //     setEditFormData({
 //       id: question.id || question._id || '',
 //       question: question.question || '',
 //       explanation: question.explanation || '',
@@ -659,10 +613,7 @@
 //   };
 
 //   const handleUpdateQuestion = async () => {
-//     console.log('Edit form data:', editFormData);
-//     console.log('Edit form ID:', editFormData.id);
-    
-//     if (!editFormData.id) {
+//     //     //     if (!editFormData.id) {
 //       toast({
 //         title: "Error",
 //         description: "Question ID not found. Please try again.",
@@ -732,13 +683,7 @@
 
 //     // Validate that subject and class are strings (not objects)
 //     if (typeof editFormData.subject !== 'string' || typeof editFormData.class !== 'string') {
-//       console.error('Subject or class is not a string:', {
-//         subject: editFormData.subject,
-//         class: editFormData.class,
-//         subjectType: typeof editFormData.subject,
-//         classType: typeof editFormData.class
-//       });
-//       toast({
+//       //       toast({
 //         title: "Error",
 //         description: "Invalid subject or class selection. Please try again.",
 //         variant: "destructive",
@@ -781,13 +726,7 @@
 //         language: editingQuestion.language || 'ENGLISH'
 //       };
 
-//       console.log('Updating question with ID:', editFormData.id);
-//       console.log('Edit form data:', editFormData);
-//       console.log('Subject ID type:', typeof editFormData.subject, editFormData.subject);
-//       console.log('Class ID type:', typeof editFormData.class, editFormData.class);
-//       console.log('Updating question with data:', updateData);
-      
-//       const updatedQuestion = await questionsAPI.update(editFormData.id, updateData);
+//       //       //       //       //       //       const updatedQuestion = await questionsAPI.update(editFormData.id, updateData);
       
 //       // Update the questions list
 //       setQuestions(prev => prev.map(q => 
@@ -803,8 +742,7 @@
 //       });
       
 //     } catch (error) {
-//       console.error('Error updating question:', error);
-//       toast({
+//       //       toast({
 //         title: "Error",
 //         description: "Failed to update the question. Please try again.",
 //         variant: "destructive",
@@ -856,8 +794,7 @@
 //         description: "Questions exported to PDF successfully",
 //       });
 //     } catch (error) {
-//       console.error('Export Error:', error);
-//       toast({
+//       //       toast({
 //         title: "Export Failed",
 //         description: "Failed to export questions to PDF",
 //         variant: "destructive",
@@ -907,8 +844,7 @@
 //         description: "Question paper exported to PDF successfully",
 //       });
 //     } catch (error) {
-//       console.error('Export Error:', error);
-//       toast({
+//       //       toast({
 //         title: "Export Failed",
 //         description: "Failed to export question paper to PDF",
 //         variant: "destructive",
@@ -955,8 +891,7 @@
 //         description: "Answer key exported to PDF successfully",
 //       });
 //     } catch (error) {
-//       console.error('Export Error:', error);
-//       toast({
+//       //       toast({
 //         title: "Export Failed",
 //         description: "Failed to export answer key to PDF",
 //         variant: "destructive",
@@ -967,9 +902,7 @@
 //   // Since we're using server-side pagination, we don't need client-side filtering
 //   // The questions array already contains the filtered results from the server
 //   const filteredQuestions = questions || [];
-//   console.log(filteredQuestions,'filteredQuestions')
-
-//   const getBloomsBadge = (level: string) => {
+//   //   const getBloomsBadge = (level: string) => {
 //     const bloomsLevel = BLOOMS_LEVELS.find(l => l.id === level);
 //     return (
 //       <Badge className={bloomsLevel?.color || 'bg-gray-100 text-gray-800'}>
@@ -977,9 +910,7 @@
 //       </Badge>
 //     );
 //   };
-//   console.log(filteredQuestions,'filteredQuestions')
-
-//   const getDifficultyBadge = (difficulty: string) => {
+//   //   const getDifficultyBadge = (difficulty: string) => {
 //     const diffLevel = DIFFICULTY_LEVELS.find(d => d.id === difficulty);
 //     return (
 //       <Badge className={diffLevel?.color || 'bg-gray-100 text-gray-800'}>
@@ -1064,9 +995,7 @@
 //             <div className="space-y-2">
 //               <Label>Subject</Label>
 //               <Select value={selectedSubject} onValueChange={(value) => {
-//                 console.log('Subject selected:', value);
-//                 console.log('Available subjects:', subjects);
-//                 setSelectedSubject(value);
+//                 //                 //                 setSelectedSubject(value);
 //                 setCurrentPage(1);
 //                 loadQuestions(1, pageSize, { subject: value });
 //               }}>
@@ -1086,8 +1015,7 @@
 //             <div className="space-y-2">
 //               <Label>Class</Label>
 //               <Select value={selectedClass} onValueChange={(value) => {
-//                 console.log('Class selected:', value);
-//                 setSelectedClass(value);
+//                 //                 setSelectedClass(value);
 //                 setCurrentPage(1);
 //                 loadQuestions(1, pageSize, { class: value });
 //               }}>

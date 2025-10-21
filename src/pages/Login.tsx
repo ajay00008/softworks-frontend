@@ -42,7 +42,6 @@ const Login = () => {
         navigate('/dashboard');
       }
     } catch (error) {
-      console.error('Login error:', error);
       toast({
         title: "Login Failed",
         description: error instanceof Error ? error.message : "Invalid email or password. Please check your credentials.",

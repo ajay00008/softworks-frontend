@@ -41,8 +41,7 @@ const SuperAdminDashboard = () => {
           systemHealth: 'Good'
         });
       } catch (error) {
-        console.error('Error loading stats:', error);
-      } finally {
+        } finally {
         setIsLoading(false);
       }
     };

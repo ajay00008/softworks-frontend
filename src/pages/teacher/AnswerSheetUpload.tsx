@@ -115,7 +115,6 @@ const AnswerSheetUpload = () => {
       const response = await teacherDashboardAPI.getAccess();
       setTeacherAccess(response.data);
     } catch (error) {
-      console.error('Error loading teacher access:', error);
       toast({
         title: "Error",
         description: "Failed to load teacher access",
@@ -133,7 +132,6 @@ const AnswerSheetUpload = () => {
       });
       setExams(response.data || []);
     } catch (error) {
-      console.error('Error loading exams:', error);
       toast({
         title: "Error",
         description: "Failed to load exams",
@@ -146,10 +144,8 @@ const AnswerSheetUpload = () => {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    console.log('Files selected:', files);
     setSelectedFiles(prev => {
       const newFiles = [...prev, ...files];
-      console.log('Updated selected files:', newFiles);
       return newFiles;
     });
   };
@@ -159,12 +155,6 @@ const AnswerSheetUpload = () => {
   };
 
   const handleUpload = async () => {
-    console.log('Upload attempt:', { 
-      selectedExam, 
-      selectedExamType: typeof selectedExam,
-      selectedFiles: selectedFiles.length, 
-      files: selectedFiles.map(f => ({ name: f.name, size: f.size, type: f.type }))
-    });
     
     if (!selectedExam || selectedFiles.length === 0) {
       toast({
@@ -182,17 +172,8 @@ const AnswerSheetUpload = () => {
       const formData = new FormData();
       selectedFiles.forEach(file => {
         formData.append('files', file);
-        console.log('Added file to FormData:', file.name, file.size, file.type);
-      });
-
-      console.log('Calling API with:', { 
-        examId: selectedExam, 
-        selectedFiles: selectedFiles.length,
-        formDataEntries: Array.from(formData.entries()).length
-      });
+        });
       const response = await teacherDashboardAPI.uploadAnswerSheetFiles(selectedExam, formData);
-      console.log('API Response:', response);
-      
       setUploadResults(response.data.results || []);
       
       // Clear selected files after successful upload to allow new uploads
@@ -203,12 +184,6 @@ const AnswerSheetUpload = () => {
         description: `Successfully uploaded ${selectedFiles.length} answer sheets. Select new files to upload more.`,
       });
     } catch (error) {
-      console.error('Error uploading answer sheets:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        response: error.response
-      });
       toast({
         title: "Error",
         description: `Failed to upload answer sheets: ${error.message || 'Unknown error'}`,
@@ -333,7 +308,6 @@ const AnswerSheetUpload = () => {
             <div>
               <Label htmlFor="exam">Exam</Label>
               <Select value={selectedExam} onValueChange={(value) => {
-                console.log('Exam selected:', value);
                 setSelectedExam(value);
               }}>
                 <SelectTrigger>

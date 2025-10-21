@@ -44,8 +44,7 @@ export const PDFExportExample: React.FC = () => {
         chapter: 'Sample Chapter'
       });
     } catch (error) {
-      console.error('Error exporting questions:', error);
-    }
+      }
   };
 
   const handleExportQuestionPaper = async () => {
@@ -59,8 +58,7 @@ export const PDFExportExample: React.FC = () => {
         chapter: 'Sample Chapter'
       });
     } catch (error) {
-      console.error('Error exporting question paper:', error);
-    }
+      }
   };
 
   const handleExportAnswerKey = async () => {
@@ -71,8 +69,7 @@ export const PDFExportExample: React.FC = () => {
         chapter: 'Sample Chapter'
       });
     } catch (error) {
-      console.error('Error exporting answer key:', error);
-    }
+      }
   };
 
   return (

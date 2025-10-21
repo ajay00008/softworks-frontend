@@ -1,6 +1,7 @@
 // API service for EduAdmin System
+import { CreateTemplateRequest, UpdateTemplateRequest, TemplateAnalysis } from '@/types/question-paper-template';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
-console.log(API_BASE_URL,"API_BASE_URL");
 
 // Test if backend is reachable
 const testBackendConnection = async () => {
@@ -10,10 +11,8 @@ const testBackendConnection = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'test', password: 'test' })
     });
-    console.log('Backend connection test - Status:', response.status);
     return response.status !== 404;
   } catch (error) {
-    console.error('Backend connection test failed:', error);
     return false;
   }
 };
@@ -143,6 +142,10 @@ export interface ClassMapping {
 // Helper function to get auth headers
 const getAuthHeaders = () => {
   const token = localStorage.getItem('auth-token');
+  if (!token) {
+    console.error('No auth token found in localStorage');
+    throw new Error('No authentication token found. Please log in again.');
+  }
   return {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
@@ -152,6 +155,10 @@ const getAuthHeaders = () => {
 // Helper function to get auth headers for file uploads (without Content-Type)
 const getAuthHeadersForUpload = () => {
   const token = localStorage.getItem('auth-token');
+  if (!token) {
+    console.error('No auth token found in localStorage');
+    throw new Error('No authentication token found. Please log in again.');
+  }
   return {
     'Authorization': `Bearer ${token}`
   };
@@ -207,7 +214,6 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
   }
   
   const data = await response.json();
-  console.log('API Response data:', data);
   
   if (data.success !== undefined) {
     if (!data.success) {
@@ -215,38 +221,27 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
     }
     // Handle different response structures
     if (data.data) {
-      console.log('Returning data.data:', data.data);
       return data as T;
     } else if (data.question) {
-      console.log('Returning data.question:', data.question);
       return data.question;
     } else if (data.questions) {
-      console.log('Returning data.questions:', data.questions);
-      return data.questions;
+      return data as T;
     } else if (data.student) {
-      console.log('Returning data.student:', data.student);
       return data.student;
     } else if (data.teacher) {
-      console.log('Returning data.teacher:', data.teacher);
       return data.teacher;
     } else if (data.class) {
-      console.log('Returning data.class:', data.class);
       return data.class;
     } else if (data.subject) {
-      console.log('Returning data.subject:', data.subject);
       return data.subject;
     } else if (data.exam) {
-      console.log('Returning data.exam:', data.exam);
       return data.exam;
     } else {
-      console.log('Returning data as T:', data);
       return data as T;
     }
   } else if (Array.isArray(data)) {
-    console.log('Returning array data:', data);
     return data as T;
   } else {
-    console.log('Returning data as T (fallback):', data);
     return data as T;
   }
 };
@@ -270,7 +265,6 @@ export const studentsAPI = {
       const result = await handleApiResponse<{ data: Student[]; pagination?: any }>(response);
       return { students: result.data || [], pagination: result.pagination };
     } catch (error) {
-      console.error('Error fetching students:', error);
       throw error;
     }
   },
@@ -285,7 +279,6 @@ export const studentsAPI = {
       if (response.status === 404) return null;
       return await handleApiResponse<Student>(response);
     } catch (error) {
-      console.error('Error fetching student:', error);
       throw error;
     }
   },
@@ -300,7 +293,6 @@ export const studentsAPI = {
 
       return await handleApiResponse<Student>(response);
     } catch (error) {
-      console.error('Error creating student:', error);
       throw error;
     }
   },
@@ -309,7 +301,6 @@ export const studentsAPI = {
     student: Partial<Omit<Student, 'id' | 'createdAt' | 'updatedAt'>>
   ): Promise<Student> => {
     try {
-      console.log(userId,student,"formUp")
       const response = await fetch(`${API_BASE_URL}/admin/students/${userId}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
@@ -318,12 +309,9 @@ export const studentsAPI = {
   
       return await handleApiResponse<Student>(response);
     } catch (error) {
-      console.error('Error updating student:', error);
       throw error;
     }
   },
-  
-  
 
   delete: async (id: string): Promise<void> => {
     try {
@@ -334,7 +322,6 @@ export const studentsAPI = {
 
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting student:', error);
       throw error;
     }
   },
@@ -348,7 +335,6 @@ export const studentsAPI = {
 
       return await handleApiResponse<Student>(response);
     } catch (error) {
-      console.error('Error activating student:', error);
       throw error;
     }
   },
@@ -367,7 +353,6 @@ export const studentsAPI = {
       const data = await handleApiResponse<Student[]>(response);
       return { students: data };
     } catch (error) {
-      console.error('Error fetching students by class:', error);
       throw error;
     }
   }
@@ -393,7 +378,6 @@ export const teachersAPI = {
       const result = await handleApiResponse<{ data: Teacher[]; pagination?: any }>(response);
       return { teachers: result.data || [], pagination: result.pagination };
     } catch (error) {
-      console.error('Error fetching teachers:', error);
       throw error;
     }
   },
@@ -407,7 +391,6 @@ export const teachersAPI = {
       if (response.status === 404) return null;
       return await handleApiResponse<Teacher>(response);
     } catch (error) {
-      console.error('Error fetching teacher:', error);
       throw error;
     }
   },
@@ -427,7 +410,6 @@ export const teachersAPI = {
 
       return await handleApiResponse<Teacher>(response);
     } catch (error) {
-      console.error('Error creating teacher:', error);
       throw error;
     }
   },
@@ -446,8 +428,6 @@ export const teachersAPI = {
         payload.classIds = teacher.classIds;
       }
       
-      console.log('API update payload:', payload);
-      
       const response = await fetch(`${API_BASE_URL}/admin/teachers/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
@@ -456,7 +436,6 @@ export const teachersAPI = {
 
       return await handleApiResponse<Teacher>(response);
     } catch (error) {
-      console.error('Error updating teacher:', error);
       throw error;
     }
   },
@@ -469,7 +448,6 @@ export const teachersAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting teacher:', error);
       throw error;
     }
   },
@@ -483,7 +461,6 @@ export const teachersAPI = {
       });
       return await handleApiResponse<Teacher>(response);
     } catch (error) {
-      console.error('Error assigning subjects:', error);
       throw error;
     }
   },
@@ -497,12 +474,10 @@ export const teachersAPI = {
       });
       return await handleApiResponse<Teacher>(response);
     } catch (error) {
-      console.error('Error assigning classes:', error);
       throw error;
     }
   },
 };
-
 
 // Admins API (Super Admin endpoints)
 export const adminsAPI = {
@@ -522,7 +497,6 @@ export const adminsAPI = {
       const data = await handleApiResponse<{ data: User[]; pagination?: any }>(response);
       return { admins: data };
     } catch (error) {
-      console.error('Error fetching admins:', error);
       throw error;
     }
   },
@@ -537,7 +511,6 @@ export const adminsAPI = {
       if (response.status === 404) return null;
       return await handleApiResponse<User>(response);
     } catch (error) {
-      console.error('Error fetching admin:', error);
       throw error;
     }
   },
@@ -552,7 +525,6 @@ export const adminsAPI = {
 
       return await handleApiResponse<User>(response);
     } catch (error) {
-      console.error('Error creating admin:', error);
       throw error;
     }
   },
@@ -567,7 +539,6 @@ export const adminsAPI = {
 
       return await handleApiResponse<User>(response);
     } catch (error) {
-      console.error('Error updating admin:', error);
       throw error;
     }
   },
@@ -581,7 +552,6 @@ export const adminsAPI = {
 
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting admin:', error);
       throw error;
     }
   },
@@ -595,13 +565,10 @@ export const adminsAPI = {
 
       return await handleApiResponse<User>(response);
     } catch (error) {
-      console.error('Error activating admin:', error);
       throw error;
     }
   }
 };
-
-
 
 export const classesAPI = {
   getAll: async (): Promise<ClassMapping[]> => {
@@ -613,7 +580,6 @@ export const classesAPI = {
       const result = await handleApiResponse<{ data: ClassMapping[]; pagination?: any }>(response);
       return result.data || [];
     } catch (error) {
-      console.error("Error fetching classes:", error);
       throw error;
     }
   },
@@ -628,7 +594,6 @@ export const classesAPI = {
       if (response.status === 404) return null;
       return await handleApiResponse<ClassMapping>(response);
     } catch (error) {
-      console.error("Error fetching class mapping:", error);
       throw error;
     }
   },
@@ -642,7 +607,6 @@ export const classesAPI = {
       });
       return await handleApiResponse<ClassMapping>(response);
     } catch (error) {
-      console.error("Error creating class mapping:", error);
       throw error;
     }
   },
@@ -656,7 +620,6 @@ export const classesAPI = {
       });
       return await handleApiResponse<ClassMapping>(response);
     } catch (error) {
-      console.error("Error updating class mapping:", error);
       throw error;
     }
   },
@@ -669,7 +632,6 @@ export const classesAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error("Error deleting class mapping:", error);
       throw error;
     }
   },
@@ -797,7 +759,6 @@ export const classManagementAPI = {
         limit: result.pagination?.limit || 10 
       };
     } catch (error) {
-      console.error('Error fetching classes:', error);
       throw error;
     }
   },
@@ -810,7 +771,6 @@ export const classManagementAPI = {
       });
       return await handleApiResponse<Class>(response);
     } catch (error) {
-      console.error('Error fetching class:', error);
       throw error;
     }
   },
@@ -824,7 +784,6 @@ export const classManagementAPI = {
       });
       return await handleApiResponse<Class>(response);
     } catch (error) {
-      console.error('Error creating class:', error);
       throw error;
     }
   },
@@ -838,7 +797,6 @@ export const classManagementAPI = {
       });
       return await handleApiResponse<Class>(response);
     } catch (error) {
-      console.error('Error updating class:', error);
       throw error;
     }
   },
@@ -851,7 +809,6 @@ export const classManagementAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting class:', error);
       throw error;
     }
   },
@@ -864,7 +821,6 @@ export const classManagementAPI = {
       });
       return await handleApiResponse<Class[]>(response);
     } catch (error) {
-      console.error('Error fetching classes by level:', error);
       throw error;
     }
   },
@@ -894,7 +850,6 @@ export const subjectManagementAPI = {
         limit: result.pagination?.limit || 10 
       };
     } catch (error) {
-      console.error('Error fetching subjects:', error);
       throw error;
     }
   },
@@ -907,7 +862,6 @@ export const subjectManagementAPI = {
       });
       return await handleApiResponse<Subject>(response);
     } catch (error) {
-      console.error('Error fetching subject:', error);
       throw error;
     }
   },
@@ -921,7 +875,6 @@ export const subjectManagementAPI = {
       });
       return await handleApiResponse<Subject>(response);
     } catch (error) {
-      console.error('Error creating subject:', error);
       throw error;
     }
   },
@@ -935,7 +888,6 @@ export const subjectManagementAPI = {
       });
       return await handleApiResponse<Subject>(response);
     } catch (error) {
-      console.error('Error updating subject:', error);
       throw error;
     }
   },
@@ -948,7 +900,6 @@ export const subjectManagementAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting subject:', error);
       throw error;
     }
   },
@@ -961,7 +912,6 @@ export const subjectManagementAPI = {
       });
       return await handleApiResponse<Subject[]>(response);
     } catch (error) {
-      console.error('Error fetching subjects by category:', error);
       throw error;
     }
   },
@@ -974,7 +924,6 @@ export const subjectManagementAPI = {
       });
       return await handleApiResponse<Subject[]>(response);
     } catch (error) {
-      console.error('Error fetching subjects by level:', error);
       throw error;
     }
   },
@@ -992,7 +941,6 @@ export const subjectManagementAPI = {
       });
       return await handleApiResponse<Subject>(response);
     } catch (error) {
-      console.error('Error uploading reference book:', error);
       throw error;
     }
   },
@@ -1011,7 +959,6 @@ export const subjectManagementAPI = {
       
       return await response.blob();
     } catch (error) {
-      console.error('Error downloading reference book:', error);
       throw error;
     }
   },
@@ -1025,7 +972,6 @@ export const subjectManagementAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting reference book:', error);
       throw error;
     }
   },
@@ -1041,7 +987,6 @@ export const subjectsAPI = {
       const result = await handleApiResponse<{ data: Subject[]; pagination?: any }>(response);
       return result.data || []; // Extract the data array from the response
     } catch (error) {
-      console.error('Error fetching subjects:', error);
       throw error;
     }
   },
@@ -1112,7 +1057,6 @@ export const questionsAPI = {
       const result = await handleApiResponse<{ data: Question[]; pagination?: any }>(response);
       return { questions: result.data || [], pagination: result.pagination };
     } catch (error) {
-      console.error('Error fetching questions:', error);
       throw error;
     }
   },
@@ -1125,7 +1069,6 @@ export const questionsAPI = {
       });
       return await handleApiResponse<Question>(response);
     } catch (error) {
-      console.error('Error fetching question:', error);
       throw error;
     }
   },
@@ -1139,7 +1082,6 @@ export const questionsAPI = {
       });
       return await handleApiResponse<Question>(response);
     } catch (error) {
-      console.error('Error creating question:', error);
       throw error;
     }
   },
@@ -1153,7 +1095,6 @@ export const questionsAPI = {
       });
       return await handleApiResponse<Question>(response);
     } catch (error) {
-      console.error('Error updating question:', error);
       throw error;
     }
   },
@@ -1166,7 +1107,6 @@ export const questionsAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting question:', error);
       throw error;
     }
   },
@@ -1180,7 +1120,6 @@ export const questionsAPI = {
       });
       return await handleApiResponse<Question[]>(response);
     } catch (error) {
-      console.error('Error generating questions:', error);
       throw error;
     }
   },
@@ -1193,7 +1132,6 @@ export const questionsAPI = {
       });
       return await handleApiResponse<any>(response);
     } catch (error) {
-      console.error('Error fetching question statistics:', error);
       throw error;
     }
   },
@@ -1331,7 +1269,6 @@ export const questionPaperTemplatesAPI = {
       });
       return await handleApiResponse<{ templates: QuestionPaperTemplate[]; pagination: any }>(response);
     } catch (error) {
-      console.error('Error fetching question paper templates:', error);
       throw error;
     }
   },
@@ -1345,7 +1282,6 @@ export const questionPaperTemplatesAPI = {
       });
       return await handleApiResponse<QuestionPaperTemplate>(response);
     } catch (error) {
-      console.error('Error fetching question paper template:', error);
       throw error;
     }
   },
@@ -1360,7 +1296,6 @@ export const questionPaperTemplatesAPI = {
       });
       return await handleApiResponse<QuestionPaperTemplate>(response);
     } catch (error) {
-      console.error('Error creating question paper template:', error);
       throw error;
     }
   },
@@ -1375,7 +1310,6 @@ export const questionPaperTemplatesAPI = {
       });
       return await handleApiResponse<QuestionPaperTemplate>(response);
     } catch (error) {
-      console.error('Error updating question paper template:', error);
       throw error;
     }
   },
@@ -1389,7 +1323,6 @@ export const questionPaperTemplatesAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting question paper template:', error);
       throw error;
     }
   },
@@ -1404,7 +1337,6 @@ export const questionPaperTemplatesAPI = {
       });
       return await handleApiResponse<QuestionPaperGenerationResponse>(response);
     } catch (error) {
-      console.error('Error generating question paper:', error);
       throw error;
     }
   },
@@ -1597,7 +1529,6 @@ export const examsAPI = {
       });
       return await handleApiResponse<{ exams: Exam[]; pagination: any }>(response);
     } catch (error) {
-      console.error('Error fetching exams:', error);
       throw error;
     }
   },
@@ -1611,7 +1542,6 @@ export const examsAPI = {
       });
       return await handleApiResponse<Exam>(response);
     } catch (error) {
-      console.error('Error fetching exam:', error);
       throw error;
     }
   },
@@ -1626,7 +1556,6 @@ export const examsAPI = {
       });
       return await handleApiResponse<Exam>(response);
     } catch (error) {
-      console.error('Error creating exam:', error);
       throw error;
     }
   },
@@ -1641,7 +1570,6 @@ export const examsAPI = {
       });
       return await handleApiResponse<Exam>(response);
     } catch (error) {
-      console.error('Error updating exam:', error);
       throw error;
     }
   },
@@ -1655,7 +1583,6 @@ export const examsAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting exam:', error);
       throw error;
     }
   },
@@ -1669,7 +1596,6 @@ export const examsAPI = {
       });
       return await handleApiResponse<Exam>(response);
     } catch (error) {
-      console.error('Error starting exam:', error);
       throw error;
     }
   },
@@ -1683,7 +1609,6 @@ export const examsAPI = {
       });
       return await handleApiResponse<Exam>(response);
     } catch (error) {
-      console.error('Error ending exam:', error);
       throw error;
     }
   },
@@ -1701,7 +1626,6 @@ export const examsAPI = {
       });
       return await handleApiResponse<{ results: any[]; pagination: any }>(response);
     } catch (error) {
-      console.error('Error fetching exam results:', error);
       throw error;
     }
   },
@@ -1715,7 +1639,6 @@ export const examsAPI = {
       });
       return await handleApiResponse<any>(response);
     } catch (error) {
-      console.error('Error fetching exam statistics:', error);
       throw error;
     }
   },
@@ -1743,7 +1666,6 @@ export const questionPaperAPI = {
       });
       return await handleApiResponse<{ questionPapers: QuestionPaper[]; pagination: any }>(response);
     } catch (error) {
-      console.error('Error fetching question papers:', error);
       throw error;
     }
   },
@@ -1757,7 +1679,6 @@ export const questionPaperAPI = {
       });
       return await handleApiResponse<QuestionPaper>(response);
     } catch (error) {
-      console.error('Error fetching question paper:', error);
       throw error;
     }
   },
@@ -1772,7 +1693,6 @@ export const questionPaperAPI = {
       });
       return await handleApiResponse<QuestionPaper>(response);
     } catch (error) {
-      console.error('Error creating question paper:', error);
       throw error;
     }
   },
@@ -1787,7 +1707,6 @@ export const questionPaperAPI = {
       });
       return await handleApiResponse<QuestionPaper>(response);
     } catch (error) {
-      console.error('Error updating question paper:', error);
       throw error;
     }
   },
@@ -1801,7 +1720,6 @@ export const questionPaperAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting question paper:', error);
       throw error;
     }
   },
@@ -1816,7 +1734,6 @@ export const questionPaperAPI = {
       });
       return await handleApiResponse<QuestionPaper>(response);
     } catch (error) {
-      console.error('Error generating AI question paper:', error);
       throw error;
     }
   },
@@ -1831,7 +1748,6 @@ export const questionPaperAPI = {
       });
       return await handleApiResponse<QuestionPaper>(response);
     } catch (error) {
-      console.error('Error generating complete AI question paper:', error);
       throw error;
     }
   },
@@ -1853,7 +1769,6 @@ export const questionPaperAPI = {
       const result = await handleApiResponse<{ patternId: string; fileName: string; filePath: string; fileSize: number; mimeType: string; uploadedAt: string }>(response);
       return result;
     } catch (error) {
-      console.error('Error uploading pattern file:', error);
       throw error;
     }
   },
@@ -1871,7 +1786,6 @@ export const questionPaperAPI = {
       });
       return await handleApiResponse<QuestionPaper>(response);
     } catch (error) {
-      console.error('Error uploading PDF question paper:', error);
       throw error;
     }
   },
@@ -1892,11 +1806,24 @@ export const questionPaperAPI = {
       const downloadUrl = `${API_BASE_URL}/admin/question-papers/${id}/download`;
       return { success: true, downloadUrl };
     } catch (error) {
-      console.error('Error downloading question paper:', error);
       throw error;
     }
   },
 
+  // Regenerate PDF with updated questions
+  regeneratePDF: async (id: string): Promise<{ success: boolean; downloadUrl: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/regenerate-pdf`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      
+      const result = await handleApiResponse<{success: boolean, downloadUrl: string}>(response);
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  },
 
   // Publish question paper
   publish: async (id: string): Promise<QuestionPaper> => {
@@ -1907,7 +1834,6 @@ export const questionPaperAPI = {
       });
       return await handleApiResponse<QuestionPaper>(response);
     } catch (error) {
-      console.error('Error publishing question paper:', error);
       throw error;
     }
   },
@@ -1915,15 +1841,26 @@ export const questionPaperAPI = {
   // Get questions for a question paper
   getQuestions: async (id: string): Promise<Question[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/questions`, {
+      const url = `${API_BASE_URL}/admin/question-papers/${id}/questions`;
+      console.log('API - Fetching questions from:', url);
+      console.log('API - Question paper ID:', id);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
+      
+      console.log('API - Response status:', response.status);
+      console.log('API - Response ok:', response.ok);
+      
       const result = await handleApiResponse<{success: boolean, questions: Question[]}>(response);
-      return result.questions;
+      console.log('API - Parsed result:', result);
+      console.log('API - Questions from result:', result.questions);
+      
+      return result.questions || [];
     } catch (error) {
-      console.error('Error fetching questions:', error);
-      throw error;
+      console.error('API - Error fetching questions:', error);
+      return [];
     }
   },
 
@@ -1938,24 +1875,10 @@ export const questionPaperAPI = {
       const result = await handleApiResponse<{success: boolean, question: Question}>(response);
       return result.question;
     } catch (error) {
-      console.error('Error updating question:', error);
       throw error;
     }
   },
 
-  // Regenerate PDF for a question paper
-  regeneratePDF: async (id: string): Promise<QuestionPaper> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/regenerate-pdf`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-      return await handleApiResponse<QuestionPaper>(response);
-    } catch (error) {
-      console.error('Error regenerating PDF:', error);
-      throw error;
-    }
-  },
 
   // Delete a question
   deleteQuestion: async (questionPaperId: string, questionId: string): Promise<void> => {
@@ -1966,7 +1889,6 @@ export const questionPaperAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting question:', error);
       throw error;
     }
   },
@@ -1982,7 +1904,53 @@ export const questionPaperAPI = {
       const result = await handleApiResponse<{success: boolean, question: Question}>(response);
       return result.question;
     } catch (error) {
-      console.error('Error adding question:', error);
+      throw error;
+    }
+  },
+
+  // Generate questions with AI
+  generateWithAI: async (questionPaperId: string, params: {
+    difficulty?: string;
+    questionCount?: number;
+    subject?: string;
+    className?: string;
+  }): Promise<{success: boolean, questions: Question[]}> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${questionPaperId}/generate-ai`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(params),
+      });
+      return await handleApiResponse<{success: boolean, questions: Question[]}>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete old PDF file
+  deleteOldPDF: async (questionPaperId: string, oldPdfUrl: string): Promise<{success: boolean}> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${questionPaperId}/delete-pdf`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ pdfUrl: oldPdfUrl }),
+      });
+      return await handleApiResponse<{success: boolean}>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Save edited PDF
+  saveEditedPDF: async (questionPaperId: string, edits: any): Promise<{success: boolean, pdfUrl: string}> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${questionPaperId}/save-edits`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ edits }),
+      });
+      return await handleApiResponse<{success: boolean, pdfUrl: string}>(response);
+    } catch (error) {
       throw error;
     }
   }
@@ -2069,7 +2037,6 @@ export const syllabusAPI = {
       });
       return await handleApiResponse<{ syllabi: Syllabus[]; total: number; page: number; limit: number }>(response);
     } catch (error) {
-      console.error('Error fetching syllabi:', error);
       throw error;
     }
   },
@@ -2083,7 +2050,6 @@ export const syllabusAPI = {
       });
       return await handleApiResponse<Syllabus>(response);
     } catch (error) {
-      console.error('Error fetching syllabus:', error);
       throw error;
     }
   },
@@ -2098,7 +2064,6 @@ export const syllabusAPI = {
       });
       return await handleApiResponse<Syllabus>(response);
     } catch (error) {
-      console.error('Error creating syllabus:', error);
       throw error;
     }
   },
@@ -2113,7 +2078,6 @@ export const syllabusAPI = {
       });
       return await handleApiResponse<Syllabus>(response);
     } catch (error) {
-      console.error('Error updating syllabus:', error);
       throw error;
     }
   },
@@ -2127,7 +2091,6 @@ export const syllabusAPI = {
       });
       await handleApiResponse<void>(response);
     } catch (error) {
-      console.error('Error deleting syllabus:', error);
       throw error;
     }
   },
@@ -2141,7 +2104,6 @@ export const syllabusAPI = {
       });
       return await handleApiResponse<Syllabus>(response);
     } catch (error) {
-      console.error('Error fetching syllabus by subject and class:', error);
       throw error;
     }
   },
@@ -2159,7 +2121,6 @@ export const syllabusAPI = {
       });
       return await handleApiResponse<Syllabus>(response);
     } catch (error) {
-      console.error('Error uploading syllabus file:', error);
       throw error;
     }
   },
@@ -2173,7 +2134,6 @@ export const syllabusAPI = {
       });
       return await handleApiResponse<SyllabusStatistics>(response);
     } catch (error) {
-      console.error('Error fetching syllabus statistics:', error);
       throw error;
     }
   },
@@ -2190,7 +2150,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching teacher access:', error);
       throw error;
     }
   },
@@ -2205,7 +2164,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error creating question paper:', error);
       throw error;
     }
   },
@@ -2220,7 +2178,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error uploading answer sheets:', error);
       throw error;
     }
   },
@@ -2235,7 +2192,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error marking student status:', error);
       throw error;
     }
   },
@@ -2250,7 +2206,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error evaluating answer sheets:', error);
       throw error;
     }
   },
@@ -2265,7 +2220,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching results:', error);
       throw error;
     }
   },
@@ -2280,7 +2234,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching performance graphs:', error);
       throw error;
     }
   },
@@ -2301,7 +2254,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching exams:', error);
       throw error;
     }
   },
@@ -2315,7 +2267,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching answer sheets:', error);
       throw error;
     }
   },
@@ -2329,7 +2280,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error processing answer sheet:', error);
       throw error;
     }
   },
@@ -2352,7 +2302,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching question papers:', error);
       throw error;
     }
   },
@@ -2370,7 +2319,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error creating question paper:', error);
       throw error;
     }
   },
@@ -2384,7 +2332,40 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error generating question paper:', error);
+      throw error;
+    }
+  },
+
+  // Generate AI questions for a question paper
+  generateAIQuestions: async (questionPaperId: string, params: any): Promise<{ success: boolean; questions: any[] }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/question-papers/${questionPaperId}/generate-questions`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      });
+      return await handleApiResponse<{ success: boolean; questions: any[] }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Add questions to a question paper
+  addQuestionsToPaper: async (questionPaperId: string, data: any): Promise<{ success: boolean; questions: any[] }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/question-papers/${questionPaperId}/questions`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<{ success: boolean; questions: any[] }>(response);
+    } catch (error) {
       throw error;
     }
   },
@@ -2398,7 +2379,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching exam results:', error);
       throw error;
     }
   },
@@ -2412,7 +2392,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching class stats:', error);
       throw error;
     }
   },
@@ -2435,7 +2414,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching analytics:', error);
       throw error;
     }
   },
@@ -2450,7 +2428,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error uploading answer sheets:', error);
       throw error;
     }
   },
@@ -2471,7 +2448,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
       throw error;
     }
   },
@@ -2485,7 +2461,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error marking notification as read:', error);
       throw error;
     }
   },
@@ -2499,7 +2474,6 @@ export const teacherDashboardAPI = {
       });
       return await handleApiResponse<{ success: boolean; data: any }>(response);
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
       throw error;
     }
   },
@@ -2531,7 +2505,6 @@ export const performanceAPI = {
       });
       return await handleApiResponse<any>(response);
     } catch (error) {
-      console.error('Error fetching performance analytics:', error);
       throw error;
     }
   },
@@ -2558,7 +2531,6 @@ export const performanceAPI = {
       });
       return await handleApiResponse<any>(response);
     } catch (error) {
-      console.error('Error fetching class performance:', error);
       throw error;
     }
   },
@@ -2585,7 +2557,6 @@ export const performanceAPI = {
       });
       return await handleApiResponse<any>(response);
     } catch (error) {
-      console.error('Error fetching individual performance:', error);
       throw error;
     }
   },
@@ -2610,8 +2581,133 @@ export const performanceAPI = {
       });
       return await handleApiResponse<any>(response);
     } catch (error) {
-      console.error('Error fetching performance report:', error);
       throw error;
     }
   },
+};
+
+// Question Paper Template Management API
+export const questionPaperTemplateAPI = {
+  // Get all templates
+  getAll: async (params?: { subjectId?: string; classId?: string }): Promise<QuestionPaperTemplate[]> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params?.classId) queryParams.append('classId', params.classId);
+      
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, templates: QuestionPaperTemplate[]}>(response);
+      return result.templates || [];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get template by ID
+  getById: async (id: string): Promise<QuestionPaperTemplate> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates/${id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, template: QuestionPaperTemplate}>(response);
+      return result.template;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create template
+  create: async (data: CreateTemplateRequest): Promise<QuestionPaperTemplate> => {
+    try {
+      const formData = new FormData();
+      formData.append('title', data.title);
+      if (data.description) formData.append('description', data.description);
+      formData.append('subjectId', data.subjectId);
+      formData.append('classId', data.classId);
+      if (data.language) formData.append('language', data.language);
+      if (data.templateFile) formData.append('templateFile', data.templateFile);
+
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates`, {
+        method: 'POST',
+        headers: getAuthHeadersForUpload(),
+        body: formData,
+      });
+      const result = await handleApiResponse<{success: boolean, template: QuestionPaperTemplate}>(response);
+      return result.template;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update template
+  update: async (id: string, data: UpdateTemplateRequest): Promise<QuestionPaperTemplate> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      const result = await handleApiResponse<{success: boolean, template: QuestionPaperTemplate}>(response);
+      return result.template;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete template
+  delete: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleApiResponse<void>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Download template
+  download: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates/${id}/download`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download template');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `template-${id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Analyze template
+  analyze: async (id: string): Promise<TemplateAnalysis> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates/${id}/analyze`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, analysis: TemplateAnalysis}>(response);
+      return result.analysis;
+    } catch (error) {
+      throw error;
+    }
+  }
 };

@@ -37,10 +37,8 @@ const AdminManagement = () => {
     try {
       setIsLoading(true);
       const response = await adminsAPI.getAll();
-      console.log('Admins API response:', response);
       setAdmins(response?.admins?.data || []);
     } catch (error) {
-      console.error('Error loading admins:', error);
       toast({
         title: "Error",
         description: "Failed to load admins",
@@ -66,14 +64,12 @@ const AdminManagement = () => {
           title: "Success",
           description: "Admin created successfully",
         });
-        console.log(response,'responseCreate');
-      }
+        }
       setIsDialogOpen(false);
       setEditingAdmin(null);
       setFormData({ name: '', email: '', password: '', role: 'ADMIN', isActive: true });
       loadAdmins();
     } catch (error) {
-      console.error('Error saving admin:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save admin",
@@ -103,7 +99,6 @@ const AdminManagement = () => {
       });
       loadAdmins();
     } catch (error) {
-      console.error('Error deleting admin:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to delete admin",
@@ -111,7 +106,6 @@ const AdminManagement = () => {
       });
     }
   };
-
 
   const handleDialogClose = () => {
     setIsDialogOpen(false);

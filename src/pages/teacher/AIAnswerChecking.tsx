@@ -139,9 +139,7 @@ const AIAnswerChecking = () => {
   }, [teacherAccess, selectedClass, selectedSubject]);
 
   useEffect(() => {
-    console.log('🔄 useEffect triggered:', { teacherAccess: !!teacherAccess, selectedExam });
     if (teacherAccess && selectedExam) {
-      console.log('✅ Loading answer sheets...');
       loadAnswerSheets();
     }
   }, [teacherAccess, selectedExam]);
@@ -151,7 +149,6 @@ const AIAnswerChecking = () => {
       const response = await teacherDashboardAPI.getAccess();
       setTeacherAccess(response.data);
     } catch (error) {
-      console.error('Error loading teacher access:', error);
       toast({
         title: "Error",
         description: "Failed to load teacher access",
@@ -163,16 +160,12 @@ const AIAnswerChecking = () => {
   const loadExams = async () => {
     try {
       setLoadingExams(true);
-      console.log('🔍 Loading exams for:', { selectedClass, selectedSubject });
       const response = await teacherDashboardAPI.getExams({
         classId: selectedClass !== 'all' ? selectedClass : undefined,
         subjectId: selectedSubject !== 'all' ? selectedSubject : undefined,
       });
-      console.log('📚 Exams API Response:', response);
-      console.log('📚 Exams data:', response.data);
       setExams(response.data || []);
     } catch (error) {
-      console.error('Error loading exams:', error);
       toast({
         title: "Error",
         description: "Failed to load exams",
@@ -188,13 +181,9 @@ const AIAnswerChecking = () => {
 
     try {
       setLoadingSheets(true);
-      console.log('🔍 Loading answer sheets for exam:', selectedExam);
       const response = await teacherDashboardAPI.getAnswerSheets(selectedExam);
-      console.log('📋 API Response:', response);
-      console.log('📋 Answer sheets data:', response.data);
       setAnswerSheets(response.data || []);
     } catch (error) {
-      console.error('Error loading answer sheets:', error);
       toast({
         title: "Error",
         description: "Failed to load answer sheets",
@@ -218,7 +207,6 @@ const AIAnswerChecking = () => {
       // Reload answer sheets to get updated results
       await loadAnswerSheets();
     } catch (error) {
-      console.error('Error processing answer sheet:', error);
       toast({
         title: "Error",
         description: "Failed to process answer sheet",

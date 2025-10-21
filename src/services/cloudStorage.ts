@@ -89,7 +89,6 @@ class CloudStorageService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error uploading file:', error);
       throw error;
     }
   }
@@ -151,7 +150,6 @@ class CloudStorageService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting file metadata:', error);
       throw error;
     }
   }
@@ -174,7 +172,6 @@ class CloudStorageService {
 
       return await response.blob();
     } catch (error) {
-      console.error('Error downloading file:', error);
       throw error;
     }
   }
@@ -201,7 +198,6 @@ class CloudStorageService {
       const result = await response.json();
       return result.url;
     } catch (error) {
-      console.error('Error getting file URL:', error);
       throw error;
     }
   }
@@ -222,7 +218,6 @@ class CloudStorageService {
         throw new Error('Failed to delete file');
       }
     } catch (error) {
-      console.error('Error deleting file:', error);
       throw error;
     }
   }
@@ -238,7 +233,6 @@ class CloudStorageService {
         await this.deleteFile(key);
         results.deleted.push(key);
       } catch (error) {
-        console.error(`Failed to delete file ${key}:`, error);
         results.failed.push(key);
       }
     }
@@ -273,7 +267,6 @@ class CloudStorageService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error listing files:', error);
       throw error;
     }
   }
@@ -296,7 +289,6 @@ class CloudStorageService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting storage stats:', error);
       throw error;
     }
   }
@@ -319,7 +311,6 @@ class CloudStorageService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error cleaning up expired files:', error);
       throw error;
     }
   }
@@ -351,7 +342,6 @@ class CloudStorageService {
       const result = await response.json();
       return result.thumbnailUrl;
     } catch (error) {
-      console.error('Error generating thumbnail:', error);
       throw error;
     }
   }
@@ -386,7 +376,6 @@ class CloudStorageService {
       const result = await response.json();
       return result.compressedUrl;
     } catch (error) {
-      console.error('Error compressing image:', error);
       throw error;
     }
   }

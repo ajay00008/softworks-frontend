@@ -140,7 +140,6 @@ const TeacherAnalytics = () => {
       const response = await teacherDashboardAPI.getAccess();
       setTeacherAccess(response.data);
     } catch (error) {
-      console.error('Error loading teacher access:', error);
       toast({
         title: "Error",
         description: "Failed to load teacher access",
@@ -159,7 +158,6 @@ const TeacherAnalytics = () => {
       });
       setAnalyticsData(response.data);
     } catch (error) {
-      console.error('Error loading analytics:', error);
       toast({
         title: "Error",
         description: "Failed to load analytics data",

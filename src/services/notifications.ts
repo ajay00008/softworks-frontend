@@ -48,7 +48,6 @@ class NotificationService {
     this.wsConnection = new WebSocket(`${wsUrl}?token=${token}`);
 
     this.wsConnection.onopen = () => {
-      console.log('WebSocket connected');
       this.reconnectAttempts = 0;
     };
 
@@ -57,18 +56,15 @@ class NotificationService {
         const notification = JSON.parse(event.data);
         this.handleIncomingNotification(notification);
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
+        }
     };
 
     this.wsConnection.onclose = () => {
-      console.log('WebSocket disconnected');
       this.attemptReconnect();
     };
 
     this.wsConnection.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
+      };
   }
 
   /**
@@ -78,7 +74,7 @@ class NotificationService {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       setTimeout(() => {
-        console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        `);
         this.initializeWebSocket();
       }, this.reconnectDelay * this.reconnectAttempts);
     }
@@ -135,7 +131,6 @@ class NotificationService {
       const data = await response.json();
       return data.notifications || [];
     } catch (error) {
-      console.error('Error fetching notifications:', error);
       return [];
     }
   }
@@ -154,7 +149,6 @@ class NotificationService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error marking notification as read:', error);
       return false;
     }
   }
@@ -173,7 +167,6 @@ class NotificationService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error acknowledging notification:', error);
       return false;
     }
   }
@@ -192,7 +185,6 @@ class NotificationService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error dismissing notification:', error);
       return false;
     }
   }
@@ -235,7 +227,6 @@ class NotificationService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error creating missing sheet notification:', error);
       return false;
     }
   }
@@ -278,7 +269,6 @@ class NotificationService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error creating absent student notification:', error);
       return false;
     }
   }
@@ -316,7 +306,6 @@ class NotificationService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error creating AI correction notification:', error);
       return false;
     }
   }
@@ -342,7 +331,6 @@ class NotificationService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error fetching notification counts:', error);
       return { unread: 0, urgent: 0, total: 0 };
     }
   }
@@ -361,7 +349,6 @@ class NotificationService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
       return false;
     }
   }
@@ -380,7 +367,6 @@ class NotificationService {
 
       return response.ok;
     } catch (error) {
-      console.error('Error deleting notification:', error);
       return false;
     }
   }

@@ -208,7 +208,6 @@ const QuestionPaperCreation = () => {
       const response = await teacherDashboardAPI.getAccess();
       setTeacherAccess(response.data);
     } catch (error) {
-      console.error('Error loading teacher access:', error);
       toast({
         title: "Error",
         description: "Failed to load teacher access",
@@ -226,7 +225,6 @@ const QuestionPaperCreation = () => {
       });
       setQuestionPapers(response.data || []);
     } catch (error) {
-      console.error('Error loading question papers:', error);
       toast({
         title: "Error",
         description: "Failed to load question papers",
@@ -246,7 +244,6 @@ const QuestionPaperCreation = () => {
       });
       setExams(response.data || []);
     } catch (error) {
-      console.error('Error loading exams:', error);
       toast({
         title: "Error",
         description: "Failed to load exams",
@@ -324,7 +321,6 @@ const QuestionPaperCreation = () => {
       
       await loadQuestionPapers();
     } catch (error) {
-      console.error('Error creating question paper:', error);
       toast({
         title: "Error",
         description: "Failed to create question paper",
@@ -344,7 +340,6 @@ const QuestionPaperCreation = () => {
       
       await loadQuestionPapers();
     } catch (error) {
-      console.error('Error generating questions:', error);
       toast({
         title: "Error",
         description: "Failed to generate questions",

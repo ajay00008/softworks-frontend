@@ -163,7 +163,6 @@ class AICorrectionService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error submitting for AI correction:', error);
       throw error;
     }
   }
@@ -186,7 +185,6 @@ class AICorrectionService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting correction status:', error);
       throw error;
     }
   }
@@ -209,7 +207,6 @@ class AICorrectionService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting correction results:', error);
       throw error;
     }
   }
@@ -235,7 +232,6 @@ class AICorrectionService {
       // Update learning data
       await this.updateLearningData(override);
     } catch (error) {
-      console.error('Error applying manual override:', error);
       throw error;
     }
   }
@@ -267,7 +263,6 @@ class AICorrectionService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting learning insights:', error);
       throw error;
     }
   }
@@ -293,7 +288,6 @@ class AICorrectionService {
       const result = await response.json();
       return result.language;
     } catch (error) {
-      console.error('Error detecting language:', error);
       // Fallback to English
       return this.supportedLanguages[0];
     }
@@ -323,7 +317,6 @@ class AICorrectionService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error validating answer sheet:', error);
       throw error;
     }
   }
@@ -366,7 +359,6 @@ class AICorrectionService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error generating correction report:', error);
       throw error;
     }
   }
@@ -395,7 +387,6 @@ class AICorrectionService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error starting batch processing:', error);
       throw error;
     }
   }
@@ -424,7 +415,6 @@ class AICorrectionService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting queue status:', error);
       throw error;
     }
   }
@@ -455,7 +445,6 @@ class AICorrectionService {
         body: JSON.stringify(learningData)
       });
     } catch (error) {
-      console.error('Error updating learning data:', error);
       // Don't throw error as this is not critical
     }
   }

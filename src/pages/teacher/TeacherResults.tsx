@@ -156,7 +156,6 @@ const TeacherResults = () => {
       const response = await teacherDashboardAPI.getAccess();
       setTeacherAccess(response.data);
     } catch (error) {
-      console.error('Error loading teacher access:', error);
       toast({
         title: "Error",
         description: "Failed to load teacher access",
@@ -173,7 +172,6 @@ const TeacherResults = () => {
       const response = await teacherDashboardAPI.getExamResults(selectedExam);
       setStudentResults(response.data || []);
     } catch (error) {
-      console.error('Error loading results:', error);
       toast({
         title: "Error",
         description: "Failed to load results",
@@ -191,7 +189,6 @@ const TeacherResults = () => {
       const response = await teacherDashboardAPI.getClassStats(selectedExam);
       setClassStats(response.data);
     } catch (error) {
-      console.error('Error loading class stats:', error);
       toast({
         title: "Error",
         description: "Failed to load class statistics",

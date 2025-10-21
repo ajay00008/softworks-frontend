@@ -126,7 +126,6 @@ export class PDFExportService {
       doc.save(filename);
 
     } catch (error) {
-      console.error('Error generating PDF:', error);
       throw new Error('Failed to generate PDF');
     }
   }
@@ -252,7 +251,6 @@ export class PDFExportService {
       doc.save(filename);
 
     } catch (error) {
-      console.error('Error generating PDF:', error);
       throw new Error('Failed to generate PDF');
     }
   }
@@ -339,7 +337,6 @@ export class PDFExportService {
       doc.save(filename);
 
     } catch (error) {
-      console.error('Error generating PDF:', error);
       throw new Error('Failed to generate PDF');
     }
   }

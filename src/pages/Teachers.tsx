@@ -154,23 +154,13 @@ const Teachers = () => {
   const loadTeachers = async () => {
     try {
       const response = await teachersAPI.getAll();
-      console.log('Teachers API response:', response);
-      console.log('Teachers data:', response.teachers);
-      
       // Log each teacher's assignments
       response.teachers.forEach((teacher, index) => {
-        console.log(`Teacher ${index + 1} (${teacher.name}):`, {
-          id: teacher.id,
-          subjects: teacher.subjects,
-          classes: teacher.classes,
-          subjectIds: teacher.subjectIds,
-          classIds: teacher.classIds
-        });
+        // Teacher data processing
       });
       
       setTeachers(response.teachers);
     } catch (error) {
-      console.error('Error loading teachers:', error);
       toast({
         title: "Error",
         description: "Failed to load teachers",
@@ -183,13 +173,9 @@ const Teachers = () => {
 
   const loadSubjects = async () => {
     try {
-      console.log('Loading subjects...');
       const response = await subjectsAPI.getAll();
-      console.log('Subjects API response:', response);
-      console.log('Subjects count:', response?.length);
       setSubjects(response || []);
     } catch (error) {
-      console.error('Error loading subjects:', error);
       toast({
         title: "Error",
         description: "Failed to load subjects",
@@ -200,11 +186,7 @@ const Teachers = () => {
 
   const loadClasses = async () => {
     try {
-      console.log('Loading classes...');
       const response = await classesAPI.getAll();
-      console.log('Classes API response:', response);
-      console.log('Classes count:', response?.length);
-      
       // Convert ClassMapping to Class format
       const classData = response?.map((cls: any) => ({
         id: cls._id || cls.id,
@@ -218,10 +200,8 @@ const Teachers = () => {
         updatedAt: cls.updatedAt || new Date().toISOString()
       })) || [];
       
-      console.log('Processed classes:', classData);
       setClasses(classData);
     } catch (error) {
-      console.error('Error loading classes:', error);
       toast({
         title: "Error",
         description: "Failed to load classes",
@@ -309,7 +289,6 @@ const Teachers = () => {
           updateData.experience = formData.experience;
         }
 
-
         // Update API
         const updatedTeacher = await teachersAPI.update(editTeacher.id, updateData);
 
@@ -333,22 +312,12 @@ const Teachers = () => {
           _id: "" as any,
         };
         
-        console.log('Creating teacher with payload:', createPayload);
-        console.log('Selected subjects:', createFormAssignments.selectedSubjects);
-        console.log('Selected classes:', createFormAssignments.selectedClasses);
-        console.log('Available subjects:', subjects.map(s => ({ id: s._id, name: s.name })));
-        console.log('Available classes:', classes.map(c => ({ id: c.id, name: c.name })));
-        
         // Check if class IDs look like valid ObjectIds (24 hex characters)
         const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
         const validClassIds = createFormAssignments.selectedClasses.filter(id => isValidObjectId(id));
-        console.log('Valid class IDs:', validClassIds);
-        console.log('Invalid class IDs:', createFormAssignments.selectedClasses.filter(id => !isValidObjectId(id)));
         
         const newTeacher = await teachersAPI.create(createPayload as any);
         
-        console.log('Backend response:', newTeacher);
-
         // Always reload teachers to get the complete data with assignments
         await loadTeachers();
 

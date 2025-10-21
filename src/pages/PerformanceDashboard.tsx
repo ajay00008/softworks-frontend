@@ -65,21 +65,16 @@ const PerformanceDashboard = () => {
         
         // Try to fetch real data from backend
         const analyticsData = await performanceAPI.getAnalytics();
-        console.log('Backend analytics data:', analyticsData);
-        
         // Transform backend data to match our component structure
         if (analyticsData && analyticsData.data) {
           setPerformanceData(analyticsData.data);
           setHasData(true);
-          console.log('✅ Using real backend data');
-        } else {
+          } else {
           // No data available from backend
-          console.log('⚠️ No data available from backend');
           setPerformanceData(emptyPerformanceData);
           setHasData(false);
         }
       } catch (error) {
-        console.error('Error loading performance data:', error);
         setError('Failed to load performance data');
         // No fallback data - show empty state
         setPerformanceData(emptyPerformanceData);

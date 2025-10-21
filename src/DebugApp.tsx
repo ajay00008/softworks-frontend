@@ -58,7 +58,7 @@ const DebugApp: React.FC = () => {
                 Go to Login
               </Button>
               <Button 
-                onClick={() => console.log('Debug button clicked')}
+                onClick={() => }
                 variant="outline"
               >
                 Test Console

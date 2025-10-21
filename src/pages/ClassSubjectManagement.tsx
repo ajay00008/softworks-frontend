@@ -37,6 +37,7 @@ import {
   UpdateSubjectRequest
 } from '@/services/api';
 import ReferenceBookManager from '@/components/ReferenceBookManager';
+import QuestionPaperTemplateManager from '@/components/QuestionPaperTemplateManager';
 
 const ClassSubjectManagement = () => {
   const [activeTab, setActiveTab] = useState('classes');
@@ -84,7 +85,6 @@ const ClassSubjectManagement = () => {
 
   // Reload data when filters change
   useEffect(() => {
-    console.log('Filters changed:', { searchTerm, selectedLevel, selectedCategory, selectedAcademicYear });
     loadData();
   }, [searchTerm, selectedLevel, selectedCategory, selectedAcademicYear]);
 
@@ -92,16 +92,12 @@ const ClassSubjectManagement = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('Loading data with filters:', { searchTerm, selectedLevel, selectedCategory, selectedAcademicYear });
-      
       await Promise.all([
         loadClasses(),
         loadSubjects()
       ]);
       
-      console.log('Data loaded successfully');
-    } catch (error) {
-      console.error('Error loading data:', error);
+      } catch (error) {
       setError('Failed to load data');
     } finally {
       setIsLoading(false);
@@ -110,14 +106,11 @@ const ClassSubjectManagement = () => {
 
   const loadClasses = async () => {
     try {
-      console.log('Loading classes with filters:', { searchTerm, selectedLevel, selectedAcademicYear });
       const response = await classManagementAPI.getAll({
         search: searchTerm,
         level: selectedLevel !== 'all' ? parseInt(selectedLevel) : undefined,
         // academicYear filter is not supported by backend, so we'll filter on frontend
       });
-      console.log('Classes API response:', response);
-      
       // Apply academicYear filter on frontend since backend doesn't support it
       let filteredClasses = response.classes || [];
       if (selectedAcademicYear !== 'all') {
@@ -125,33 +118,25 @@ const ClassSubjectManagement = () => {
         const hasAcademicYear = filteredClasses.some(cls => cls.academicYear !== undefined);
         if (hasAcademicYear) {
           filteredClasses = filteredClasses.filter(cls => cls.academicYear === selectedAcademicYear);
-          console.log('Applied academicYear filter:', { selectedAcademicYear, filteredCount: filteredClasses.length });
-        } else {
-          console.log('Classes do not have academicYear field, showing all classes');
-        }
+          } else {
+          }
       }
       
       setClasses(filteredClasses);
-      console.log('Classes loaded successfully:', filteredClasses.length);
-    } catch (error) {
-      console.error('Error loading classes:', error);
+      } catch (error) {
       setClasses([]);
     }
   };
 
   const loadSubjects = async () => {
     try {
-      console.log('Loading subjects with filters:', { searchTerm, selectedCategory, selectedLevel });
       const response = await subjectManagementAPI.getAll({
         search: searchTerm,
         category: selectedCategory !== 'all' ? selectedCategory : undefined,
         level: selectedLevel !== 'all' ? parseInt(selectedLevel) : undefined,
       });
-      console.log('Subjects API response:', response);
       setSubjects(response.subjects || []);
-      console.log('Subjects loaded successfully:', (response.subjects || []).length);
     } catch (error) {
-      console.error('Error loading subjects:', error);
       setSubjects([]);
     }
   };
@@ -161,7 +146,6 @@ const ClassSubjectManagement = () => {
     try {
       setIsLoading(true);
       const newClass = await classManagementAPI.create(classForm);
-      console.log(newClass,"newClass");
       setClasses(prev => [newClass, ...prev]);
       setShowClassDialog(false);
       resetClassForm();
@@ -170,7 +154,6 @@ const ClassSubjectManagement = () => {
         description: "Class has been successfully created",
       });
     } catch (error) {
-      console.error('Error creating class:', error);
       toast({
         title: "Error",
         description: "Failed to create class",
@@ -196,7 +179,6 @@ const ClassSubjectManagement = () => {
         description: "Class has been successfully updated",
       });
     } catch (error) {
-      console.error('Error updating class:', error);
       toast({
         title: "Error",
         description: "Failed to update class",
@@ -216,7 +198,6 @@ const ClassSubjectManagement = () => {
         description: "Class has been successfully deleted",
       });
     } catch (error) {
-      console.error('Error deleting class:', error);
       toast({
         title: "Error",
         description: "Failed to delete class",
@@ -273,7 +254,6 @@ const ClassSubjectManagement = () => {
     try {
       setIsLoading(true);
       const newSubject = await subjectManagementAPI.create(subjectForm);
-      console.log(newSubject,"newSubject")
       setSubjects(prev => [newSubject, ...prev]);
       setShowSubjectDialog(false);
       resetSubjectForm();
@@ -282,7 +262,6 @@ const ClassSubjectManagement = () => {
         description: "Subject has been successfully created",
       });
     } catch (error) {
-      console.error('Error creating subject:', error);
       toast({
         title: "Error",
         description: "Failed to create subject",
@@ -308,7 +287,6 @@ const ClassSubjectManagement = () => {
         description: "Subject has been successfully updated",
       });
     } catch (error) {
-      console.error('Error updating subject:', error);
       toast({
         title: "Error",
         description: "Failed to update subject",
@@ -328,7 +306,6 @@ const ClassSubjectManagement = () => {
         description: "Subject has been successfully deleted",
       });
     } catch (error) {
-      console.error('Error deleting subject:', error);
       toast({
         title: "Error",
         description: "Failed to delete subject",
@@ -376,8 +353,7 @@ const ClassSubjectManagement = () => {
     });
     setEditingSubject(null);
   };
-console.log(classes,'classes')
-  // Backend filtering is now handled in loadClasses function
+// Backend filtering is now handled in loadClasses function
   // No need for frontend filtering since we're using backend filters
 
   // Backend filtering is now handled in loadSubjects function
@@ -430,7 +406,7 @@ console.log(classes,'classes')
       {/* Filters */}
       <Card>
         <CardContent className="p-6">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <Label>Search</Label>
               <div className="relative">
@@ -549,46 +525,51 @@ console.log(classes,'classes')
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
                 {classes?.map((cls) => (
-                  <Card key={cls.id} className="border-l-4 border-l-primary">
-                    <CardContent className="p-6">
+                  <Card key={cls.id} className="border-l-4 border-l-primary w-full">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="space-y-4">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-2">
-                            <h3 className="text-lg font-semibold">{cls.displayName}</h3>
-                            <div className="flex items-center space-x-2">
-                              <Badge variant="outline">Name: {cls.name}</Badge>
-                              <Badge variant="outline">Level: {cls.level}</Badge>
-                              <Badge variant="outline">Section: {cls.section}</Badge>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                          <div className="space-y-2 flex-1">
+                            <h3 className="text-lg font-semibold truncate">{cls.displayName}</h3>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant="outline" className="text-xs">Name: {cls.name}</Badge>
+                              <Badge variant="outline" className="text-xs">Level: {cls.level}</Badge>
+                              <Badge variant="outline" className="text-xs">Section: {cls.section}</Badge>
                             </div>
                           </div>
-                          {getStatusBadge(cls.isActive)}
+                          <div className="flex-shrink-0">
+                            {getStatusBadge(cls.isActive)}
+                          </div>
                         </div>
                         
                         {cls.description && (
-                          <p className="text-sm text-muted-foreground">Description: {cls.description}</p>
+                          <p className="text-sm text-muted-foreground break-words">Description: {cls.description}</p>
                         )}
                         
-                        <div className="flex justify-between items-center pt-4 border-t">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 pt-4 border-t">
                           <div className="text-sm text-muted-foreground">
-                            CreatedAt:  {new Date(cls.createdAt).toLocaleDateString()}
+                            CreatedAt: {new Date(cls.createdAt).toLocaleDateString()}
                           </div>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditClass(cls)}
+                              className="flex-1 sm:flex-none"
                             >
-                              <Edit className="w-4 h-4" />
+                              <Edit className="w-4 h-4 mr-1" />
+                              <span className="sm:hidden">Edit</span>
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleDeleteClass(cls._id)}
-                              className="text-destructive hover:text-destructive"
+                              className="text-destructive hover:text-destructive flex-1 sm:flex-none"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              <span className="sm:hidden">Delete</span>
                             </Button>
                           </div>
                         </div>
@@ -627,21 +608,23 @@ console.log(classes,'classes')
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
                 {subjects?.map((subject) => (
-                  <Card key={subject.id} className="border-l-4 border-l-primary">
-                    <CardContent className="p-6">
+                  <Card key={subject.id} className="border-l-4 border-l-primary w-full">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="space-y-4">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-2">
-                            <h3 className="text-lg font-semibold">Name: {subject.name}</h3>
-                            <div className="flex items-center space-x-2">
-                              <Badge variant="outline">Code: {subject.code}</Badge>
-                              <Badge className={getCategoryBadge(subject.category)}>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                          <div className="space-y-2 flex-1">
+                            <h3 className="text-lg font-semibold truncate">Name: {subject.name}</h3>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant="outline" className="text-xs">Code: {subject.code}</Badge>
+                              <Badge className={`${getCategoryBadge(subject.category)} text-xs`}>
                                 Category: {subject.category}
                               </Badge>
-                              {getStatusBadge(subject.isActive)}
                             </div>
+                          </div>
+                          <div className="flex-shrink-0">
+                            {getStatusBadge(subject.isActive)}
                           </div>
                         </div>
                         
@@ -650,23 +633,25 @@ console.log(classes,'classes')
                             <Tag className="w-4 h-4 text-muted-foreground" />
                             <span className="text-sm text-muted-foreground">Short Name: {subject.shortName}</span>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Hash className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">
-                              Classes: {subject.classes && subject.classes.length > 0 ? 
-                                subject.classes.map((classData: any) => classData.displayName).join(', ') : 
-                                subject.classIds && subject.classIds.length > 0 ? 
-                                  subject.classIds.map((classData: any) => {
-                                    // Handle both populated class objects and class IDs
-                                    if (typeof classData === 'object' && classData.displayName) {
-                                      return classData.displayName;
-                                    } else {
-                                      const cls = classes.find(c => c._id === classData);
-                                      return cls ? cls.displayName : 'Unknown';
-                                    }
-                                  }).join(', ') : 'No classes assigned'
-                              }
-                            </span>
+                          <div className="flex items-start space-x-2">
+                            <Hash className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm text-muted-foreground block">
+                                Classes: {subject.classes && subject.classes.length > 0 ? 
+                                  subject.classes.map((classData: any) => classData.displayName).join(', ') : 
+                                  subject.classIds && subject.classIds.length > 0 ? 
+                                    subject.classIds.map((classData: any) => {
+                                      // Handle both populated class objects and class IDs
+                                      if (typeof classData === 'object' && classData.displayName) {
+                                        return classData.displayName;
+                                      } else {
+                                        const cls = classes.find(c => c._id === classData);
+                                        return cls ? cls.displayName : 'Unknown';
+                                      }
+                                    }).join(', ') : 'No classes assigned'
+                                }
+                              </span>
+                            </div>
                           </div>
                           {subject.color && (
                             <div className="flex items-center space-x-2">
@@ -680,7 +665,7 @@ console.log(classes,'classes')
                         </div>
                         
                         {subject.description && (
-                          <p className="text-sm text-muted-foreground">Description: {subject.description}</p>
+                          <p className="text-sm text-muted-foreground break-words">Description: {subject.description}</p>
                         )}
                         
                         {/* Reference Book Section */}
@@ -692,25 +677,38 @@ console.log(classes,'classes')
                           />
                         </div>
                         
-                        <div className="flex justify-between items-center pt-4 border-t">
+                        {/* Question Paper Template Section */}
+                        <div className="pt-3 border-t">
+                          <QuestionPaperTemplateManager
+                            subjectId={subject._id}
+                            subjectName={subject.name}
+                            templates={[]} // TODO: Load templates from API
+                            onUpdate={loadSubjects}
+                          />
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 pt-4 border-t">
                           <div className="text-sm text-muted-foreground">
                             CreatedAt: {new Date(subject.createdAt).toLocaleDateString()}
                           </div>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditSubject(subject)}
+                              className="flex-1 sm:flex-none"
                             > 
-                              <Edit className="w-4 h-4" />
+                              <Edit className="w-4 h-4 mr-1" />
+                              <span className="sm:hidden">Edit</span>
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                                onClick={() => handleDeleteSubject(subject._id)}
-                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteSubject(subject._id)}
+                              className="text-destructive hover:text-destructive flex-1 sm:flex-none"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              <span className="sm:hidden">Delete</span>
                             </Button>
                           </div>
                         </div>
@@ -741,7 +739,7 @@ console.log(classes,'classes')
           </DialogHeader>
 
           <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Class Name *</Label>
                 <Input
@@ -760,7 +758,7 @@ console.log(classes,'classes')
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
                 <Label>Level *</Label>
                 <Select 
@@ -834,7 +832,7 @@ console.log(classes,'classes')
           </DialogHeader>
 
           <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Subject Code *</Label>
                 <Input
@@ -853,7 +851,7 @@ console.log(classes,'classes')
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Short Name *</Label>
                 <Input

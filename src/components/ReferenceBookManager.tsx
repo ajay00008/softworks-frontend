@@ -79,7 +79,6 @@ export default function ReferenceBookManager({
       setUploadFile(null);
       onUpdate();
     } catch (error) {
-      console.error('Error uploading reference book:', error);
       toast({
         title: "Error",
         description: "Failed to upload reference book",
@@ -103,7 +102,6 @@ export default function ReferenceBookManager({
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
-      console.error('Error downloading reference book:', error);
       toast({
         title: "Error",
         description: "Failed to download reference book",
@@ -125,7 +123,6 @@ export default function ReferenceBookManager({
       setIsDeleteDialogOpen(false);
       onUpdate();
     } catch (error) {
-      console.error('Error deleting reference book:', error);
       toast({
         title: "Error",
         description: "Failed to delete reference book",
@@ -222,10 +219,10 @@ export default function ReferenceBookManager({
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="flex items-center space-x-2">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">No Reference Book</span>
+            <BookOpen className="h-3 w-3 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">No Reference Book</span>
             <Badge variant="outline" className="text-xs">
               <AlertCircle className="h-3 w-3 mr-1" />
               Not Uploaded
@@ -234,9 +231,9 @@ export default function ReferenceBookManager({
           
           <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full">
+              <Button variant="outline" size="sm" className="w-full h-6">
                 <Upload className="h-3 w-3 mr-1" />
-                Upload Reference Book
+                <span className="text-xs">Upload Reference Book</span>
               </Button>
             </DialogTrigger>
             <DialogContent>

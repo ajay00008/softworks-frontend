@@ -170,7 +170,6 @@ export default function QuestionEditor({
   });
 
   useEffect(() => {
-    console.log("QuestionEditor useEffect - isOpen:", isOpen, "questionPaper:", questionPaper);
     if (isOpen && questionPaper) {
       loadQuestions();
     }
@@ -180,12 +179,9 @@ export default function QuestionEditor({
     try {
       setLoading(true);
       const questionPaperId = questionPaper._id || questionPaper.id;
-      console.log("Loading questions for question paper:", questionPaperId);
       const questions = await questionPaperAPI.getQuestions(questionPaperId);
-      console.log("Loaded questions:", questions);
       setQuestions(questions || []);
     } catch (error) {
-      console.error("Error loading questions:", error);
       toast({
         title: "Error",
         description: "Failed to load questions",
@@ -241,7 +237,6 @@ export default function QuestionEditor({
       setIsEditing(false);
       setEditingQuestion(null);
     } catch (error) {
-      console.error("Error updating question:", error);
       toast({
         title: "Error",
         description: "Failed to update question",
@@ -264,7 +259,6 @@ export default function QuestionEditor({
         description: "Question deleted successfully",
       });
     } catch (error) {
-      console.error("Error deleting question:", error);
       toast({
         title: "Error",
         description: "Failed to delete question",

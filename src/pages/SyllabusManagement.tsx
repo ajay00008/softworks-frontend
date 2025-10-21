@@ -63,7 +63,6 @@ const SyllabusManagement = () => {
         // Load syllabi regardless of classes/subjects success
         await loadSyllabi();
       } catch (error) {
-        console.error('Error initializing data:', error);
         // Still try to load syllabi even if classes/subjects fail
         await loadSyllabi();
       }
@@ -76,7 +75,6 @@ const SyllabusManagement = () => {
   useEffect(() => {
     const fallbackTimeout = setTimeout(() => {
       if (isLoading) {
-        console.warn('Loading timeout reached, stopping loading state');
         setIsLoading(false);
         if (syllabi.length === 0) {
           setError('Loading timeout - please refresh the page');
@@ -106,8 +104,6 @@ const SyllabusManagement = () => {
         }),
         timeoutPromise
       ]) as any;
-      console.log(response,'responseSyllabi');
-      
       // Handle the API response structure: { success: true, data: [...], pagination: {...} }
       if (response.success && response.data) {
         setSyllabi(response.data);
@@ -118,7 +114,6 @@ const SyllabusManagement = () => {
         setSyllabi([]);
       }
     } catch (error) {
-      console.error('Error loading syllabi:', error);
       setError('Failed to load syllabi');
       setSyllabi([]);
     } finally {
@@ -131,7 +126,6 @@ const SyllabusManagement = () => {
       const response = await classManagementAPI.getAll();
       setClasses(Array.isArray(response) ? response : response.classes || []);
     } catch (error) {
-      console.error('Error loading classes:', error);
       setClasses([]);
     }
   };
@@ -141,7 +135,6 @@ const SyllabusManagement = () => {
       const response = await subjectManagementAPI.getAll();
       setSubjects(Array.isArray(response) ? response : response.subjects || []);
     } catch (error) {
-      console.error('Error loading subjects:', error);
       setSubjects([]);
     }
   };
@@ -234,7 +227,6 @@ const SyllabusManagement = () => {
       description: "Syllabus has been removed",
     });
     } catch (error) {
-      console.error('Error deleting syllabus:', error);
       toast({
         title: "Error",
         description: "Failed to delete syllabus",
@@ -267,11 +259,7 @@ const SyllabusManagement = () => {
                           selectedStatus === 'inactive' ? (syllabus as any).isActive === false : true);
 
     // Debug logging
-    console.log('Filtering syllabus:', {
-      title: syllabus.title,
-      subjectId: syllabus.subjectId,
-      classId: syllabus.classId,
-      isActive: (syllabus as any).isActive,
+    .isActive,
       selectedSubject,
       selectedClass,
       selectedStatus,
@@ -284,10 +272,6 @@ const SyllabusManagement = () => {
 
     return matchesSearch && matchesSubject && matchesClass && matchesStatus;
   });
-  console.log('Filter values:', { searchTerm, selectedSubject, selectedClass, selectedStatus });
-  console.log('Total syllabi:', syllabi.length);
-  console.log('Filtered syllabi:', filteredSyllabi.length);
-
   // Pagination logic
   const totalPages = Math.ceil(filteredSyllabi.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -714,7 +698,6 @@ const SyllabusManagement = () => {
                 rows={3}
               />
             </div>
-
 
             <div className="space-y-2">
               <Label>Upload File *</Label>

@@ -44,7 +44,6 @@ class DataMigrationService {
       await studentsAPI.getAll({ limit: 1 });
       return true;
     } catch (error) {
-      console.error('Backend connection failed:', error);
       return false;
     }
   }
@@ -56,7 +55,6 @@ class DataMigrationService {
     try {
       return authAPI.getCurrentUser();
     } catch (error) {
-      console.error('Failed to get current user:', error);
       return null;
     }
   }
@@ -69,7 +67,6 @@ class DataMigrationService {
       const response = await studentsAPI.getAll({ limit: 1000 }); // Get all students
       return response.students;
     } catch (error) {
-      console.error('Failed to fetch students:', error);
       throw error;
     }
   }
@@ -82,7 +79,6 @@ class DataMigrationService {
       const response = await teachersAPI.getAll({ limit: 1000 }); // Get all teachers
       return response.teachers;
     } catch (error) {
-      console.error('Failed to fetch teachers:', error);
       throw error;
     }
   }
@@ -172,7 +168,7 @@ class DataMigrationService {
           type: 'student',
           id: student.id,
           name: student.name,
-          error: `Validation failed: ${validation.issues.join(', ')}`
+          error: 'Validation failed: ' + validation.issues.join(', ')
         });
         this.stats.students.errors++;
         return false;
@@ -198,12 +194,10 @@ class DataMigrationService {
         isActive: student.isActive
       });
 
-      console.log(`Updated student: ${student.name} (${student.id})`);
       this.stats.students.updated++;
       return true;
 
     } catch (error) {
-      console.error(`Failed to update student ${student.name}:`, error);
       this.errors.push({
         type: 'student',
         id: student.id,
@@ -226,7 +220,7 @@ class DataMigrationService {
           type: 'teacher',
           id: teacher.id,
           name: teacher.name,
-          error: `Validation failed: ${validation.issues.join(', ')}`
+          error: 'Validation failed: ' + validation.issues.join(', ')
         });
         this.stats.teachers.errors++;
         return false;
@@ -252,12 +246,10 @@ class DataMigrationService {
         isActive: teacher.isActive
       });
 
-      console.log(`Updated teacher: ${teacher.name} (${teacher.id})`);
       this.stats.teachers.updated++;
       return true;
 
     } catch (error) {
-      console.error(`Failed to update teacher ${teacher.name}:`, error);
       this.errors.push({
         type: 'teacher',
         id: teacher.id,
@@ -306,8 +298,6 @@ class DataMigrationService {
    * Run complete data migration
    */
   async runMigration(): Promise<{ stats: MigrationStats; errors: MigrationError[] }> {
-    console.log('Starting data migration...');
-    
     // Reset stats
     this.stats = {
       students: { total: 0, updated: 0, errors: 0, skipped: 0 },
@@ -328,31 +318,19 @@ class DataMigrationService {
         throw new Error('Cannot get current user. Please login again.');
       }
 
-      console.log(`Running migration as: ${currentUser.name} (${currentUser.role})`);
-
       // Fetch and update students
-      console.log('Fetching students...');
       const students = await this.fetchAllStudents();
       this.stats.students.total = students.length;
-      console.log(`Found ${students.length} students`);
-
       for (const student of students) {
         await this.updateStudent(student);
       }
 
       // Fetch and update teachers
-      console.log('Fetching teachers...');
       const teachers = await this.fetchAllTeachers();
       this.stats.teachers.total = teachers.length;
-      console.log(`Found ${teachers.length} teachers`);
-
       for (const teacher of teachers) {
         await this.updateTeacher(teacher);
       }
-
-      console.log('Migration completed!');
-      console.log('Stats:', this.stats);
-      console.log('Errors:', this.errors);
 
       return {
         stats: this.stats,
@@ -360,7 +338,6 @@ class DataMigrationService {
       };
 
     } catch (error) {
-      console.error('Migration failed:', error);
       throw error;
     }
   }

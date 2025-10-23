@@ -110,7 +110,10 @@ export interface ApiResponse<T> {
 }
 
 export interface ApiError {
-  error: string;
+  error: {
+    message: string;
+    stack?: string;
+  };
   details?: string;
 }
 
@@ -177,8 +180,8 @@ export const authAPI = {
       });
 
       if (!response.ok) {
-        const errorData: ApiError = await response.json().catch(() => ({ error: 'Login failed' }));
-        throw new Error(errorData.error || 'Login failed');
+        const errorData: ApiError = await response.json().catch(() => ({ error: { message: 'Login failed' } }));
+        throw new Error(errorData.error?.message || (typeof errorData.error === 'string' ? errorData.error : 'Login failed'));
       }
 
       const data: LoginResponse = await response.json();
@@ -208,40 +211,74 @@ export const authAPI = {
 
 // Helper function to handle API responses
 const handleApiResponse = async <T>(response: Response): Promise<T> => {
+  console.log('API Response Status:', response.status);
+  console.log('API Response Headers:', Object.fromEntries(response.headers.entries()));
+  
   if (!response.ok) {
-    const errorData: ApiError = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    
+    try {
+      const errorData: ApiError = await response.json();
+      console.log('API Error Data:', errorData);
+      errorMessage = errorData.error?.message || (typeof errorData.error === 'string' ? errorData.error : errorMessage);
+    } catch (jsonError) {
+      console.log('Failed to parse error response as JSON:', jsonError);
+      // Try to get text response
+      try {
+        const textResponse = await response.text();
+        console.log('API Error Text Response:', textResponse);
+        errorMessage = textResponse || errorMessage;
+      } catch (textError) {
+        console.log('Failed to get text response:', textError);
+      }
+    }
+    
+    console.log('Throwing error:', errorMessage);
+    throw new Error(errorMessage);
   }
   
   const data = await response.json();
+  console.log('handleApiResponse - Raw data:', data);
   
   if (data.success !== undefined) {
+    console.log('handleApiResponse - Success field found:', data.success);
     if (!data.success) {
       throw new Error('API request failed');
     }
     // Handle different response structures
     if (data.data) {
+      console.log('handleApiResponse - Returning data.data:', data.data);
       return data as T;
     } else if (data.question) {
+      console.log('handleApiResponse - Returning data.question:', data.question);
       return data.question;
     } else if (data.questions) {
+      console.log('handleApiResponse - Returning data.questions:', data.questions);
       return data as T;
     } else if (data.student) {
+      console.log('handleApiResponse - Returning data.student:', data.student);
       return data.student;
     } else if (data.teacher) {
+      console.log('handleApiResponse - Returning data.teacher:', data.teacher);
       return data.teacher;
     } else if (data.class) {
+      console.log('handleApiResponse - Returning data.class:', data.class);
       return data.class;
     } else if (data.subject) {
+      console.log('handleApiResponse - Returning data.subject:', data.subject);
       return data.subject;
     } else if (data.exam) {
+      console.log('handleApiResponse - Returning data.exam:', data.exam);
       return data.exam;
     } else {
+      console.log('handleApiResponse - Returning data as T:', data);
       return data as T;
     }
   } else if (Array.isArray(data)) {
+    console.log('handleApiResponse - Returning array data:', data);
     return data as T;
   } else {
+    console.log('handleApiResponse - Returning data as T (fallback):', data);
     return data as T;
   }
 };
@@ -931,16 +968,83 @@ export const subjectManagementAPI = {
   // Upload reference book
   uploadReferenceBook: async (id: string, file: File): Promise<Subject> => {
     try {
-      const formData = new FormData();
-      formData.append('referenceBook', file);
-
-      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book`, {
-        method: 'POST',
-        headers: getAuthHeadersForUpload(),
-        body: formData,
+      console.log('API - Converting file to base64:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
       });
-      return await handleApiResponse<Subject>(response);
+      
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove the data URL prefix (data:application/pdf;base64,)
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      
+      console.log('API - Base64 conversion completed, length:', base64.length);
+      
+      const requestBody = {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        fileData: base64
+      };
+      
+      console.log('API - Request body prepared:', {
+        fileName: requestBody.fileName,
+        fileSize: requestBody.fileSize,
+        fileType: requestBody.fileType,
+        dataLength: requestBody.fileData.length
+      });
+
+      const headers = getAuthHeaders();
+      console.log('API - Request headers:', headers);
+      console.log('API - Request URL:', `${API_BASE_URL}/admin/subjects/${id}/reference-book-base64`);
+      
+      // Test if backend is accessible
+      try {
+        const testResponse = await fetch(`${API_BASE_URL}/health`, { method: 'GET' });
+        console.log('Backend health check:', testResponse.status);
+      } catch (healthError) {
+        console.log('Backend health check failed:', healthError);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book-base64`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestBody),
+      });
+      
+      console.log('API - Response status:', response.status);
+      console.log('API - Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        let errorText = '';
+        try {
+          errorText = await response.text();
+          console.log('API - Error response text:', errorText);
+        } catch (e) {
+          console.log('API - Could not read error response:', e);
+        }
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
+      }
+      
+      // Debug: Log the raw response before processing
+      const responseClone = response.clone();
+      const rawResponse = await responseClone.text();
+      console.log('API - Raw response:', rawResponse);
+      
+      const result = await handleApiResponse<Subject>(response);
+      console.log('API - Processed result:', result);
+      return result;
     } catch (error) {
+      console.error('API - Upload error:', error);
       throw error;
     }
   },
@@ -1358,7 +1462,7 @@ export interface QuestionPaper {
     twoMark: number;
     threeMark: number;
     fiveMark: number;
-    totalMarks: number;
+    totalMarks?: number;
   };
   bloomsDistribution: {
     level: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYZE' | 'EVALUATE' | 'CREATE';
@@ -1406,7 +1510,7 @@ export interface CreateQuestionPaperRequest {
     twoMark: number;
     threeMark: number;
     fiveMark: number;
-    totalMarks: number;
+    totalMarks?: number; // Optional, will be calculated automatically
   };
   bloomsDistribution: {
     level: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYZE' | 'EVALUATE' | 'CREATE';
@@ -1527,7 +1631,11 @@ export const examsAPI = {
         method: 'GET',
         headers: getAuthHeaders(),
       });
-      return await handleApiResponse<{ exams: Exam[]; pagination: any }>(response);
+      const result = await handleApiResponse<{ success: boolean; data: Exam[]; pagination: any }>(response);
+      return {
+        exams: result.data || [],
+        pagination: result.pagination || {}
+      };
     } catch (error) {
       throw error;
     }

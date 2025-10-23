@@ -13,8 +13,8 @@ const getAuthHeaders = () => {
 // Helper function to handle API responses
 const handleApiResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+    throw new Error(errorData.error?.message || errorData.error || `HTTP error! status: ${response.status}`);
   }
   return response.json();
 };

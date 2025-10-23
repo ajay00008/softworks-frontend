@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -18,7 +18,7 @@ import {
   Plus,
   Eye
 } from 'lucide-react';
-import { questionPaperTemplateAPI, authAPI } from '@/services/api';
+import { questionPaperTemplateAPI, authAPI, classManagementAPI } from '@/services/api';
 import { QuestionPaperTemplate, CreateTemplateRequest } from '@/types/question-paper-template';
 
 interface QuestionPaperTemplateManagerProps {
@@ -41,6 +41,8 @@ export default function QuestionPaperTemplateManager({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
   const { toast } = useToast();
 
   // Upload form state
@@ -51,6 +53,28 @@ export default function QuestionPaperTemplateManager({
     classId: '',
     language: 'ENGLISH'
   });
+
+  // Load classes on component mount
+  useEffect(() => {
+    loadClasses();
+  }, []);
+
+  const loadClasses = async () => {
+    try {
+      setIsLoadingClasses(true);
+      const response = await classManagementAPI.getAll();
+      setClasses(Array.isArray(response) ? response : response.classes || []);
+    } catch (error) {
+      console.error('Error loading classes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load classes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingClasses(false);
+    }
+  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -271,11 +295,17 @@ export default function QuestionPaperTemplateManager({
                     <SelectValue placeholder="Select class" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* TODO: Load classes from API */}
-                    <SelectItem value="class1">Class 10A</SelectItem>
-                    <SelectItem value="class2">Class 10B</SelectItem>
-                    <SelectItem value="class3">Class 11A</SelectItem>
-                    <SelectItem value="class4">Class 12A</SelectItem>
+                    {isLoadingClasses ? (
+                      <SelectItem value="" disabled>Loading classes...</SelectItem>
+                    ) : classes.length === 0 ? (
+                      <SelectItem value="" disabled>No classes available</SelectItem>
+                    ) : (
+                      classes.map((cls) => (
+                        <SelectItem key={cls._id || cls.id} value={cls._id || cls.id}>
+                          {cls.displayName || cls.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

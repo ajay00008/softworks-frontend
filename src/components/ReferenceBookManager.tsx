@@ -42,8 +42,18 @@ export default function ReferenceBookManager({
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    console.log('File selected:', file);
+    
     if (file) {
+      console.log('File details:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified
+      });
+      
       if (file.type !== 'application/pdf') {
+        console.log('Invalid file type:', file.type);
         toast({
           title: "Invalid file type",
           description: "Please select a PDF file",
@@ -53,6 +63,7 @@ export default function ReferenceBookManager({
       }
       
       if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        console.log('File too large:', file.size);
         toast({
           title: "File too large",
           description: "Please select a file smaller than 50MB",
@@ -61,27 +72,44 @@ export default function ReferenceBookManager({
         return;
       }
       
+      console.log('File validation passed, setting upload file');
       setUploadFile(file);
+    } else {
+      console.log('No file selected');
     }
   };
 
   const handleUpload = async () => {
     if (!uploadFile) return;
     
+    console.log('Uploading file:', {
+      name: uploadFile.name,
+      size: uploadFile.size,
+      type: uploadFile.type,
+      lastModified: uploadFile.lastModified
+    });
+    
     try {
       setIsUploading(true);
-      await subjectManagementAPI.uploadReferenceBook(subjectId, uploadFile);
+      console.log('ReferenceBookManager - Starting upload for subjectId:', subjectId);
+      const result = await subjectManagementAPI.uploadReferenceBook(subjectId, uploadFile);
+      console.log('ReferenceBookManager - Upload result:', result);
       toast({
         title: "Success",
         description: "Reference book uploaded successfully",
       });
       setIsUploadDialogOpen(false);
       setUploadFile(null);
+      console.log('ReferenceBookManager - Calling onUpdate()');
       onUpdate();
     } catch (error) {
+      console.error('Upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload reference book";
+      console.log('Error message:', errorMessage);
+      
       toast({
-        title: "Error",
-        description: "Failed to upload reference book",
+        title: "Upload Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -102,9 +130,10 @@ export default function ReferenceBookManager({
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
+      console.error('Download error:', error);
       toast({
         title: "Error",
-        description: "Failed to download reference book",
+        description: error instanceof Error ? error.message : "Failed to download reference book",
         variant: "destructive",
       });
     } finally {
@@ -123,9 +152,10 @@ export default function ReferenceBookManager({
       setIsDeleteDialogOpen(false);
       onUpdate();
     } catch (error) {
+      console.error('Delete error:', error);
       toast({
         title: "Error",
-        description: "Failed to delete reference book",
+        description: error instanceof Error ? error.message : "Failed to delete reference book",
         variant: "destructive",
       });
     } finally {

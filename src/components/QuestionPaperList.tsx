@@ -29,7 +29,7 @@ import {
   User,
   BookOpen,
 } from 'lucide-react';
-import { questionPaperAPI, QuestionPaper } from '@/services/questionPaperAPI';
+import { questionPaperAPI, QuestionPaper, examsAPI } from '@/services/questionPaperAPI';
 
 interface QuestionPaperListProps {
   onEdit: (id: string) => void;
@@ -43,11 +43,23 @@ export default function QuestionPaperList({ onEdit, onCreateNew }: QuestionPaper
   const [selectedClass, setSelectedClass] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [exams, setExams] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     loadQuestionPapers();
+    loadExams();
   }, [currentPage, selectedClass]);
+
+  const loadExams = async () => {
+    try {
+      const response = await examsAPI.getAll();
+      setExams(response?.data || response?.exams || []);
+    } catch (error) {
+      console.error('Error loading exams:', error);
+      setExams([]);
+    }
+  };
 
   const loadQuestionPapers = async () => {
     try {
@@ -136,8 +148,19 @@ export default function QuestionPaperList({ onEdit, onCreateNew }: QuestionPaper
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Question Papers</h1>
           <p className="text-gray-600">Manage your question papers</p>
+          {exams.length === 0 && (
+            <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-amber-800 text-sm">
+                <strong>Note:</strong> No exams are available. Please create an exam first before creating question papers.
+              </p>
+            </div>
+          )}
         </div>
-        <Button onClick={onCreateNew}>
+        <Button 
+          onClick={onCreateNew}
+          disabled={exams.length === 0}
+          title={exams.length === 0 ? "No exams available. Please create an exam first." : ""}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Create New
         </Button>

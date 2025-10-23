@@ -28,7 +28,7 @@ import {
   FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Exam, CreateExamRequest, examsAPI, subjectManagementAPI, classManagementAPI } from '@/services/api';
+import { Exam, CreateExamRequest, examsAPI, subjectManagementAPI, classManagementAPI, syllabusAPI } from '@/services/api';
 
 export default function ExamManagement() {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -40,11 +40,12 @@ export default function ExamManagement() {
   const [selectedClass, setSelectedClass] = useState('');
   const [subjects, setSubjects] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
+  const [syllabi, setSyllabi] = useState<any[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
 
   const [formData, setFormData] = useState<CreateExamRequest>({
@@ -55,7 +56,7 @@ export default function ExamManagement() {
     classId: '',
     adminId: '', // Will be set from current user if not provided
     duration: 60,
-    scheduledDate: '',
+    scheduledDate: new Date().toISOString().split('T')[0], // Set today's date as default
     endDate: '',
     instructions: '',
     allowLateSubmission: false,
@@ -72,6 +73,20 @@ export default function ExamManagement() {
   const filteredSubjects = formData.classId 
     ? subjects.filter(subject => subject.classIds?.includes(formData.classId))
     : [];
+
+  // Check if reference book exists for a subject
+  const hasReferenceBookForSubject = (subjectId: string) => {
+    const subject = subjects.find(s => s._id === subjectId || s.id === subjectId);
+    return subject && subject.referenceBook && subject.referenceBook.fileName;
+  };
+
+  // Check if any of the selected subjects have reference books
+  const hasReferenceBookForSelectedSubjects = () => {
+    if (formData.subjectIds.length === 0) return true;
+    return formData.subjectIds.some(subjectId => 
+      hasReferenceBookForSubject(subjectId)
+    );
+  };
 
   useEffect(() => {
     loadData();
@@ -95,16 +110,18 @@ export default function ExamManagement() {
       if (selectedClass && selectedClass !== 'all') filters.classId = selectedClass;
       
       // Try to load from backend first
-      const [examsResponse, subjectsResponse, classesResponse] = await Promise.all([
+      const [examsResponse, subjectsResponse, classesResponse, syllabiResponse] = await Promise.all([
         examsAPI.getAll(filters).catch(() => null),
         subjectManagementAPI.getAll().catch(() => null),
-        classManagementAPI.getAll().catch(() => null)
+        classManagementAPI.getAll().catch(() => null),
+        syllabusAPI.getAll().catch(() => null)
       ]);
       if (examsResponse && subjectsResponse && classesResponse) {
         // Backend data available
         setExams(examsResponse?.data || examsResponse?.exams || []);
         setSubjects(subjectsResponse.subjects || []);
         setClasses(classesResponse.classes || []);
+        setSyllabi(syllabiResponse?.syllabi || syllabiResponse?.data || []);
         } else {
         // Fallback to mock data
         // loadMockData();
@@ -185,6 +202,23 @@ export default function ExamManagement() {
 
   const handleCreate = async () => {
     try {
+      // Validate reference book availability for selected subjects
+      if (!hasReferenceBookForSelectedSubjects()) {
+        const missingSubjects = formData.subjectIds.filter(subjectId => 
+          !hasReferenceBookForSubject(subjectId)
+        );
+        const subjectNames = missingSubjects.map(subjectId => 
+          subjects.find(s => s._id === subjectId || s.id === subjectId)?.name || 'Unknown'
+        ).join(', ');
+        
+        toast({
+          title: "Reference Book Required",
+          description: `Reference book not uploaded for subject(s): ${subjectNames}. Please upload reference books for these subjects before creating the exam.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Prepare data for API call - remove empty adminId to avoid validation error
       const { adminId, ...examData } = formData;
       
@@ -290,13 +324,13 @@ export default function ExamManagement() {
       classId: '',
       adminId: '',
       duration: 60,
-      scheduledDate: '',
+      scheduledDate: new Date().toISOString().split('T')[0], // Set today's date as default
       endDate: '',
       instructions: '',
       allowLateSubmission: false,
       lateSubmissionPenalty: 0
     });
-    setSelectedDate(undefined);
+    setSelectedDate(new Date()); // Set today's date as default
     setCurrentStep(1);
     setCustomExamType('');
     setIsCustomExamType(false);
@@ -742,35 +776,54 @@ export default function ExamManagement() {
                     ) : filteredSubjects.length === 0 ? (
                       <p className="text-sm text-gray-500">No subjects available for the selected class</p>
                     ) : (
-                      filteredSubjects.map((subject) => (
-                        <div key={subject._id} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`subject-${subject._id}`}
-                            checked={formData.subjectIds.includes(subject._id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  subjectIds: [...prev.subjectIds, subject._id]
-                                }));
-                              } else {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  subjectIds: prev.subjectIds.filter(id => id !== subject._id)
-                                }));
-                              }
-                            }}
-                            className="rounded border-gray-300"
-                          />
-                          <Label htmlFor={`subject-${subject._id}`} className="text-sm">
-                            {subject.name} ({subject.code})
-                          </Label>
-                        </div>
-                      ))
+                      filteredSubjects.map((subject) => {
+                        const hasReferenceBook = hasReferenceBookForSubject(subject._id);
+                        return (
+                          <div key={subject._id} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`subject-${subject._id}`}
+                              checked={formData.subjectIds.includes(subject._id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    subjectIds: [...prev.subjectIds, subject._id]
+                                  }));
+                                } else {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    subjectIds: prev.subjectIds.filter(id => id !== subject._id)
+                                  }));
+                                }
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <Label htmlFor={`subject-${subject._id}`} className="text-sm flex items-center space-x-2">
+                              <span>{subject.name} ({subject.code})</span>
+                              {hasReferenceBook ? (
+                                <CheckCircle className="h-4 w-4 text-green-500" title="Reference book available" />
+                              ) : (
+                                <AlertTriangle className="h-4 w-4 text-amber-500" title="Reference book required" />
+                              )}
+                            </Label>
+                          </div>
+                        );
+                      })
                     )}
                     {formData.classId && formData.subjectIds.length === 0 && (
                       <p className="text-sm text-red-500">Please select at least one subject</p>
+                    )}
+                    {formData.classId && formData.subjectIds.length > 0 && !hasReferenceBookForSelectedSubjects() && (
+                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex items-center space-x-2 text-amber-800">
+                          <AlertTriangle className="h-4 w-4" />
+                          <p className="text-sm">
+                            <strong>Warning:</strong> Some selected subjects don't have reference books uploaded. 
+                            You won't be able to create the exam until reference books are available for all selected subjects.
+                          </p>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -851,8 +904,9 @@ export default function ExamManagement() {
                   </Button>
                   <Button 
                     onClick={handleCreate}
-                    disabled={!formData.title || formData.subjectIds.length === 0 || !formData.classId}
+                    disabled={!formData.title || formData.subjectIds.length === 0 || !formData.classId || !hasReferenceBookForSelectedSubjects()}
                     className="bg-blue-600 hover:bg-blue-700"
+                    title={!hasReferenceBookForSelectedSubjects() ? "Reference book required for all selected subjects" : ""}
                   >
                     Create Exam
                   </Button>

@@ -80,53 +80,101 @@ const QUESTION_TYPES = [
     id: "CHOOSE_BEST_ANSWER",
     name: "Choose the best answer",
     description: "Multiple choice with one correct answer",
+    availableForMarks: [1], // Only available for 1-mark questions
   },
   {
     id: "FILL_BLANKS",
     name: "Fill in the blanks",
     description: "Complete missing words or phrases",
+    availableForMarks: [1], // Only available for 1-mark questions
   },
   {
     id: "ONE_WORD_ANSWER",
     name: "One word answer",
     description: "Answer in one word",
+    availableForMarks: [1], // Only available for 1-mark questions
   },
   {
     id: "TRUE_FALSE",
     name: "True or False",
     description: "Select true or false",
+    availableForMarks: [1], // Only available for 1-mark questions
   },
   {
     id: "CHOOSE_MULTIPLE_ANSWERS",
     name: "Choose multiple answers",
     description: "Select multiple correct answers",
+    availableForMarks: [1], // Only available for 1-mark questions
   },
   {
     id: "MATCHING_PAIRS",
     name: "Matching pairs",
     description: "Match items using arrows",
+    availableForMarks: [1], // Only available for 1-mark questions
   },
   {
     id: "DRAWING_DIAGRAM",
     name: "Drawing/Diagram",
     description: "Draw diagrams and mark parts",
+    availableForMarks: [1], // Only available for 1-mark questions
   },
   {
     id: "MARKING_PARTS",
     name: "Marking parts",
     description: "Mark correct objects or parts",
+    availableForMarks: [1], // Only available for 1-mark questions
   },
   {
     id: "SHORT_ANSWER",
     name: "Short answer",
     description: "Brief text response",
+    availableForMarks: [1, 2, 3, 5], // Available for all mark values
   },
   {
     id: "LONG_ANSWER",
     name: "Long answer",
     description: "Detailed text response",
+    availableForMarks: [1, 2, 3, 5], // Available for all mark values
   },
 ];
+
+// Helper function to get available question types for a specific mark value
+const getAvailableQuestionTypes = (markValue: number) => {
+  return QUESTION_TYPES.filter(type => type.availableForMarks.includes(markValue));
+};
+
+// Helper function to get mark value from mark category
+const getMarkValue = (markCategory: string) => {
+  switch (markCategory) {
+    case 'oneMark': return 1;
+    case 'twoMark': return 2;
+    case 'threeMark': return 3;
+    case 'fiveMark': return 5;
+    default: return 1;
+  }
+};
+
+// Helper function to validate subject distribution
+const validateSubjectDistribution = (subjectId: string, subjectDistributions: any) => {
+  const distribution = subjectDistributions[subjectId];
+  if (!distribution || !distribution.markDistribution) {
+    return { isValid: false, totalMarks: 0, message: "No distribution configured" };
+  }
+
+  const totalMarks = 
+    (distribution.markDistribution.oneMark || 0) * 1 +
+    (distribution.markDistribution.twoMark || 0) * 2 +
+    (distribution.markDistribution.threeMark || 0) * 3 +
+    (distribution.markDistribution.fiveMark || 0) * 5 +
+    (distribution.customMarks || []).reduce((sum: number, custom: any) => sum + custom.mark * custom.count, 0);
+
+  const isValid = totalMarks >= 1;
+  return { 
+    isValid, 
+    totalMarks, 
+    message: isValid ? "Valid" : "Total marks must be at least 1" 
+  };
+};
 
 // Blooms Taxonomy Levels
 const BLOOMS_LEVELS = [
@@ -279,17 +327,33 @@ export default function QuestionPaperManagement() {
         subjectsResponse,
         classesResponse,
       ] = await Promise.all([
-        examsAPI.getAll().catch(() => null),
-        questionPaperAPI.getAll(questionPaperFilters).catch(() => null),
-        subjectManagementAPI.getAll().catch(() => null),
-        classManagementAPI.getAll().catch(() => null),
+        examsAPI.getAll().catch((error) => {
+          console.error('Error loading exams:', error);
+          return null;
+        }),
+        questionPaperAPI.getAll(questionPaperFilters).catch((error) => {
+          console.error('Error loading question papers:', error);
+          return null;
+        }),
+        subjectManagementAPI.getAll().catch((error) => {
+          console.error('Error loading subjects:', error);
+          return null;
+        }),
+        classManagementAPI.getAll().catch((error) => {
+          console.error('Error loading classes:', error);
+          return null;
+        }),
       ]);
-      setExams(examsResponse?.data || []);
+      setExams(examsResponse?.exams || examsResponse?.data || []);
       setQuestionPapers(questionPapersResponse?.questionPapers || []);
       setSubjects(subjectsResponse?.subjects || []);
       setClasses(classesResponse?.classes || []);
 
       // Debug log to check data structure
+      console.log('Exams response:', examsResponse);
+      console.log('Question papers response:', questionPapersResponse);
+      console.log('Subjects response:', subjectsResponse);
+      console.log('Classes response:', classesResponse);
       } catch (error) {
       toast({
         title: "Error",
@@ -301,228 +365,6 @@ export default function QuestionPaperManagement() {
     }
   };
 
-  const handleCreateQuestionPaper = async () => {
-    try {
-      setIsCreating(true);
-
-      // Use comprehensive validation
-      const validation = validateQuestionPaperForm();
-      if (!validation.isValid) {
-        toast({
-          title: "Validation Error",
-          description: validation.errors.join(". "),
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Get exam details to extract subject and class IDs
-      const selectedExam = exams.find((exam) => exam._id === formData.examId);
-
-      if (!selectedExam) {
-        toast({
-          title: "Error",
-          description: "Please select a valid exam",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Calculate the actual total marks from questions
-      const totalFromQuestions =
-        formData.markDistribution.oneMark * 1 +
-        formData.markDistribution.twoMark * 2 +
-        formData.markDistribution.threeMark * 3 +
-        formData.markDistribution.fiveMark * 5;
-
-      const customMarksTotal = customMarks.reduce(
-        (sum, custom) => sum + custom.mark * custom.count,
-        0
-      );
-      const actualTotalMarks = totalFromQuestions + customMarksTotal;
-
-      // Distribute custom marks into existing categories for backend compatibility
-      let adjustedMarkDistribution = { ...formData.markDistribution };
-
-      // If we have custom marks, distribute them intelligently
-      if (customMarksTotal > 0) {
-        // Distribute custom marks based on their mark values
-        customMarks.forEach((custom) => {
-          if (custom.mark > 0 && custom.count > 0) {
-            const totalCustomMarks = custom.mark * custom.count;
-
-            // Distribute based on mark value:
-            // 1-2 marks -> oneMark or twoMark
-            // 3-4 marks -> threeMark
-            // 5+ marks -> fiveMark
-            if (custom.mark <= 2) {
-              // Distribute between oneMark and twoMark
-              if (custom.mark === 1) {
-                adjustedMarkDistribution.oneMark += custom.count;
-              } else {
-                adjustedMarkDistribution.twoMark += custom.count;
-              }
-            } else if (custom.mark <= 4) {
-              // Distribute to threeMark - convert to equivalent 3-mark questions
-              const equivalentThreeMarkQuestions = Math.ceil(
-                totalCustomMarks / 3
-              );
-              adjustedMarkDistribution.threeMark +=
-                equivalentThreeMarkQuestions;
-            } else {
-              // Distribute to fiveMark - convert to equivalent 5-mark questions
-              const equivalentFiveMarkQuestions = Math.ceil(
-                totalCustomMarks / 5
-              );
-              adjustedMarkDistribution.fiveMark += equivalentFiveMarkQuestions;
-            }
-          }
-        });
-      }
-
-      // Validate that adjusted distribution matches expected total
-      const adjustedTotalFromQuestions =
-        adjustedMarkDistribution.oneMark * 1 +
-        adjustedMarkDistribution.twoMark * 2 +
-        adjustedMarkDistribution.threeMark * 3 +
-        adjustedMarkDistribution.fiveMark * 5;
-
-      // If there's a mismatch, adjust the fiveMark category to match
-      if (adjustedTotalFromQuestions !== actualTotalMarks) {
-        const difference = actualTotalMarks - adjustedTotalFromQuestions;
-        adjustedMarkDistribution.fiveMark += Math.ceil(difference / 5);
-      }
-
-      // Create question papers for each subject
-      const createdQuestionPapers = [];
-
-      for (const subjectData of selectedSubjects) {
-        const subject = subjects.find((s) => s._id === subjectData._id);
-        const subjectDistribution = subjectDistributions[subjectData._id];
-
-        // Use subject-specific distribution if available, otherwise use global distribution
-        const markDistribution =
-          subjectDistribution?.markDistribution || adjustedMarkDistribution;
-        const bloomsDistribution =
-          subjectDistribution?.bloomsDistribution ||
-          formData.bloomsDistribution;
-        const questionTypeDistribution =
-          subjectDistribution?.questionTypeDistribution ||
-          formData.questionTypeDistribution;
-        const customMarks = subjectDistribution?.customMarks || [];
-
-        // Calculate total marks for this subject including custom marks
-        const standardMarks =
-          (markDistribution.oneMark || 0) * 1 +
-          (markDistribution.twoMark || 0) * 2 +
-          (markDistribution.threeMark || 0) * 3 +
-          (markDistribution.fiveMark || 0) * 5;
-
-        const customMarksTotal = customMarks.reduce(
-          (sum: number, custom: any) => sum + custom.mark * custom.count,
-          0
-        );
-        const subjectTotalMarks = standardMarks + customMarksTotal;
-
-        // Generate question paper for this subject
-        const aiRequest = {
-          title: `${subject?.name || "Subject"} - ${formData.title}`,
-          description: formData.description,
-          examId: formData.examId,
-          subjectId: subjectData._id,
-          classId: selectedExam.classId || selectedExam.classId?._id,
-          markDistribution: {
-            ...markDistribution,
-            totalMarks: subjectTotalMarks,
-          },
-          bloomsDistribution: bloomsDistribution,
-          questionTypeDistribution: (() => {
-            // Convert question counts to percentages for backend compatibility
-            const converted: any = {};
-            const markCategories = [
-              "oneMark",
-              "twoMark",
-              "threeMark",
-              "fiveMark",
-            ] as const;
-
-            for (const mark of markCategories) {
-              if (markDistribution[mark] > 0) {
-                const distributions = questionTypeDistribution[mark] || [];
-                const totalQuestions = markDistribution[mark];
-
-                converted[mark] = distributions.map((dist) => ({
-                  type: dist.type,
-                  percentage:
-                    totalQuestions > 0
-                      ? Math.round((dist.questionCount / totalQuestions) * 100)
-                      : 0,
-                }));
-              }
-            }
-
-            return converted;
-          })(),
-          aiSettings: formData.aiSettings,
-        };
-
-        // Add pattern ID to request if pattern was uploaded
-        if (uploadedPatternId) {
-          (aiRequest as any).patternId = uploadedPatternId;
-        }
-
-        // Add syllabus ID from subject data if available
-        if (subject?.syllabus?.id) {
-          (aiRequest as any).syllabusId = subject.syllabus.id;
-        }
-
-        try {
-          const generatedQuestionPaper =
-            await questionPaperAPI.generateCompleteAI(aiRequest as any);
-
-          // Extract the question paper from the response
-          const responseData = generatedQuestionPaper as any;
-
-          if (responseData && responseData.questionPaper) {
-            createdQuestionPapers.push(responseData.questionPaper);
-            }
-        } catch (error) {
-          toast({
-            title: "Warning",
-            description: `Failed to create question paper for ${subject?.name}`,
-            variant: "destructive",
-          });
-        }
-      }
-
-      // Add all created question papers to the list
-      if (createdQuestionPapers.length > 0) {
-        setQuestionPapers((prev) => [...createdQuestionPapers, ...prev]);
-
-        toast({
-          title: "Success",
-          description: `${createdQuestionPapers.length} question paper(s) generated successfully with AI`,
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "No question papers were created",
-          variant: "destructive",
-        });
-      }
-
-      setIsCreateDialogOpen(false);
-      resetForm();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate question papers",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreating(false);
-    }
-  };
 
   const handleGenerateQuestionPaper = async (questionPaper: QuestionPaper) => {
     try {
@@ -956,6 +798,394 @@ export default function QuestionPaperManagement() {
       isValid: errors.length === 0,
       errors,
     };
+  };
+
+  const handleCreateQuestionPaper = async () => {
+    try {
+      setIsCreating(true);
+
+      // Use comprehensive validation
+      const validation = validateQuestionPaperForm();
+      if (!validation.isValid) {
+        toast({
+          title: "Validation Error",
+          description: validation.errors.join(". "),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Additional validation for total marks
+      // For multi-subject exams, validate each subject individually
+      if (selectedSubjects.length > 1) {
+        let hasValidSubject = false;
+        for (const subjectData of selectedSubjects) {
+          const distribution = subjectDistributions[subjectData._id];
+          if (distribution && distribution.markDistribution) {
+            const subjectTotalMarks = 
+              (distribution.markDistribution.oneMark || 0) * 1 +
+              (distribution.markDistribution.twoMark || 0) * 2 +
+              (distribution.markDistribution.threeMark || 0) * 3 +
+              (distribution.markDistribution.fiveMark || 0) * 5 +
+              (distribution.customMarks || []).reduce((sum: number, custom: any) => sum + custom.mark * custom.count, 0);
+            
+            if (subjectTotalMarks >= 1) {
+              hasValidSubject = true;
+              break;
+            }
+          }
+        }
+        
+        if (!hasValidSubject) {
+          toast({
+            title: "Validation Error",
+            description: "At least one subject must have total marks of at least 1. Please configure mark distribution for subjects.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        // For single subject or no subject exams, use global validation
+        if (formData.markDistribution.totalMarks < 1) {
+          toast({
+            title: "Validation Error",
+            description: "Total marks must be at least 1. Please configure mark distribution.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Get exam details to extract subject and class IDs
+      const selectedExam = exams.find((exam) => exam._id === formData.examId);
+
+      if (!selectedExam) {
+        toast({
+          title: "Error",
+          description: "Please select a valid exam",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Calculate the actual total marks from questions
+      const totalFromQuestions =
+        formData.markDistribution.oneMark * 1 +
+        formData.markDistribution.twoMark * 2 +
+        formData.markDistribution.threeMark * 3 +
+        formData.markDistribution.fiveMark * 5;
+
+      const customMarksTotal = customMarks.reduce(
+        (sum, custom) => sum + custom.mark * custom.count,
+        0
+      );
+      const actualTotalMarks = totalFromQuestions + customMarksTotal;
+
+      console.log("Mark distribution debug:", {
+        oneMark: formData.markDistribution.oneMark,
+        twoMark: formData.markDistribution.twoMark,
+        threeMark: formData.markDistribution.threeMark,
+        fiveMark: formData.markDistribution.fiveMark,
+        totalMarks: formData.markDistribution.totalMarks,
+        calculatedTotal: actualTotalMarks,
+        customMarksTotal
+      });
+
+      // Distribute custom marks into existing categories for backend compatibility
+      let adjustedMarkDistribution = { ...formData.markDistribution };
+
+      // If we have custom marks, distribute them intelligently
+      if (customMarksTotal > 0) {
+        // Distribute custom marks based on their mark values
+        customMarks.forEach((custom) => {
+          if (custom.mark > 0 && custom.count > 0) {
+            const totalCustomMarks = custom.mark * custom.count;
+
+            // Distribute based on mark value:
+            // 1-2 marks -> oneMark or twoMark
+            // 3-4 marks -> threeMark
+            // 5+ marks -> fiveMark
+            if (custom.mark <= 2) {
+              // Distribute between oneMark and twoMark
+              if (custom.mark === 1) {
+                adjustedMarkDistribution.oneMark += custom.count;
+              } else {
+                adjustedMarkDistribution.twoMark += custom.count;
+              }
+            } else if (custom.mark <= 4) {
+              // Distribute to threeMark - convert to equivalent 3-mark questions
+              const equivalentThreeMarkQuestions = Math.ceil(
+                totalCustomMarks / 3
+              );
+              adjustedMarkDistribution.threeMark +=
+                equivalentThreeMarkQuestions;
+            } else {
+              // Distribute to fiveMark - convert to equivalent 5-mark questions
+              const equivalentFiveMarkQuestions = Math.ceil(
+                totalCustomMarks / 5
+              );
+              adjustedMarkDistribution.fiveMark += equivalentFiveMarkQuestions;
+            }
+          }
+        });
+      }
+
+      // Validate that adjusted distribution matches expected total
+      const adjustedTotalFromQuestions =
+        adjustedMarkDistribution.oneMark * 1 +
+        adjustedMarkDistribution.twoMark * 2 +
+        adjustedMarkDistribution.threeMark * 3 +
+        adjustedMarkDistribution.fiveMark * 5;
+
+      // If there's a mismatch, adjust the fiveMark category to match
+      if (adjustedTotalFromQuestions !== actualTotalMarks) {
+        const difference = actualTotalMarks - adjustedTotalFromQuestions;
+        adjustedMarkDistribution.fiveMark += Math.ceil(difference / 5);
+      }
+
+      // Create question papers for each subject
+      const createdQuestionPapers = [];
+
+      // Handle case where exam has no subjects (use global form data)
+      console.log("Debug: selectedSubjects.length =", selectedSubjects.length);
+      console.log("Debug: selectedSubjects =", selectedSubjects);
+      console.log("Debug: subjectDistributions =", subjectDistributions);
+      
+      if (selectedSubjects.length === 0) {
+        console.log("No subjects found, using global form data");
+        
+        // Calculate total marks from global form data
+        const globalStandardMarks =
+          (adjustedMarkDistribution.oneMark || 0) * 1 +
+          (adjustedMarkDistribution.twoMark || 0) * 2 +
+          (adjustedMarkDistribution.threeMark || 0) * 3 +
+          (adjustedMarkDistribution.fiveMark || 0) * 5;
+
+        const globalCustomMarksTotal = customMarks.reduce(
+          (sum: number, custom: any) => sum + custom.mark * custom.count,
+          0
+        );
+        const globalTotalMarks = globalStandardMarks + globalCustomMarksTotal;
+
+        console.log("Global calculation:", {
+          globalStandardMarks,
+          globalCustomMarksTotal,
+          globalTotalMarks,
+          adjustedMarkDistribution
+        });
+
+        // Create a single question paper without subject
+        const aiRequest = {
+          title: formData.title,
+          description: formData.description,
+          examId: formData.examId,
+          // For exams without subjects, we don't include subjectId
+          classId: selectedExam.classId || selectedExam.classId?._id,
+          markDistribution: {
+            ...adjustedMarkDistribution,
+            totalMarks: globalTotalMarks,
+          },
+          bloomsDistribution: formData.bloomsDistribution,
+          questionTypeDistribution: (() => {
+            // Convert question counts to percentages for backend compatibility
+            const converted: any = {};
+            const markCategories = [
+              "oneMark",
+              "twoMark", 
+              "threeMark",
+              "fiveMark",
+            ] as const;
+
+            markCategories.forEach((category) => {
+              const questionCount = adjustedMarkDistribution[category] || 0;
+              const questionTypes = formData.questionTypeDistribution[category] || [];
+              
+              converted[category] = questionTypes.map((qt: any) => ({
+                type: qt.type,
+                percentage: questionCount > 0 ? (qt.questionCount / questionCount) * 100 : 0
+              }));
+            });
+
+            return converted;
+          })(),
+          aiSettings: formData.aiSettings,
+        };
+
+        console.log("Sending AI request for no-subject exam:", aiRequest);
+
+        try {
+          const generatedQuestionPaper = await questionPaperAPI.generateCompleteAI(aiRequest as any);
+          
+          // Extract the question paper from the response
+          const responseData = generatedQuestionPaper as any;
+          
+          if (responseData && responseData.questionPaper) {
+            createdQuestionPapers.push(responseData.questionPaper);
+          } else if (responseData) {
+            // If the response is the question paper directly
+            createdQuestionPapers.push(responseData);
+          }
+        } catch (error) {
+          console.error("Error generating question paper:", error);
+          throw error;
+        }
+      } else {
+        // Handle case where exam has subjects
+        for (const subjectData of selectedSubjects) {
+        const subject = subjects.find((s) => s._id === subjectData._id);
+        const subjectDistribution = subjectDistributions[subjectData._id];
+
+        // Use subject-specific distribution if it has values, otherwise use global distribution
+        const subjectMarkDistribution = subjectDistribution?.markDistribution;
+        const hasSubjectMarks = subjectMarkDistribution && (
+          subjectMarkDistribution.oneMark > 0 ||
+          subjectMarkDistribution.twoMark > 0 ||
+          subjectMarkDistribution.threeMark > 0 ||
+          subjectMarkDistribution.fiveMark > 0
+        );
+        
+        const markDistribution = hasSubjectMarks ? subjectMarkDistribution : adjustedMarkDistribution;
+        
+        console.log("Debug: subjectDistribution =", subjectDistribution);
+        console.log("Debug: hasSubjectMarks =", hasSubjectMarks);
+        console.log("Debug: markDistribution =", markDistribution);
+        // Use subject-specific Bloom's distribution if it has values, otherwise use global distribution
+        const subjectBloomsDistribution = subjectDistribution?.bloomsDistribution;
+        const hasSubjectBlooms = subjectBloomsDistribution && 
+          subjectBloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0) > 0;
+        
+        const bloomsDistribution = hasSubjectBlooms ? subjectBloomsDistribution : formData.bloomsDistribution;
+        
+        console.log("Debug: bloomsDistribution =", bloomsDistribution);
+        console.log("Debug: bloomsDistribution total =", bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0));
+        const questionTypeDistribution =
+          subjectDistribution?.questionTypeDistribution ||
+          formData.questionTypeDistribution;
+        const customMarks = subjectDistribution?.customMarks || [];
+
+        // Calculate total marks for this subject including custom marks
+        const standardMarks =
+          (markDistribution.oneMark || 0) * 1 +
+          (markDistribution.twoMark || 0) * 2 +
+          (markDistribution.threeMark || 0) * 3 +
+          (markDistribution.fiveMark || 0) * 5;
+
+        const customMarksTotal = customMarks.reduce(
+          (sum: number, custom: any) => sum + custom.mark * custom.count,
+          0
+        );
+        const subjectTotalMarks = standardMarks + customMarksTotal;
+
+        console.log("Subject-specific calculation:", {
+          subjectId: subjectData._id,
+          standardMarks,
+          customMarksTotal,
+          subjectTotalMarks,
+          markDistribution
+        });
+
+        // Generate question paper for this subject
+        const aiRequest = {
+          title: `${subject?.name || "Subject"} - ${formData.title}`,
+          description: formData.description,
+          examId: formData.examId,
+          subjectId: subjectData._id,
+          classId: selectedExam.classId || selectedExam.classId?._id,
+          markDistribution: {
+            ...markDistribution,
+            totalMarks: subjectTotalMarks,
+          },
+          bloomsDistribution: bloomsDistribution,
+          questionTypeDistribution: (() => {
+            // Convert question counts to percentages for backend compatibility
+            const converted: any = {};
+            const markCategories = [
+              "oneMark",
+              "twoMark",
+              "threeMark",
+              "fiveMark",
+            ] as const;
+
+            for (const mark of markCategories) {
+              if (markDistribution[mark] > 0) {
+                const distributions = questionTypeDistribution[mark] || [];
+                const totalQuestions = markDistribution[mark];
+
+                converted[mark] = distributions.map((dist) => ({
+                  type: dist.type,
+                  percentage:
+                    totalQuestions > 0
+                      ? Math.round((dist.questionCount / totalQuestions) * 100)
+                      : 0,
+                }));
+              }
+            }
+
+            return converted;
+          })(),
+          aiSettings: formData.aiSettings,
+        };
+
+        // Add pattern ID to request if pattern was uploaded
+        if (uploadedPatternId) {
+          (aiRequest as any).patternId = uploadedPatternId;
+        }
+
+        // Add syllabus ID from subject data if available
+        if (subject?.syllabus?.id) {
+          (aiRequest as any).syllabusId = subject.syllabus.id;
+        }
+
+        try {
+          const generatedQuestionPaper =
+            await questionPaperAPI.generateCompleteAI(aiRequest as any);
+
+          // Extract the question paper from the response
+          const responseData = generatedQuestionPaper as any;
+
+          if (responseData && responseData.questionPaper) {
+            createdQuestionPapers.push(responseData.questionPaper);
+          } else if (responseData) {
+            // If the response is the question paper directly
+            createdQuestionPapers.push(responseData);
+          }
+        } catch (error) {
+          toast({
+            title: "Warning",
+            description: `Failed to create question paper for ${subject?.name}`,
+            variant: "destructive",
+          });
+        }
+      }
+      } // Close the else block for subjects
+
+      // Add all created question papers to the list
+      if (createdQuestionPapers.length > 0) {
+        setQuestionPapers((prev) => [...createdQuestionPapers, ...prev]);
+
+        toast({
+          title: "Success",
+          description: `${createdQuestionPapers.length} question paper(s) generated successfully with AI`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "No question papers were created",
+          variant: "destructive",
+        });
+      }
+
+      setIsCreateDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate question papers",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const validateStep3 = () => {
@@ -1627,6 +1857,541 @@ export default function QuestionPaperManagement() {
           {currentStep === 2 && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold">Distribution Settings</h3>
+              <p className="text-sm text-gray-600">
+                Configure the mark distribution, Bloom's taxonomy, and question types for your question paper.
+              </p>
+
+
+              {/* No subjects message and fallback form */}
+              {selectedSubjects.length === 0 && (
+                <div className="space-y-4">
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <p className="text-yellow-800">
+                      ⚠️ This exam doesn't have any subjects associated with it. 
+                      You can still create a question paper with the distribution settings below.
+                    </p>
+                  </div>
+                  
+                  {/* Fallback form for exams without subjects */}
+                  <div className="space-y-6">
+                    <h4 className="text-lg font-semibold">
+                      Distribution Settings
+                    </h4>
+                    
+                    {/* Mark Distribution */}
+                    <div className="space-y-4">
+                      <h5 className="text-md font-medium">Mark Distribution</h5>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <Label htmlFor="oneMark">1 Mark Questions</Label>
+                          <Input
+                            id="oneMark"
+                            type="number"
+                            value={formData.markDistribution.oneMark}
+                            onChange={(e) => updateMarkDistribution('oneMark', parseInt(e.target.value) || 0)}
+                            onFocus={(e) => e.target.select()}
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="twoMark">2 Mark Questions</Label>
+                          <Input
+                            id="twoMark"
+                            type="number"
+                            value={formData.markDistribution.twoMark}
+                            onChange={(e) => updateMarkDistribution('twoMark', parseInt(e.target.value) || 0)}
+                            onFocus={(e) => e.target.select()}
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="threeMark">3 Mark Questions</Label>
+                          <Input
+                            id="threeMark"
+                            type="number"
+                            value={formData.markDistribution.threeMark}
+                            onChange={(e) => updateMarkDistribution('threeMark', parseInt(e.target.value) || 0)}
+                            onFocus={(e) => e.target.select()}
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="fiveMark">5 Mark Questions</Label>
+                          <Input
+                            id="fiveMark"
+                            type="number"
+                            value={formData.markDistribution.fiveMark}
+                            onChange={(e) => updateMarkDistribution('fiveMark', parseInt(e.target.value) || 0)}
+                            onFocus={(e) => e.target.select()}
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Total Marks Display */}
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Total Marks:</span>
+                          <span className="text-lg font-bold text-blue-600">
+                            {formData.markDistribution.totalMarks}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Blooms Taxonomy Distribution */}
+                    <div className="space-y-4">
+                      <h5 className="text-md font-medium">Bloom's Taxonomy Distribution</h5>
+                      <div className="space-y-4">
+                        {BLOOMS_LEVELS.map((level) => (
+                          <div key={level.id} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <Label className="font-medium">{level.name}</Label>
+                                <p className="text-sm text-gray-600">{level.description}</p>
+                              </div>
+                              <span className="text-sm font-medium">
+                                {formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0}%
+                              </span>
+                            </div>
+                            <Slider
+                              value={[formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0]}
+                              onValueChange={([value]) => updateBloomsDistribution(level.id, value)}
+                              max={100}
+                              step={1}
+                              className="w-full"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Question Type Distribution */}
+                    <div className="space-y-4">
+                      <h5 className="text-md font-medium">Question Type Distribution</h5>
+                      <Accordion type="multiple" className="w-full">
+                        <AccordionItem value="oneMark">
+                          <AccordionTrigger>
+                            1 Mark Questions ({formData.markDistribution.oneMark})
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4">
+                              {getAvailableQuestionTypes(1).map((type) => (
+                                <div key={type.id} className="space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <Label className="font-medium">{type.name}</Label>
+                                      <p className="text-sm text-gray-600">{type.description}</p>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Input
+                                        type="number"
+                                        value={getQuestionTypeCount('oneMark', type.id)}
+                                        onChange={(e) => updateQuestionTypeDistribution('oneMark', type.id, parseInt(e.target.value) || 0)}
+                                        onFocus={(e) => e.target.select()}
+                                        min="0"
+                                        max={formData.markDistribution.oneMark}
+                                        className="w-20"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-sm text-gray-500">questions</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem value="twoMark">
+                          <AccordionTrigger>
+                            2 Mark Questions ({formData.markDistribution.twoMark})
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4">
+                              {getAvailableQuestionTypes(2).map((type) => (
+                                <div key={type.id} className="space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <Label className="font-medium">{type.name}</Label>
+                                      <p className="text-sm text-gray-600">{type.description}</p>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Input
+                                        type="number"
+                                        value={getQuestionTypeCount('twoMark', type.id)}
+                                        onChange={(e) => updateQuestionTypeDistribution('twoMark', type.id, parseInt(e.target.value) || 0)}
+                                        onFocus={(e) => e.target.select()}
+                                        min="0"
+                                        max={formData.markDistribution.twoMark}
+                                        className="w-20"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-sm text-gray-500">questions</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem value="threeMark">
+                          <AccordionTrigger>
+                            3 Mark Questions ({formData.markDistribution.threeMark})
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4">
+                              {getAvailableQuestionTypes(3).map((type) => (
+                                <div key={type.id} className="space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <Label className="font-medium">{type.name}</Label>
+                                      <p className="text-sm text-gray-600">{type.description}</p>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Input
+                                        type="number"
+                                        value={getQuestionTypeCount('threeMark', type.id)}
+                                        onChange={(e) => updateQuestionTypeDistribution('threeMark', type.id, parseInt(e.target.value) || 0)}
+                                        onFocus={(e) => e.target.select()}
+                                        min="0"
+                                        max={formData.markDistribution.threeMark}
+                                        className="w-20"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-sm text-gray-500">questions</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem value="fiveMark">
+                          <AccordionTrigger>
+                            5 Mark Questions ({formData.markDistribution.fiveMark})
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4">
+                              {getAvailableQuestionTypes(5).map((type) => (
+                                <div key={type.id} className="space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <Label className="font-medium">{type.name}</Label>
+                                      <p className="text-sm text-gray-600">{type.description}</p>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Input
+                                        type="number"
+                                        value={getQuestionTypeCount('fiveMark', type.id)}
+                                        onChange={(e) => updateQuestionTypeDistribution('fiveMark', type.id, parseInt(e.target.value) || 0)}
+                                        onFocus={(e) => e.target.select()}
+                                        min="0"
+                                        max={formData.markDistribution.fiveMark}
+                                        className="w-20"
+                                        placeholder="0"
+                                      />
+                                      <span className="text-sm text-gray-500">questions</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Single Subject Distribution */}
+              {selectedSubjects.length === 1 && (
+                <div className="space-y-6">
+                  <h4 className="text-lg font-semibold">
+                    Distribution Settings
+                  </h4>
+                  
+                  {/* Mark Distribution */}
+                  <div className="space-y-4">
+                    <h5 className="text-md font-medium">Mark Distribution</h5>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <Label htmlFor="oneMark">1 Mark Questions</Label>
+                        <Input
+                          id="oneMark"
+                          type="number"
+                          value={formData.markDistribution.oneMark}
+                          onChange={(e) => updateMarkDistribution('oneMark', parseInt(e.target.value) || 0)}
+                          onFocus={(e) => e.target.select()}
+                          min="0"
+                          max="100"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="twoMark">2 Mark Questions</Label>
+                        <Input
+                          id="twoMark"
+                          type="number"
+                          value={formData.markDistribution.twoMark}
+                          onChange={(e) => updateMarkDistribution('twoMark', parseInt(e.target.value) || 0)}
+                          onFocus={(e) => e.target.select()}
+                          min="0"
+                          max="100"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="threeMark">3 Mark Questions</Label>
+                        <Input
+                          id="threeMark"
+                          type="number"
+                          value={formData.markDistribution.threeMark}
+                          onChange={(e) => updateMarkDistribution('threeMark', parseInt(e.target.value) || 0)}
+                          onFocus={(e) => e.target.select()}
+                          min="0"
+                          max="100"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="fiveMark">5 Mark Questions</Label>
+                        <Input
+                          id="fiveMark"
+                          type="number"
+                          value={formData.markDistribution.fiveMark}
+                          onChange={(e) => updateMarkDistribution('fiveMark', parseInt(e.target.value) || 0)}
+                          onFocus={(e) => e.target.select()}
+                          min="0"
+                          max="100"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Total Marks Display */}
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">Total Marks:</span>
+                        <span className="text-lg font-bold text-blue-600">
+                          {formData.markDistribution.totalMarks}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Blooms Taxonomy Distribution */}
+                  <div className="space-y-4">
+                    <h5 className="text-md font-medium">Bloom's Taxonomy Distribution</h5>
+                    <div className="space-y-4">
+                      {BLOOMS_LEVELS.map((level) => (
+                        <div key={level.id} className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <Label className="font-medium">{level.name}</Label>
+                              <p className="text-sm text-gray-600">{level.description}</p>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0}%
+                            </span>
+                          </div>
+                          <Slider
+                            value={[formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0]}
+                            onValueChange={([value]) => updateBloomsDistribution(level.id, value)}
+                            max={100}
+                            step={1}
+                            className="w-full"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Blooms Distribution Summary */}
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h6 className="font-medium text-sm mb-2">Distribution Summary</h6>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        {BLOOMS_LEVELS.map((level) => {
+                          const percentage = formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0;
+                          return (
+                            <div key={level.id} className="flex justify-between">
+                              <span className="text-gray-600">{level.name}:</span>
+                              <span className={`font-medium ${percentage > 0 ? "text-green-600" : "text-gray-400"}`}>
+                                {percentage}%
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 font-medium">Total:</span>
+                          <span className={`font-bold ${
+                            formData.bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0) === 100
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}>
+                            {formData.bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0)}%
+                          </span>
+                        </div>
+                        {formData.bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0) !== 100 && (
+                          <div className="mt-2 text-red-600 text-sm">
+                            ⚠️ Blooms taxonomy percentages must add up to exactly 100%. Please adjust the distribution.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Question Type Distribution */}
+                  <div className="space-y-4">
+                    <h5 className="text-md font-medium">Question Type Distribution</h5>
+                    <Accordion type="multiple" className="w-full">
+                      <AccordionItem value="oneMark">
+                        <AccordionTrigger>
+                          1 Mark Questions ({formData.markDistribution.oneMark})
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-4">
+                            {getAvailableQuestionTypes(1).map((type) => (
+                              <div key={type.id} className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <Label className="font-medium">{type.name}</Label>
+                                    <p className="text-sm text-gray-600">{type.description}</p>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Input
+                                      type="number"
+                                      value={getQuestionTypeCount('oneMark', type.id)}
+                                      onChange={(e) => updateQuestionTypeDistribution('oneMark', type.id, parseInt(e.target.value) || 0)}
+                                      onFocus={(e) => e.target.select()}
+                                      min="0"
+                                      max={formData.markDistribution.oneMark}
+                                      className="w-20"
+                                      placeholder="0"
+                                    />
+                                    <span className="text-sm text-gray-500">questions</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="twoMark">
+                        <AccordionTrigger>
+                          2 Mark Questions ({formData.markDistribution.twoMark})
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-4">
+                            {getAvailableQuestionTypes(2).map((type) => (
+                              <div key={type.id} className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <Label className="font-medium">{type.name}</Label>
+                                    <p className="text-sm text-gray-600">{type.description}</p>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Input
+                                      type="number"
+                                      value={getQuestionTypeCount('twoMark', type.id)}
+                                      onChange={(e) => updateQuestionTypeDistribution('twoMark', type.id, parseInt(e.target.value) || 0)}
+                                      onFocus={(e) => e.target.select()}
+                                      min="0"
+                                      max={formData.markDistribution.twoMark}
+                                      className="w-20"
+                                      placeholder="0"
+                                    />
+                                    <span className="text-sm text-gray-500">questions</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="threeMark">
+                        <AccordionTrigger>
+                          3 Mark Questions ({formData.markDistribution.threeMark})
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-4">
+                            {getAvailableQuestionTypes(3).map((type) => (
+                              <div key={type.id} className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <Label className="font-medium">{type.name}</Label>
+                                    <p className="text-sm text-gray-600">{type.description}</p>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Input
+                                      type="number"
+                                      value={getQuestionTypeCount('threeMark', type.id)}
+                                      onChange={(e) => updateQuestionTypeDistribution('threeMark', type.id, parseInt(e.target.value) || 0)}
+                                      onFocus={(e) => e.target.select()}
+                                      min="0"
+                                      max={formData.markDistribution.threeMark}
+                                      className="w-20"
+                                      placeholder="0"
+                                    />
+                                    <span className="text-sm text-gray-500">questions</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="fiveMark">
+                        <AccordionTrigger>
+                          5 Mark Questions ({formData.markDistribution.fiveMark})
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-4">
+                            {getAvailableQuestionTypes(5).map((type) => (
+                              <div key={type.id} className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <Label className="font-medium">{type.name}</Label>
+                                    <p className="text-sm text-gray-600">{type.description}</p>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Input
+                                      type="number"
+                                      value={getQuestionTypeCount('fiveMark', type.id)}
+                                      onChange={(e) => updateQuestionTypeDistribution('fiveMark', type.id, parseInt(e.target.value) || 0)}
+                                      onFocus={(e) => e.target.select()}
+                                      min="0"
+                                      max={formData.markDistribution.fiveMark}
+                                      className="w-20"
+                                      placeholder="0"
+                                    />
+                                    <span className="text-sm text-gray-500">questions</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </div>
+                </div>
+              )}
 
               {/* Subject-Specific Distribution for Multi-Subject Exams */}
               {selectedSubjects.length > 1 && (
@@ -1648,8 +2413,20 @@ export default function QuestionPaperManagement() {
                     return (
                       <Card key={subjectData._id} className="p-4">
                         <CardHeader>
-                          <CardTitle className="text-base">
-                            {subject?.name || "Unknown Subject"}
+                          <CardTitle className="text-base flex items-center justify-between">
+                            <span>{subject?.name || "Unknown Subject"}</span>
+                            {(() => {
+                              const validation = validateSubjectDistribution(subjectData._id, subjectDistributions);
+                              return (
+                                <div className={`text-sm px-2 py-1 rounded ${
+                                  validation.isValid 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {validation.isValid ? `✓ ${validation.totalMarks} marks` : validation.message}
+                                </div>
+                              );
+                            })()}
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -1693,6 +2470,10 @@ export default function QuestionPaperManagement() {
                                   min="0"
                                   max="100"
                                   placeholder="0"
+                                  className={(() => {
+                                    const validation = validateSubjectDistribution(subjectData._id, subjectDistributions);
+                                    return validation.isValid ? 'border-green-300 focus:border-green-500' : 'border-red-300 focus:border-red-500';
+                                  })()}
                                 />
                               </div>
                               <div>
@@ -2113,7 +2894,7 @@ export default function QuestionPaperManagement() {
                                 </AccordionTrigger>
                                 <AccordionContent>
                                   <div className="space-y-4">
-                                    {QUESTION_TYPES.map((type) => (
+                                    {getAvailableQuestionTypes(1).map((type) => (
                                       <div key={type.id} className="space-y-2">
                                         <div className="flex justify-between items-center">
                                           <div>
@@ -2208,7 +2989,7 @@ export default function QuestionPaperManagement() {
                                 </AccordionTrigger>
                                 <AccordionContent>
                                   <div className="space-y-4">
-                                    {QUESTION_TYPES.map((type) => (
+                                    {getAvailableQuestionTypes(2).map((type) => (
                                       <div key={type.id} className="space-y-2">
                                         <div className="flex justify-between items-center">
                                           <div>
@@ -2305,7 +3086,7 @@ export default function QuestionPaperManagement() {
                                 </AccordionTrigger>
                                 <AccordionContent>
                                   <div className="space-y-4">
-                                    {QUESTION_TYPES.map((type) => (
+                                    {getAvailableQuestionTypes(3).map((type) => (
                                       <div key={type.id} className="space-y-2">
                                         <div className="flex justify-between items-center">
                                           <div>
@@ -2401,7 +3182,7 @@ export default function QuestionPaperManagement() {
                                 </AccordionTrigger>
                                 <AccordionContent>
                                   <div className="space-y-4">
-                                    {QUESTION_TYPES.map((type) => (
+                                    {getAvailableQuestionTypes(5).map((type) => (
                                       <div key={type.id} className="space-y-2">
                                         <div className="flex justify-between items-center">
                                           <div>
@@ -2468,7 +3249,6 @@ export default function QuestionPaperManagement() {
                                                     },
                                                   })
                                                 );
-                                              ;
                                               }}
                                               onFocus={(e) => e.target.select()}
                                               min="0"
@@ -2642,7 +3422,19 @@ export default function QuestionPaperManagement() {
               validation = validateStep3();
             }
 
-            if (!validation.isValid) {
+            // Only show validation errors if the user has attempted to configure something
+            // For step 2, only show errors if there's some configuration attempt
+            const shouldShowValidation = currentStep === 1 || 
+              (currentStep === 2 && (
+                formData.markDistribution.oneMark > 0 ||
+                formData.markDistribution.twoMark > 0 ||
+                formData.markDistribution.threeMark > 0 ||
+                formData.markDistribution.fiveMark > 0 ||
+                customMarks.length > 0 ||
+                selectedSubjects.length > 1
+              ));
+
+            if (!validation.isValid && shouldShowValidation) {
               return (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                   <div className="flex items-start">
@@ -2664,16 +3456,21 @@ export default function QuestionPaperManagement() {
                 </div>
               );
             }
-            return (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                <div className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
-                  <span className="text-sm font-medium text-green-800">
-                    Step {currentStep} validation passed. Ready to proceed.
-                  </span>
+            
+            if (validation.isValid && shouldShowValidation) {
+              return (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
+                    <span className="text-sm font-medium text-green-800">
+                      Step {currentStep} validation passed. Ready to proceed.
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
+              );
+            }
+            
+            return null;
           })()}
 
           {/* Navigation Buttons */}

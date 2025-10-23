@@ -27,7 +27,8 @@ import {
   Settings,
   Save,
   Eye,
-  Download
+  Download,
+  CheckCircle
 } from 'lucide-react';
 import { teacherDashboardAPI } from '@/services/api';
 
@@ -256,6 +257,8 @@ const QuestionPaperCreation = () => {
 
   const handleCreateQuestionPaper = async () => {
     try {
+      console.log('Debug - Teacher Form Data:', formData);
+      console.log('Debug - Mark Distribution:', formData.markDistribution);
       const response = await teacherDashboardAPI.createQuestionPaper(formData);
       
       toast({
@@ -394,6 +397,13 @@ const QuestionPaperCreation = () => {
           <p className="text-gray-600">
             Create and manage question papers with AI assistance
           </p>
+          {exams.length === 0 && (
+            <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-amber-800 text-sm">
+                <strong>Note:</strong> No exams are available. Please create an exam first before creating question papers.
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
@@ -404,7 +414,11 @@ const QuestionPaperCreation = () => {
             <RefreshCw className={`w-4 h-4 mr-2 ${loadingPapers ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button 
+            onClick={() => setShowCreateDialog(true)}
+            disabled={exams.length === 0}
+            title={exams.length === 0 ? "No exams available. Please create an exam first." : ""}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Create Question Paper
           </Button>
@@ -672,14 +686,18 @@ const QuestionPaperCreation = () => {
                     id="fiveMark"
                     type="number"
                     value={formData.markDistribution.fiveMark}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      markDistribution: { 
-                        ...prev.markDistribution, 
-                        fiveMark: parseInt(e.target.value) || 0,
-                        totalMarks: prev.markDistribution.oneMark + prev.markDistribution.twoMark + prev.markDistribution.threeMark + (parseInt(e.target.value) || 0)
-                      } 
-                    }))}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      console.log('Debug - FiveMark input changed to:', value);
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        markDistribution: { 
+                          ...prev.markDistribution, 
+                          fiveMark: value,
+                          totalMarks: prev.markDistribution.oneMark + prev.markDistribution.twoMark + prev.markDistribution.threeMark + value
+                        } 
+                      }));
+                    }}
                   />
                 </div>
               </div>

@@ -19,6 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { questionPaperAPI } from '@/services/api';
 import { QuestionPaper, Question } from '@/types/question-paper';
+import { QUESTION_TYPES, getQuestionTypeName, normalizeQuestionType } from '@/utils/questionTypes';
 
 interface SimplePDFEditorOnlyProps {
   questionPaper: QuestionPaper;
@@ -238,7 +239,7 @@ const SimplePDFEditorOnly: React.FC<SimplePDFEditorOnlyProps> = ({
                         </div>
                       </div>
                       <Badge variant="outline" className="ml-2">
-                        {question.questionType || question.type || 'MCQ'}
+                        {getQuestionTypeName(question.questionType || question.type || 'CHOOSE_BEST_ANSWER')}
                       </Badge>
                     </div>
                   </div>
@@ -279,18 +280,18 @@ const SimplePDFEditorOnly: React.FC<SimplePDFEditorOnlyProps> = ({
                       <Label htmlFor="question-type">Question Type</Label>
                       <select
                         id="question-type"
-                        value={editedQuestion.questionType || editedQuestion.type || ''}
+                        value={normalizeQuestionType(editedQuestion.questionType || editedQuestion.type || 'CHOOSE_BEST_ANSWER')}
                         onChange={(e) => {
                           setEditedQuestion({ ...editedQuestion, questionType: e.target.value });
                           setHasChanges(true);
                         }}
                         className="mt-1 w-full p-2 border rounded-md"
                       >
-                        <option value="MCQ">Multiple Choice</option>
-                        <option value="SHORT_ANSWER">Short Answer</option>
-                        <option value="LONG_ANSWER">Long Answer</option>
-                        <option value="TRUE_FALSE">True/False</option>
-                        <option value="FILL_BLANKS">Fill in the Blanks</option>
+                        {QUESTION_TYPES.map((type) => (
+                          <option key={type.id} value={type.id}>
+                            {type.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -305,6 +306,51 @@ const SimplePDFEditorOnly: React.FC<SimplePDFEditorOnlyProps> = ({
                           setHasChanges(true);
                         }}
                         className="mt-1"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="options">Options (one per line)</Label>
+                      <Textarea
+                        id="options"
+                        value={editedQuestion.options?.join('\n') || ''}
+                        onChange={(e) => {
+                          const options = e.target.value.split('\n').filter(opt => opt.trim());
+                          setEditedQuestion({ ...editedQuestion, options });
+                          setHasChanges(true);
+                        }}
+                        className="mt-1"
+                        rows={4}
+                        placeholder="Option A&#10;Option B&#10;Option C&#10;Option D"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="correct-answer">Correct Answer</Label>
+                      <Input
+                        id="correct-answer"
+                        value={editedQuestion.correctAnswer || ''}
+                        onChange={(e) => {
+                          setEditedQuestion({ ...editedQuestion, correctAnswer: e.target.value });
+                          setHasChanges(true);
+                        }}
+                        className="mt-1"
+                        placeholder="Enter the correct answer"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="explanation">Explanation</Label>
+                      <Textarea
+                        id="explanation"
+                        value={editedQuestion.explanation || ''}
+                        onChange={(e) => {
+                          setEditedQuestion({ ...editedQuestion, explanation: e.target.value });
+                          setHasChanges(true);
+                        }}
+                        className="mt-1"
+                        rows={3}
+                        placeholder="Enter explanation for the answer"
                       />
                     </div>
                     
@@ -338,7 +384,7 @@ const SimplePDFEditorOnly: React.FC<SimplePDFEditorOnlyProps> = ({
                     <div>
                       <h4 className="font-medium">Type:</h4>
                       <Badge variant="outline" className="mt-1">
-                        {selectedQuestion.questionType || selectedQuestion.type || 'MCQ'}
+                        {getQuestionTypeName(selectedQuestion.questionType || selectedQuestion.type || 'CHOOSE_BEST_ANSWER')}
                       </Badge>
                     </div>
                     
@@ -348,6 +394,38 @@ const SimplePDFEditorOnly: React.FC<SimplePDFEditorOnlyProps> = ({
                         {selectedQuestion.marks || 1}
                       </p>
                     </div>
+
+                    {selectedQuestion.options && selectedQuestion.options.length > 0 && (
+                      <div>
+                        <h4 className="font-medium">Options:</h4>
+                        <div className="text-sm text-gray-600 mt-1 space-y-1">
+                          {selectedQuestion.options.map((option, index) => (
+                            <div key={index} className="flex items-center">
+                              <span className="w-6 text-xs font-medium">{String.fromCharCode(65 + index)})</span>
+                              <span>{option}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedQuestion.correctAnswer && (
+                      <div>
+                        <h4 className="font-medium">Correct Answer:</h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {selectedQuestion.correctAnswer}
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedQuestion.explanation && (
+                      <div>
+                        <h4 className="font-medium">Explanation:</h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {selectedQuestion.explanation}
+                        </p>
+                      </div>
+                    )}
                     
                     <Button onClick={handleEditQuestion} className="w-full">
                       <Edit3 className="w-4 h-4 mr-2" />

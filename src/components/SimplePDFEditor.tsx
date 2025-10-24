@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { questionPaperAPI } from '@/services/api';
+import { QUESTION_TYPES, getQuestionTypeName, normalizeQuestionType } from '@/utils/questionTypes';
 
 interface SimplePDFEditorProps {
   questionPaper: any;
@@ -296,7 +297,7 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
                       </div>
                     </div>
                     <Badge variant="outline" className="ml-2">
-                      {question.questionType || question.type || 'MCQ'}
+                      {getQuestionTypeName(question.questionType || question.type || 'CHOOSE_BEST_ANSWER')}
                     </Badge>
                   </div>
                 </div>

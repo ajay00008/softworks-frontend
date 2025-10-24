@@ -1049,6 +1049,25 @@ export const subjectManagementAPI = {
     }
   },
 
+  // Check if reference book file exists
+  checkReferenceBookExists: async (id: string): Promise<{ exists: boolean; message: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book/check`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to check reference book');
+      }
+      
+      const result = await handleApiResponse<{ exists: boolean; message: string }>(response);
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   // Download reference book
   downloadReferenceBook: async (id: string): Promise<Blob> => {
     try {

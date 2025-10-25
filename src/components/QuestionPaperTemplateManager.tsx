@@ -18,7 +18,7 @@ import {
   Plus,
   Eye
 } from 'lucide-react';
-import { questionPaperTemplateAPI, authAPI, classManagementAPI } from '@/services/api';
+import { questionPaperTemplateAPI } from '@/services/api';
 import { QuestionPaperTemplate, CreateTemplateRequest } from '@/types/question-paper-template';
 
 interface QuestionPaperTemplateManagerProps {
@@ -41,40 +41,15 @@ export default function QuestionPaperTemplateManager({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
   const { toast } = useToast();
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState<CreateTemplateRequest>({
     title: '',
     description: '',
-    subjectId: subjectId,
-    classId: '',
-    language: 'ENGLISH'
+    subjectId: subjectId
   });
 
-  // Load classes on component mount
-  useEffect(() => {
-    loadClasses();
-  }, []);
-
-  const loadClasses = async () => {
-    try {
-      setIsLoadingClasses(true);
-      const response = await classManagementAPI.getAll();
-      setClasses(Array.isArray(response) ? response : response.classes || []);
-    } catch (error) {
-      console.error('Error loading classes:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load classes",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingClasses(false);
-    }
-  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -102,7 +77,7 @@ export default function QuestionPaperTemplateManager({
   };
 
   const handleUpload = async () => {
-    if (!uploadFile || !uploadForm.title || !uploadForm.classId) {
+    if (!uploadFile || !uploadForm.title) {
       toast({
         title: "Error",
         description: "Please fill in all required fields and select a file",
@@ -128,9 +103,7 @@ export default function QuestionPaperTemplateManager({
       setUploadForm({
         title: '',
         description: '',
-        subjectId: subjectId,
-        classId: '',
-        language: 'ENGLISH'
+        subjectId: subjectId
       });
       onUpdate();
     } catch (error) {
@@ -243,35 +216,14 @@ export default function QuestionPaperTemplateManager({
             </DialogHeader>
             
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="title">Template Title *</Label>
-                  <Input
-                    id="title"
-                    value={uploadForm.title}
-                    onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="e.g., Mathematics Class 10 Template"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="language">Language</Label>
-                  <Select
-                    value={uploadForm.language}
-                    onValueChange={(value) => setUploadForm(prev => ({ ...prev, language: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ENGLISH">English</SelectItem>
-                      <SelectItem value="TAMIL">Tamil</SelectItem>
-                      <SelectItem value="HINDI">Hindi</SelectItem>
-                      <SelectItem value="MALAYALAM">Malayalam</SelectItem>
-                      <SelectItem value="TELUGU">Telugu</SelectItem>
-                      <SelectItem value="KANNADA">Kannada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label htmlFor="title">Template Title *</Label>
+                <Input
+                  id="title"
+                  value={uploadForm.title}
+                  onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g., Mathematics Class 10 Template"
+                />
               </div>
 
               <div>
@@ -285,30 +237,6 @@ export default function QuestionPaperTemplateManager({
                 />
               </div>
 
-              <div>
-                <Label htmlFor="class">Class *</Label>
-                <Select
-                  value={uploadForm.classId}
-                  onValueChange={(value) => setUploadForm(prev => ({ ...prev, classId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {isLoadingClasses ? (
-                      <SelectItem value="" disabled>Loading classes...</SelectItem>
-                    ) : classes.length === 0 ? (
-                      <SelectItem value="" disabled>No classes available</SelectItem>
-                    ) : (
-                      classes.map((cls) => (
-                        <SelectItem key={cls._id || cls.id} value={cls._id || cls.id}>
-                          {cls.displayName || cls.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div>
                 <Label>Upload Template File *</Label>
@@ -346,7 +274,7 @@ export default function QuestionPaperTemplateManager({
                 </Button>
                 <Button
                   onClick={handleUpload}
-                  disabled={isUploading || !uploadFile || !uploadForm.title || !uploadForm.classId}
+                  disabled={isUploading || !uploadFile || !uploadForm.title}
                 >
                   {isUploading ? "Uploading..." : "Upload Template"}
                 </Button>

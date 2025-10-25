@@ -1,4 +1,4 @@
-export interface QuestionPaperTemplate {
+export interface SamplePaper {
   _id: string;
   title: string;
   description?: string;
@@ -15,8 +15,8 @@ export interface QuestionPaperTemplate {
     email: string;
   };
   
-  // Template file information
-  templateFile: {
+  // Sample paper file information
+  sampleFile: {
     fileName: string;
     filePath: string;
     fileSize: number;
@@ -24,13 +24,13 @@ export interface QuestionPaperTemplate {
     downloadUrl: string;
   };
   
-  // Template analysis data
-  analysis: TemplateAnalysis;
+  // Sample paper analysis data
+  analysis: SamplePaperAnalysis;
   
-  // AI settings
-  aiSettings: {
-    useTemplate: boolean;
-    followPattern: boolean;
+  // Template settings
+  templateSettings: {
+    useAsTemplate: boolean;
+    followDesign: boolean;
     maintainStructure: boolean;
     customInstructions?: string;
   };
@@ -41,7 +41,7 @@ export interface QuestionPaperTemplate {
   updatedAt: string;
 }
 
-export interface TemplateAnalysis {
+export interface SamplePaperAnalysis {
   totalQuestions: number;
   questionTypes: string[];
   markDistribution: {
@@ -69,21 +69,27 @@ export interface TemplateAnalysis {
     questions: number;
     marks: number;
   }>;
+  designPattern: {
+    layout: string;
+    formatting: string;
+    questionNumbering: string;
+    sectionHeaders: string[];
+  };
 }
 
-export interface CreateTemplateRequest {
+export interface CreateSamplePaperRequest {
   title: string;
   description?: string;
   subjectId: string;
-  templateFile?: File;
+  sampleFile?: File;
 }
 
-export interface UpdateTemplateRequest {
+export interface UpdateSamplePaperRequest {
   title?: string;
   description?: string;
-  aiSettings?: {
-    useTemplate?: boolean;
-    followPattern?: boolean;
+  templateSettings?: {
+    useAsTemplate?: boolean;
+    followDesign?: boolean;
     maintainStructure?: boolean;
     customInstructions?: string;
   };

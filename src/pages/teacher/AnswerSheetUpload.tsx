@@ -25,7 +25,9 @@ import {
   Image,
   Scan,
   Brain,
-  Target
+  Target,
+  Zap,
+  BarChart3
 } from 'lucide-react';
 import { teacherDashboardAPI } from '@/services/api';
 
@@ -98,6 +100,8 @@ const AnswerSheetUpload = () => {
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [loadingExams, setLoadingExams] = useState(false);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiResults, setAiResults] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -154,6 +158,44 @@ const AnswerSheetUpload = () => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const processWithAI = async (results: UploadResult[]) => {
+    try {
+      setAiProcessing(true);
+      
+      // Extract answer sheet IDs from upload results
+      const answerSheetIds = results
+        .filter(result => result.answerSheetId)
+        .map(result => result.answerSheetId!);
+
+      if (answerSheetIds.length === 0) {
+        toast({
+          title: "Info",
+          description: "No answer sheets available for AI processing",
+        });
+        return;
+      }
+
+      // Process with AI
+      const response = await teacherDashboardAPI.batchCheckAnswerSheetsWithAI(answerSheetIds);
+      
+      if (response.success) {
+        setAiResults(response.data);
+        toast({
+          title: "AI Processing Complete",
+          description: `Successfully processed ${response.data.length} answer sheets with AI`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "AI Processing Error",
+        description: `Failed to process answer sheets with AI: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
   const handleUpload = async () => {
     
     if (!selectedExam || selectedFiles.length === 0) {
@@ -183,6 +225,11 @@ const AnswerSheetUpload = () => {
         title: "Success",
         description: `Successfully uploaded ${selectedFiles.length} answer sheets. Select new files to upload more.`,
       });
+
+      // Automatically start AI processing for uploaded sheets
+      if (response.data.results && response.data.results.length > 0) {
+        await processWithAI(response.data.results);
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -419,7 +466,21 @@ const AnswerSheetUpload = () => {
               <Label>Uploading...</Label>
               <Progress value={uploadProgress} className="w-full" />
               <p className="text-sm text-gray-500">
-                Processing answer sheets with AI...
+                Uploading answer sheets...
+              </p>
+            </div>
+          )}
+
+          {/* AI Processing Status */}
+          {aiProcessing && (
+            <div className="space-y-2 p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-blue-600 animate-pulse" />
+                <Label className="text-blue-800">AI Processing in Progress...</Label>
+              </div>
+              <Progress value={50} className="w-full" />
+              <p className="text-sm text-blue-600">
+                Analyzing answer sheets with advanced AI technology...
               </p>
             </div>
           )}
@@ -550,6 +611,95 @@ const AnswerSheetUpload = () => {
                     <div className="mt-3 p-2 bg-red-50 rounded">
                       <div className="text-sm font-medium text-red-800 mb-1">Error:</div>
                       <div className="text-sm text-red-700">{result.error}</div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Results */}
+      {aiResults.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-blue-600" />
+              AI Analysis Results
+            </CardTitle>
+            <CardDescription>
+              Advanced AI analysis of uploaded answer sheets
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {aiResults.map((result, index) => (
+                <div key={index} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium">Answer Sheet {index + 1}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={
+                        result.status === 'SUCCESS' ? 'bg-green-100 text-green-800' :
+                        result.status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }>
+                        {result.status}
+                      </Badge>
+                      <Badge variant="outline">
+                        {Math.round(result.confidence * 100)}% Confidence
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Total Marks:</span>
+                      <div className="font-medium">{result.totalMarks}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Obtained:</span>
+                      <div className="font-medium">{result.obtainedMarks}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Percentage:</span>
+                      <div className="font-medium text-blue-600">{result.percentage.toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Processing Time:</span>
+                      <div className="font-medium">{result.processingTime}ms</div>
+                    </div>
+                  </div>
+
+                  {result.overallFeedback && (
+                    <div className="mt-3 p-3 bg-gray-50 rounded">
+                      <div className="text-sm font-medium text-gray-700 mb-1">AI Feedback:</div>
+                      <div className="text-sm text-gray-600">{result.overallFeedback}</div>
+                    </div>
+                  )}
+
+                  {result.strengths && result.strengths.length > 0 && (
+                    <div className="mt-3 p-3 bg-green-50 rounded">
+                      <div className="text-sm font-medium text-green-800 mb-1">Strengths:</div>
+                      <ul className="text-sm text-green-700">
+                        {result.strengths.map((strength, i) => (
+                          <li key={i}>• {strength}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {result.suggestions && result.suggestions.length > 0 && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded">
+                      <div className="text-sm font-medium text-blue-800 mb-1">Suggestions:</div>
+                      <ul className="text-sm text-blue-700">
+                        {result.suggestions.map((suggestion, i) => (
+                          <li key={i}>• {suggestion}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </div>

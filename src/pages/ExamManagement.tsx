@@ -566,14 +566,6 @@ export default function ExamManagement() {
                             )}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <GraduationCap className="h-4 w-4" />
-                          <span>
-                            {classes.find(c => c.id === exam.classId)?.displayName || 
-                             'No class'
-                            }
-                          </span>
-                        </div>
                       </div>
                       <div className="flex gap-2 mt-3">
                         <Button 

@@ -1,5 +1,6 @@
 // API service for EduAdmin System
 import { CreateTemplateRequest, UpdateTemplateRequest, TemplateAnalysis } from '@/types/question-paper-template';
+import { SamplePaper, CreateSamplePaperRequest, UpdateSamplePaperRequest, SamplePaperAnalysis } from '@/types/sample-paper';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
@@ -2604,6 +2605,115 @@ export const teacherDashboardAPI = {
       throw error;
     }
   },
+
+  // ==================== AI ANSWER CHECKING API ====================
+
+  // Check single answer sheet with AI
+  checkAnswerSheetWithAI: async (answerSheetId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/answer-sheets/${answerSheetId}/ai-check`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Batch check multiple answer sheets with AI
+  batchCheckAnswerSheetsWithAI: async (answerSheetIds: string[]): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/answer-sheets/batch-ai-check`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ answerSheetIds }),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get AI results for an answer sheet
+  getAIResults: async (answerSheetId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/answer-sheets/${answerSheetId}/ai-results`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get AI statistics for an exam
+  getAIStats: async (examId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/exams/${examId}/ai-stats`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Override AI result for specific question
+  overrideAIResult: async (answerSheetId: string, data: {
+    questionId: string;
+    correctedAnswer: string;
+    correctedMarks: number;
+    reason: string;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/answer-sheets/${answerSheetId}/ai-override`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get answer sheets ready for AI checking
+  getAnswerSheetsForAIChecking: async (examId: string, params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+      const response = await fetch(`${API_BASE_URL}/admin/exams/${examId}/answer-sheets-for-ai?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Recheck answer sheet with AI
+  recheckAnswerSheetWithAI: async (answerSheetId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/answer-sheets/${answerSheetId}/ai-recheck`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
 };
 
 // Performance Analytics API
@@ -2716,11 +2826,10 @@ export const performanceAPI = {
 // Question Paper Template Management API
 export const questionPaperTemplateAPI = {
   // Get all templates
-  getAll: async (params?: { subjectId?: string; classId?: string }): Promise<QuestionPaperTemplate[]> => {
+  getAll: async (params?: { subjectId?: string }): Promise<QuestionPaperTemplate[]> => {
     try {
       const queryParams = new URLSearchParams();
       if (params?.subjectId) queryParams.append('subjectId', params.subjectId);
-      if (params?.classId) queryParams.append('classId', params.classId);
       
       const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates?${queryParams}`, {
         method: 'GET',
@@ -2754,8 +2863,6 @@ export const questionPaperTemplateAPI = {
       formData.append('title', data.title);
       if (data.description) formData.append('description', data.description);
       formData.append('subjectId', data.subjectId);
-      formData.append('classId', data.classId);
-      if (data.language) formData.append('language', data.language);
       if (data.templateFile) formData.append('templateFile', data.templateFile);
 
       const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates`, {
@@ -2832,6 +2939,129 @@ export const questionPaperTemplateAPI = {
         headers: getAuthHeaders(),
       });
       const result = await handleApiResponse<{success: boolean, analysis: TemplateAnalysis}>(response);
+      return result.analysis;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Sample Paper Management API
+export const samplePaperAPI = {
+  // Get all sample papers
+  getAll: async (params?: { subjectId?: string }): Promise<SamplePaper[]> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.subjectId) queryParams.append('subjectId', params.subjectId);
+      
+      const response = await fetch(`${API_BASE_URL}/admin/sample-papers?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, samplePapers: SamplePaper[]}>(response);
+      return result.samplePapers;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get sample paper by ID
+  getById: async (id: string): Promise<SamplePaper> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/sample-papers/${id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, samplePaper: SamplePaper}>(response);
+      return result.samplePaper;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create sample paper
+  create: async (data: CreateSamplePaperRequest): Promise<SamplePaper> => {
+    try {
+      const formData = new FormData();
+      formData.append('title', data.title);
+      if (data.description) formData.append('description', data.description);
+      formData.append('subjectId', data.subjectId);
+      if (data.sampleFile) formData.append('sampleFile', data.sampleFile);
+
+      const response = await fetch(`${API_BASE_URL}/admin/sample-papers`, {
+        method: 'POST',
+        headers: getAuthHeadersForUpload(),
+        body: formData,
+      });
+      const result = await handleApiResponse<{success: boolean, samplePaper: SamplePaper}>(response);
+      return result.samplePaper;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update sample paper
+  update: async (id: string, data: UpdateSamplePaperRequest): Promise<SamplePaper> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/sample-papers/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+      const result = await handleApiResponse<{success: boolean, samplePaper: SamplePaper}>(response);
+      return result.samplePaper;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete sample paper
+  delete: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/sample-papers/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      await handleApiResponse<void>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Download sample paper
+  download: async (id: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/sample-papers/${id}/download`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download sample paper');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sample-paper-${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Analyze sample paper
+  analyze: async (id: string): Promise<SamplePaperAnalysis> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/sample-papers/${id}/analyze`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, analysis: SamplePaperAnalysis}>(response);
       return result.analysis;
     } catch (error) {
       throw error;

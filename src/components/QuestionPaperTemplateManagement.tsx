@@ -33,46 +33,37 @@ import {
   Filter
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { questionPaperTemplateAPI } from '@/services/api';
-import { subjectManagementAPI } from '@/services/api';
-import { classesAPI } from '@/services/api';
+import { questionPaperTemplateAPI, subjectManagementAPI } from '@/services/api';
 import { QuestionPaperTemplate, CreateTemplateRequest } from '@/types/question-paper-template';
 import { Subject } from '@/types/subject';
-import { Class } from '@/types/class';
 
 const QuestionPaperTemplateManagement: React.FC = () => {
   const [templates, setTemplates] = useState<QuestionPaperTemplate[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
-  const [filterClass, setFilterClass] = useState('');
   const { toast } = useToast();
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState<CreateTemplateRequest>({
     title: '',
     description: '',
-    subjectId: '',
-    classId: '',
-    language: 'ENGLISH'
+    subjectId: ''
   });
   const [templateFile, setTemplateFile] = useState<File | null>(null);
 
   useEffect(() => {
     loadTemplates();
     loadSubjects();
-    loadClasses();
   }, []);
 
   const loadTemplates = async () => {
     try {
       setLoading(true);
       const templatesData = await questionPaperTemplateAPI.getAll({
-        subjectId: filterSubject || undefined,
-        classId: filterClass || undefined
+        subjectId: filterSubject || undefined
       });
       setTemplates(templatesData);
     } catch (error) {
@@ -105,7 +96,7 @@ const QuestionPaperTemplateManagement: React.FC = () => {
   };
 
   const handleFileUpload = async () => {
-    if (!templateFile || !uploadForm.title || !uploadForm.subjectId || !uploadForm.classId) {
+    if (!templateFile || !uploadForm.title || !uploadForm.subjectId) {
       toast({
         title: "Error",
         description: "Please fill in all required fields and select a file",
@@ -128,9 +119,7 @@ const QuestionPaperTemplateManagement: React.FC = () => {
       setUploadForm({
         title: '',
         description: '',
-        subjectId: '',
-        classId: '',
-        language: 'ENGLISH'
+        subjectId: ''
       });
       setTemplateFile(null);
 
@@ -225,35 +214,14 @@ const QuestionPaperTemplateManagement: React.FC = () => {
             </DialogHeader>
             
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="title">Template Title *</Label>
-                  <Input
-                    id="title"
-                    value={uploadForm.title}
-                    onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="e.g., Mathematics Class 10 Template"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="language">Language</Label>
-                  <Select
-                    value={uploadForm.language}
-                    onValueChange={(value) => setUploadForm(prev => ({ ...prev, language: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ENGLISH">English</SelectItem>
-                      <SelectItem value="TAMIL">Tamil</SelectItem>
-                      <SelectItem value="HINDI">Hindi</SelectItem>
-                      <SelectItem value="MALAYALAM">Malayalam</SelectItem>
-                      <SelectItem value="TELUGU">Telugu</SelectItem>
-                      <SelectItem value="KANNADA">Kannada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label htmlFor="title">Template Title *</Label>
+                <Input
+                  id="title"
+                  value={uploadForm.title}
+                  onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g., Mathematics Class 10 Template"
+                />
               </div>
 
               <div>
@@ -267,43 +235,23 @@ const QuestionPaperTemplateManagement: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="subject">Subject *</Label>
-                  <Select
-                    value={uploadForm.subjectId}
-                    onValueChange={(value) => setUploadForm(prev => ({ ...prev, subjectId: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subjects.map((subject) => (
-                        <SelectItem key={subject._id} value={subject._id}>
-                          {subject.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="class">Class *</Label>
-                  <Select
-                    value={uploadForm.classId}
-                    onValueChange={(value) => setUploadForm(prev => ({ ...prev, classId: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes.map((cls) => (
-                        <SelectItem key={cls._id} value={cls._id}>
-                          {cls.displayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label htmlFor="subject">Subject *</Label>
+                <Select
+                  value={uploadForm.subjectId}
+                  onValueChange={(value) => setUploadForm(prev => ({ ...prev, subjectId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjects.map((subject) => (
+                      <SelectItem key={subject._id} value={subject._id}>
+                        {subject.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -342,7 +290,7 @@ const QuestionPaperTemplateManagement: React.FC = () => {
                 </Button>
                 <Button
                   onClick={handleFileUpload}
-                  disabled={loading || !templateFile || !uploadForm.title || !uploadForm.subjectId || !uploadForm.classId}
+                  disabled={loading || !templateFile || !uploadForm.title || !uploadForm.subjectId}
                 >
                   {loading ? "Uploading..." : "Upload Template"}
                 </Button>

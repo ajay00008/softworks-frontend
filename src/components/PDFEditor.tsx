@@ -146,34 +146,22 @@ export default function PDFEditor({
 
   const handleDownloadOriginal = async () => {
     try {
-      if (!questionPaper.generatedPdf?.downloadUrl) {
+      const questionPaperId = questionPaper._id || questionPaper.id;
+      const response = await questionPaperAPI.download(questionPaperId);
+      
+      if (response.downloadUrl) {
+        const link = document.createElement('a');
+        link.href = response.downloadUrl;
+        link.download = `${questionPaper.title || 'question-paper'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
         toast({
-          title: "Error",
-          description: "No PDF available for download",
-          variant: "destructive",
+          title: "Download Started",
+          description: "PDF download initiated",
         });
-        return;
       }
-
-      const downloadUrl = questionPaper.generatedPdf.downloadUrl;
-      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "");
-      const path = downloadUrl?.startsWith("/public")
-        ? downloadUrl
-        : `/public/${downloadUrl}`;
-      const fullDownloadUrl = `${baseUrl}${path}`;
-
-      // Create a temporary link to download the file
-      const link = document.createElement("a");
-      link.href = fullDownloadUrl;
-      link.download = questionPaper.generatedPdf.fileName || "question-paper.pdf";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      toast({
-        title: "Download Started",
-        description: "PDF download initiated",
-      });
     } catch (error) {
       toast({
         title: "Error",

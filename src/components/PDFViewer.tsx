@@ -51,13 +51,41 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     setIframeError(false);
   };
 
-  const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.download = title + '.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async () => {
+    try {
+      // If pdfUrl is a direct API endpoint, use it as is
+      if (pdfUrl.includes('/api/admin/question-papers/') && pdfUrl.includes('/download')) {
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = title + '.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // For static files, we need to fetch with auth headers
+        const response = await fetch(pdfUrl, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch PDF');
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = title + '.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
   };
 
   const handleOpenInNewTab = () => {

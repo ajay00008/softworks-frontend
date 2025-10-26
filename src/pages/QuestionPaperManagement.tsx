@@ -389,48 +389,22 @@ export default function QuestionPaperManagement() {
   };
   const handleDownloadQuestionPaper = async (questionPaper: QuestionPaper) => {
     try {
-      if (!questionPaper.generatedPdf) {
+      const questionPaperId = questionPaper._id || questionPaper.id;
+      const response = await questionPaperAPI.download(questionPaperId);
+      
+      if (response.downloadUrl) {
+        const link = document.createElement('a');
+        link.href = response.downloadUrl;
+        link.download = `${questionPaper.title || 'question-paper'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
         toast({
-          title: "Error",
-          description: "No PDF available for download",
-          variant: "destructive",
+          title: "Download Started",
+          description: `Downloading ${questionPaper.title}`,
         });
-        return;
       }
-
-      const downloadUrl = questionPaper.generatedPdf.downloadUrl;
-      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(
-        /\/api\/?$/,
-        ""
-      );
-      const path = downloadUrl?.startsWith("/public")
-        ? downloadUrl
-        : `/public/${downloadUrl}`;
-      const fullDownloadUrl = `${baseUrl}${path}`;
-
-      // Fetch the PDF as a blob
-      const response = await fetch(fullDownloadUrl);
-      if (!response.ok) throw new Error("Failed to fetch PDF");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-
-      // Create a hidden link element
-      const link = document.createElement("a");
-      link.href = url;
-      link.download =
-        questionPaper.generatedPdf.fileName || "question-paper.pdf";
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "Download Started",
-        description: `Downloading ${questionPaper.generatedPdf.fileName}`,
-      });
     } catch (error) {
       toast({
         title: "Error",

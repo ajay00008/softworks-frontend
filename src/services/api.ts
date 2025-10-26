@@ -1934,11 +1934,21 @@ export const questionPaperAPI = {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to access question paper download');
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (response.status === 404) {
+          throw new Error('Question paper not found or PDF not generated yet.');
+        } else {
+          throw new Error(`Failed to access question paper download: ${response.status} ${response.statusText}`);
+        }
       }
       
       return { success: true, downloadUrl };
     } catch (error) {
+      // If it's an auth error from getAuthHeaders, re-throw it
+      if (error instanceof Error && error.message.includes('No authentication token found')) {
+        throw new Error('Please log in to download the PDF.');
+      }
       throw error;
     }
   },

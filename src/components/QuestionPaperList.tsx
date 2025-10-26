@@ -104,26 +104,32 @@ export default function QuestionPaperList({ onEdit, onCreateNew }: QuestionPaper
 
   const handleDownload = async (questionPaper: QuestionPaper) => {
     try {
-      const questionPaperId = questionPaper._id || questionPaper.id;
-      const response = await questionPaperAPI.download(questionPaperId);
-      
-      if (response.downloadUrl) {
-        const link = document.createElement('a');
-        link.href = response.downloadUrl;
-        link.download = `${questionPaper.title || 'question-paper'}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
+      if (!questionPaper.generatedPdf?.downloadUrl) {
         toast({
-          title: 'Download Started',
-          description: `Downloading ${questionPaper.title}`,
+          title: 'Error',
+          description: 'No PDF available for download',
+          variant: 'destructive',
         });
+        return;
       }
+
+      const downloadUrl = questionPaper.generatedPdf.downloadUrl;
+      
+      // Construct full URL by adding Vite base URL and removing /api
+      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "") || 'http://localhost:4000';
+      const fullDownloadUrl = `${baseUrl}${downloadUrl}`;
+
+      // Open the PDF directly in a new tab/window
+      window.open(fullDownloadUrl, '_blank');
+      
+      toast({
+        title: 'Download Started',
+        description: `Opening ${questionPaper.title}`,
+      });
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to download PDF',
+        description: 'Failed to open PDF',
         variant: 'destructive',
       });
     }

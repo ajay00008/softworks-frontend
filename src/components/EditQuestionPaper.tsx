@@ -95,14 +95,14 @@ export default function EditQuestionPaper({
   const loadQuestionPaper = async () => {
     try {
       setLoading(true);
-      const response = await questionPaperAPI.getQuestionPaper(questionPaperId);
-      setQuestionPaper(response.data);
+      const questionPaper = await questionPaperAPI.getById(questionPaperId);
+      setQuestionPaper(questionPaper);
       setFormData({
-        title: response.data.title,
-        className: response.data.className,
-        subjects: response.data.subjects,
-        duration: response.data.duration,
-        instructions: response.data.instructions,
+        title: questionPaper.title,
+        className: questionPaper.className,
+        subjects: questionPaper.subjects,
+        duration: questionPaper.duration,
+        instructions: questionPaper.instructions,
       });
     } catch (error) {
       toast({
@@ -239,29 +239,33 @@ export default function EditQuestionPaper({
   };
 
   const handleDownloadPDF = async () => {
-    if (!questionPaper) return;
+    if (!questionPaper?.generatedPdf?.downloadUrl) {
+      toast({
+        title: 'Error',
+        description: 'No PDF available for download',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     try {
-      const questionPaperId = questionPaper._id || questionPaper.id;
-      const response = await questionPaperAPI.download(questionPaperId);
+      const downloadUrl = questionPaper.generatedPdf.downloadUrl;
       
-      if (response.downloadUrl) {
-        const link = document.createElement('a');
-        link.href = response.downloadUrl;
-        link.download = `${questionPaper.title || 'question-paper'}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        toast({
-          title: 'Download Started',
-          description: 'PDF download initiated',
-        });
-      }
+      // Construct full URL by adding Vite base URL and removing /api
+      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "") || 'http://localhost:4000';
+      const fullDownloadUrl = `${baseUrl}${downloadUrl}`;
+
+      // Open the PDF directly in a new tab/window
+      window.open(fullDownloadUrl, '_blank');
+      
+      toast({
+        title: 'Download Started',
+        description: 'PDF opened in new tab',
+      });
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to download PDF',
+        description: 'Failed to open PDF',
         variant: 'destructive',
       });
     }

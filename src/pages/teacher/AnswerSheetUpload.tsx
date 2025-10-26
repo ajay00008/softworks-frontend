@@ -60,10 +60,10 @@ interface TeacherAccess {
 interface Exam {
   _id: string;
   title: string;
-  subjectId: {
+  subjectIds: {
     _id: string;
     name: string;
-  };
+  }[];
   classId: {
     _id: string;
     name: string;
@@ -90,9 +90,6 @@ interface UploadResult {
 }
 
 const AnswerSheetUpload = () => {
-  const [teacherAccess, setTeacherAccess] = useState<TeacherAccess | null>(null);
-  const [selectedClass, setSelectedClass] = useState('all');
-  const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedExam, setSelectedExam] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -105,40 +102,46 @@ const AnswerSheetUpload = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadTeacherAccess();
-  }, []);
-
-  useEffect(() => {
-    if (teacherAccess) {
-      loadExams();
-    }
-  }, [teacherAccess, selectedClass, selectedSubject]);
-
-  const loadTeacherAccess = async () => {
-    try {
-      const response = await teacherDashboardAPI.getAccess();
-      setTeacherAccess(response.data);
-    } catch (error) {
+    // Check if user is authenticated before loading exams
+    const token = localStorage.getItem('auth-token');
+    if (!token) {
       toast({
-        title: "Error",
-        description: "Failed to load teacher access",
+        title: "Authentication Required",
+        description: "Please log in to access this page.",
         variant: "destructive",
       });
+      window.location.href = '/login';
+      return;
     }
-  };
+    
+    loadExams();
+  }, []);
 
   const loadExams = async () => {
     try {
       setLoadingExams(true);
-      const response = await teacherDashboardAPI.getExams({
-        classId: selectedClass !== 'all' ? selectedClass : undefined,
-        subjectId: selectedSubject !== 'all' ? selectedSubject : undefined,
-      });
+      const response = await teacherDashboardAPI.getExams();
       setExams(response.data || []);
     } catch (error) {
+      console.error('Error loading exams:', error);
+      
+      // Check if it's an authentication error
+      if (error.message.includes('Unauthorized') || error.message.includes('Invalid or expired token') || error.message.includes('No authentication token')) {
+        toast({
+          title: "Authentication Error",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        // Redirect to login or clear auth data
+        localStorage.removeItem('auth-token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to load exams",
+        description: `Failed to load exams: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -280,16 +283,7 @@ const AnswerSheetUpload = () => {
     );
   };
 
-  if (!teacherAccess) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading teacher access...</p>
-        </div>
-      </div>
-    );
-  }
+  // No need for teacher access check since we load all exams directly
 
   return (
     <div className="space-y-6">
@@ -313,57 +307,24 @@ const AnswerSheetUpload = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Exam Selection */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Select Exam</CardTitle>
+          <CardDescription>Choose the exam for which you want to upload answer sheets</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="class">Class</Label>
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Classes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Classes</SelectItem>
-                  {teacherAccess.classAccess.map((cls) => (
-                    <SelectItem key={cls.classId} value={cls.classId}>
-                      {cls.className}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="subject">Subject</Label>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Subjects" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Subjects</SelectItem>
-                  {teacherAccess.subjectAccess.map((subject) => (
-                    <SelectItem key={subject.subjectId} value={subject.subjectId}>
-                      {subject.subjectName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <Label htmlFor="exam">Exam</Label>
-              <Select value={selectedExam} onValueChange={(value) => {
-                setSelectedExam(value);
-              }}>
+              <Select value={selectedExam} onValueChange={setSelectedExam}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select Exam" />
+                  <SelectValue placeholder="Select an exam" />
                 </SelectTrigger>
                 <SelectContent>
                   {exams.map((exam) => (
                     <SelectItem key={exam._id} value={exam._id}>
-                      {exam.title} - {exam.subjectId.name} ({exam.classId.name})
+                      {exam.title} - {exam.subjectIds.map(s => s.name).join(', ')} ({exam.classId.name})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -386,9 +347,7 @@ const AnswerSheetUpload = () => {
           <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
             <p className="text-sm text-blue-800 font-medium">📋 Upload Steps:</p>
             <ol className="text-sm text-blue-700 mt-1 ml-4 list-decimal">
-              <li>Select Class and Subject (optional)</li>
-              <li>Click "Load Exams" to fetch available exams</li>
-              <li>Select an Exam from the dropdown</li>
+              <li>Select an Exam from the dropdown above</li>
               <li>Select PDF files to upload</li>
               <li>Click "Upload" button</li>
             </ol>

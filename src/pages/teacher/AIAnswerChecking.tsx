@@ -115,10 +115,10 @@ interface AnswerSheet {
 interface Exam {
   _id: string;
   title: string;
-  subjectId: {
+  subjectIds: {
     _id: string;
     name: string;
-  };
+  }[];
   classId: {
     _id: string;
     name: string;
@@ -145,6 +145,18 @@ const AIAnswerChecking = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Check if user is authenticated
+    const token = localStorage.getItem('auth-token');
+    if (!token) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access this page.",
+        variant: "destructive",
+      });
+      window.location.href = '/login';
+      return;
+    }
+    
     loadExams();
   }, []);
 
@@ -161,9 +173,25 @@ const AIAnswerChecking = () => {
       const response = await teacherDashboardAPI.getExams();
       setExams(response.data || []);
     } catch (error) {
+      console.error('Error loading exams:', error);
+      
+      // Check if it's an authentication error
+      if (error.message.includes('Unauthorized') || error.message.includes('Invalid or expired token') || error.message.includes('No authentication token')) {
+        toast({
+          title: "Authentication Error",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        // Redirect to login or clear auth data
+        localStorage.removeItem('auth-token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to load exams",
+        description: `Failed to load exams: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -181,9 +209,25 @@ const AIAnswerChecking = () => {
       });
       setAnswerSheets(response.data.answerSheets || []);
     } catch (error) {
+      console.error('Error loading answer sheets:', error);
+      
+      // Check if it's an authentication error
+      if (error.message.includes('Unauthorized') || error.message.includes('Invalid or expired token') || error.message.includes('No authentication token')) {
+        toast({
+          title: "Authentication Error",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        // Redirect to login or clear auth data
+        localStorage.removeItem('auth-token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to load answer sheets",
+        description: `Failed to load answer sheets: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -429,7 +473,7 @@ const AIAnswerChecking = () => {
                 <SelectContent>
                   {exams.map((exam) => (
                     <SelectItem key={exam._id} value={exam._id}>
-                      {exam.title} - {exam.subjectId.name} ({exam.classId.name})
+                      {exam.title} - {exam.subjectIds.map(s => s.name).join(', ')} ({exam.classId.name})
                     </SelectItem>
                   ))}
                 </SelectContent>

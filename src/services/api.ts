@@ -4,22 +4,7 @@ import { SamplePaper, CreateSamplePaperRequest, UpdateSamplePaperRequest, Sample
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
-// Test if backend is reachable
-const testBackendConnection = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'test', password: 'test' })
-    });
-    return response.status !== 404;
-  } catch (error) {
-    return false;
-  }
-};
-
-// Test connection on module load
-testBackendConnection();
+// Backend connection will be tested when needed through actual API calls
 
 // Updated Student interface with correct class type
 export interface Student {
@@ -62,15 +47,21 @@ export interface Subject {
 
 export interface Teacher {
   _id: string;
-  userId: any;
-  id: string;
+  userId?: any;
+  id?: string;
   email: string;
   password: string;
   name: string;
   subjectIds?: string[];
   classIds?: string[];
   subjects?: Subject[];
-  classes?: ClassMapping[];
+  classes?: {
+    id: string;
+    name: string;
+    displayName?: string;
+    level?: number;
+    section?: string;
+  }[];
   phone?: string;
   address?: string;
   qualification?: string;
@@ -231,6 +222,18 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
         errorMessage = textResponse || errorMessage;
       } catch (textError) {
         console.log('Failed to get text response:', textError);
+      }
+    }
+    
+    // Handle authentication errors globally
+    if (response.status === 401 || errorMessage.includes('Unauthorized') || errorMessage.includes('Invalid or expired token')) {
+      console.log('Authentication error detected, clearing auth data');
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('user');
+      
+      // Only redirect if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
       }
     }
     

@@ -71,6 +71,8 @@ const Teachers = () => {
   });
 
   useEffect(() => {
+    // Clear any existing search term on page load
+    setSearchTerm("");
     loadTeachers();
     loadSubjects();
     loadClasses();
@@ -151,14 +153,34 @@ const Teachers = () => {
     return !hasErrors;
   };
 
+  const validateAssignments = () => {
+    const hasSubjects = createFormAssignments.selectedSubjects.length > 0;
+    const hasClasses = createFormAssignments.selectedClasses.length > 0;
+    
+    if (!hasSubjects) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one subject for the teacher",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    if (!hasClasses) {
+      toast({
+        title: "Validation Error", 
+        description: "Please select at least one class for the teacher",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
   const loadTeachers = async () => {
     try {
       const response = await teachersAPI.getAll();
-      // Log each teacher's assignments
-      response.teachers.forEach((teacher, index) => {
-        // Teacher data processing
-      });
-      
       setTeachers(response.teachers);
     } catch (error) {
       toast({
@@ -189,6 +211,7 @@ const Teachers = () => {
       const response = await classesAPI.getAll();
       // Convert ClassMapping to Class format
       const classData = response?.map((cls: any) => ({
+        _id: cls._id || cls.id,
         id: cls._id || cls.id,
         name: cls.name,
         displayName: cls.displayName || cls.name,
@@ -258,6 +281,11 @@ const Teachers = () => {
       return;
     }
     
+    // Validate assignments for new teacher creation
+    if (!editTeacher && !validateAssignments()) {
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -292,8 +320,9 @@ const Teachers = () => {
         // Update API
         const updatedTeacher = await teachersAPI.update(editTeacher.id, updateData);
 
-        setTeachers(
-          teachers.map((t) =>
+        // Update the teacher in the state immediately
+        setTeachers(prevTeachers =>
+          prevTeachers.map((t) =>
             t.id === editTeacher.id ? { ...t, ...updatedTeacher } : t
           )
         );
@@ -312,13 +341,27 @@ const Teachers = () => {
           _id: "" as any,
         };
         
+        console.log("🔍 Creating teacher with payload:", {
+          subjectIds: createFormAssignments.selectedSubjects,
+          classIds: createFormAssignments.selectedClasses,
+          subjectIdsLength: createFormAssignments.selectedSubjects.length,
+          classIdsLength: createFormAssignments.selectedClasses.length
+        });
+        
         // Check if class IDs look like valid ObjectIds (24 hex characters)
         const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
         const validClassIds = createFormAssignments.selectedClasses.filter(id => isValidObjectId(id));
         
         const newTeacher = await teachersAPI.create(createPayload as any);
+        console.log("New teacher created:", newTeacher);
         
-        // Always reload teachers to get the complete data with assignments
+        // Add the new teacher to the state immediately for better UX
+        setTeachers(prevTeachers => [...prevTeachers, newTeacher]);
+        
+        // Clear search term to show the new teacher
+        setSearchTerm("");
+        
+        // Also reload teachers to ensure we have the latest data
         await loadTeachers();
 
         const assignmentCount = createFormAssignments.selectedSubjects.length + createFormAssignments.selectedClasses.length;
@@ -358,7 +401,7 @@ const Teachers = () => {
     
     try {
       await teachersAPI.delete(teacherToDelete.id);
-      setTeachers(teachers.filter((t) => t.id !== teacherToDelete.id));
+      setTeachers(prevTeachers => prevTeachers.filter((t) => t.id !== teacherToDelete.id));
       toast({
         title: "Success",
         description: "Teacher removed successfully",
@@ -384,10 +427,10 @@ const Teachers = () => {
     setAssigningTeacher(teacher);
     
     // Handle different possible data structures
-    const subjectIds = teacher.subjectIds || teacher.subjects?.map(s => s.id) || [];
+    const subjectIds = teacher.subjectIds || teacher.subjects?.map(s => s._id || s.id) || [];
     
     // Try different class data structures
-    let classIds = teacher.classIds || teacher.classes || [];
+    let classIds = teacher.classIds || [];
     if (teacher.classes && teacher.classes.length > 0) {
       // Try different possible class ID fields
       classIds = teacher.classes.map(c => c.id).filter(Boolean);
@@ -814,7 +857,8 @@ const Teachers = () => {
                   <div className="space-y-3">
                     <Label className="text-base font-medium flex items-center">
                       <BookOpen className="w-4 h-4 mr-2 text-green-600" />
-                      Assign Subjects
+                      Assign Subjects *
+                      <span className="text-red-500 ml-1">(Required)</span>
                     </Label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50">
                       {subjects.length === 0 ? (
@@ -837,7 +881,7 @@ const Teachers = () => {
                         ))
                       )}
                     </div>
-                    {createFormAssignments.selectedSubjects.length > 0 && (
+                    {createFormAssignments.selectedSubjects.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         <span className="text-xs text-muted-foreground">Selected:</span>
                         {createFormAssignments.selectedSubjects.map(id => {
@@ -849,6 +893,11 @@ const Teachers = () => {
                           );
                         })}
                       </div>
+                    ) : (
+                      <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
+                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                        <span className="text-sm font-medium">Please select at least one subject</span>
+                      </div>
                     )}
                   </div>
 
@@ -856,7 +905,8 @@ const Teachers = () => {
                   <div className="space-y-3">
                     <Label className="text-base font-medium flex items-center">
                       <Users className="w-4 h-4 mr-2 text-purple-600" />
-                      Assign Classes
+                      Assign Classes *
+                      <span className="text-red-500 ml-1">(Required)</span>
                     </Label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50">
                       {classes.length === 0 ? (
@@ -879,7 +929,7 @@ const Teachers = () => {
                         ))
                       )}
                     </div>
-                    {createFormAssignments.selectedClasses.length > 0 && (
+                    {createFormAssignments.selectedClasses.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         <span className="text-xs text-muted-foreground">Selected:</span>
                         {createFormAssignments.selectedClasses.map(id => {
@@ -891,38 +941,51 @@ const Teachers = () => {
                           );
                         })}
                       </div>
+                    ) : (
+                      <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
+                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                        <span className="text-sm font-medium">Please select at least one class</span>
+                      </div>
                     )}
                   </div>
 
                   {/* Assignment Summary */}
-                  {(createFormAssignments.selectedSubjects.length > 0 || createFormAssignments.selectedClasses.length > 0) && (
-                    <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 rounded-lg border">
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
-                        <Users className="w-4 h-4 mr-2 text-blue-600" />
-                        Assignment Summary
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">Subjects:</span>
-                          <span className="ml-2 font-medium text-green-600">
-                            {createFormAssignments.selectedSubjects.length > 0 
-                              ? createFormAssignments.selectedSubjects.map(id => subjects.find(s => s._id === id)?.name).join(', ')
-                              : 'None selected'
-                            }
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">Classes:</span>
-                          <span className="ml-2 font-medium text-purple-600">
-                            {createFormAssignments.selectedClasses.length > 0 
-                              ? createFormAssignments.selectedClasses.map(id => classes.find(c => c.id === id)?.name).join(', ')
-                              : 'None selected'
-                            }
+                  <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 rounded-lg border">
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
+                      <Users className="w-4 h-4 mr-2 text-blue-600" />
+                      Assignment Summary
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Subjects:</span>
+                        <span className={`ml-2 font-medium ${createFormAssignments.selectedSubjects.length > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {createFormAssignments.selectedSubjects.length > 0 
+                            ? createFormAssignments.selectedSubjects.map(id => subjects.find(s => s._id === id)?.name).join(', ')
+                            : 'None selected (Required)'
+                          }
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Classes:</span>
+                        <span className={`ml-2 font-medium ${createFormAssignments.selectedClasses.length > 0 ? 'text-purple-600' : 'text-red-500'}`}>
+                          {createFormAssignments.selectedClasses.length > 0 
+                            ? createFormAssignments.selectedClasses.map(id => classes.find(c => c.id === id)?.name).join(', ')
+                            : 'None selected (Required)'
+                          }
+                        </span>
+                      </div>
+                    </div>
+                    {(createFormAssignments.selectedSubjects.length === 0 || createFormAssignments.selectedClasses.length === 0) && (
+                      <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <div className="flex items-center space-x-2 text-amber-700 dark:text-amber-300">
+                          <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                          <span className="text-sm font-medium">
+                            Please select at least one subject and one class to create the teacher
                           </span>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </>
               )}
 
@@ -939,7 +1002,7 @@ const Teachers = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting || subjects.length === 0 || classes.length === 0}>
+                <Button type="submit" disabled={isSubmitting || subjects.length === 0 || classes.length === 0 || (!editTeacher && (createFormAssignments.selectedSubjects.length === 0 || createFormAssignments.selectedClasses.length === 0))}>
                   {isSubmitting ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
@@ -954,6 +1017,11 @@ const Teachers = () => {
                     <>
                       <Plus className="w-4 h-4 mr-2" />
                       No Classes Available
+                    </>
+                  ) : !editTeacher && (createFormAssignments.selectedSubjects.length === 0 || createFormAssignments.selectedClasses.length === 0) ? (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Select Subjects & Classes
                     </>
                   ) : (
                     <>
@@ -1243,7 +1311,7 @@ const Teachers = () => {
                       {teacherToDelete.classes?.length > 0 && (
                         <div>
                           <span className="text-sm text-yellow-700 dark:text-yellow-300">
-                            Classes: {teacherToDelete.classes.map(c => c.className).join(', ')}
+                            Classes: {teacherToDelete.classes.map(c => c.displayName || c.name).join(', ')}
                           </span>
                         </div>
                       )}
@@ -1307,14 +1375,46 @@ const Teachers = () => {
       {/* Teachers list */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg sm:text-xl">Teaching Staff ({filteredTeachers.length})</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg sm:text-xl">
+              Teaching Staff ({filteredTeachers.length})
+              {searchTerm && (
+                <span className="text-sm text-muted-foreground ml-2">
+                  (filtered by "{searchTerm}")
+                </span>
+              )}
+            </CardTitle>
+            {searchTerm && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setSearchTerm("")}
+                className="text-xs"
+              >
+                Clear search
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0 sm:p-6">
 
           {filteredTeachers.length === 0 ? (
             <div className="p-6 text-center">
               <GraduationCap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No teachers found</p>
+              {searchTerm ? (
+                <div>
+                  <p className="text-muted-foreground mb-2">No teachers found matching "{searchTerm}"</p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSearchTerm("")}
+                    className="text-sm"
+                  >
+                    Clear search
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No teachers found</p>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -1349,7 +1449,7 @@ const Teachers = () => {
                             {teacher.classes && teacher.classes.length > 0 ? (
                               teacher.classes.map((classItem, index) => (
                                 <Badge key={index} className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
-                                  {classItem.name}
+                                  {classItem.displayName || classItem.name}
                                 </Badge>
                               ))
                             ) : (

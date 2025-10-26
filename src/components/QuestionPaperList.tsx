@@ -29,7 +29,7 @@ import {
   User,
   BookOpen,
 } from 'lucide-react';
-import { questionPaperAPI, QuestionPaper, examsAPI } from '@/services/questionPaperAPI';
+import { questionPaperAPI, QuestionPaper, examsAPI } from '@/services/api';
 
 interface QuestionPaperListProps {
   onEdit: (id: string) => void;
@@ -102,13 +102,24 @@ export default function QuestionPaperList({ onEdit, onCreateNew }: QuestionPaper
     }
   };
 
-  const handleDownload = async (pdfUrl: string, title: string) => {
+  const handleDownload = async (questionPaper: QuestionPaper) => {
     try {
-      await questionPaperAPI.downloadPDF(pdfUrl);
-      toast({
-        title: 'Download Started',
-        description: `Downloading ${title}`,
-      });
+      const questionPaperId = questionPaper._id || questionPaper.id;
+      const response = await questionPaperAPI.download(questionPaperId);
+      
+      if (response.downloadUrl) {
+        const link = document.createElement('a');
+        link.href = response.downloadUrl;
+        link.download = `${questionPaper.title || 'question-paper'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: 'Download Started',
+          description: `Downloading ${questionPaper.title}`,
+        });
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -302,7 +313,7 @@ export default function QuestionPaperList({ onEdit, onCreateNew }: QuestionPaper
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDownload(paper.pdfUrl, paper.title)}
+                        onClick={() => handleDownload(paper)}
                         className="flex-1"
                       >
                         <Download className="w-4 h-4 mr-1" />

@@ -30,7 +30,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
-import { questionPaperAPI, QuestionPaper, Question } from '@/services/questionPaperAPI';
+import { questionPaperAPI, QuestionPaper, Question } from '@/services/api';
 import QuestionCard from './QuestionCard';
 
 interface EditQuestionPaperProps {
@@ -239,14 +239,25 @@ export default function EditQuestionPaper({
   };
 
   const handleDownloadPDF = async () => {
-    if (!questionPaper?.pdfUrl) return;
+    if (!questionPaper) return;
 
     try {
-      await questionPaperAPI.downloadPDF(questionPaper.pdfUrl);
-      toast({
-        title: 'Download Started',
-        description: 'PDF download initiated',
-      });
+      const questionPaperId = questionPaper._id || questionPaper.id;
+      const response = await questionPaperAPI.download(questionPaperId);
+      
+      if (response.downloadUrl) {
+        const link = document.createElement('a');
+        link.href = response.downloadUrl;
+        link.download = `${questionPaper.title || 'question-paper'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: 'Download Started',
+          description: 'PDF download initiated',
+        });
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -393,7 +404,7 @@ export default function EditQuestionPaper({
                 <RefreshCw className={`w-4 h-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
                 {regenerating ? 'Regenerating...' : 'Regenerate PDF'}
               </Button>
-              <Button onClick={handleDownloadPDF} variant="outline" disabled={!questionPaper.pdfUrl}>
+              <Button onClick={handleDownloadPDF} variant="outline" disabled={!questionPaper}>
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </Button>

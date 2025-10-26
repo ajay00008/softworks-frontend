@@ -274,6 +274,9 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
     } else if (data.exam) {
       console.log('handleApiResponse - Returning data.exam:', data.exam);
       return data.exam;
+    } else if (data.questionPaper) {
+      console.log('handleApiResponse - Returning data.questionPaper:', data.questionPaper);
+      return data.questionPaper;
     } else {
       console.log('handleApiResponse - Returning data as T:', data);
       return data as T;
@@ -1954,16 +1957,34 @@ export const questionPaperAPI = {
   },
 
   // Regenerate PDF with updated questions
-  regeneratePDF: async (id: string): Promise<{ success: boolean; downloadUrl: string }> => {
+  regeneratePDF: async (id: string): Promise<{ success: boolean; questionPaper: QuestionPaper; downloadUrl: string }> => {
     try {
+      console.log('api.ts regeneratePDF called with id:', id);
       const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/regenerate-pdf`, {
         method: 'POST',
         headers: getAuthHeaders(),
       });
       
-      const result = await handleApiResponse<{success: boolean, downloadUrl: string}>(response);
-      return result;
+      console.log('api.ts regeneratePDF response status:', response.status);
+      console.log('api.ts regeneratePDF response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('api.ts regeneratePDF error:', errorData);
+        throw new Error(errorData.message || 'Failed to regenerate PDF');
+      }
+
+      const data = await response.json();
+      console.log('api.ts Raw regenerate response:', data);
+      
+      // Return the full response object with downloadUrl
+      return {
+        success: data.success,
+        questionPaper: data.questionPaper,
+        downloadUrl: data.downloadUrl
+      };
     } catch (error) {
+      console.error('api.ts regeneratePDF catch error:', error);
       throw error;
     }
   },

@@ -30,13 +30,14 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
-import { questionPaperAPI, QuestionPaper, Question } from '@/services/api';
+import { questionPaperAPI, QuestionPaper, Question } from '@/services/questionPaperAPI';
 import QuestionCard from './QuestionCard';
 
 interface EditQuestionPaperProps {
   questionPaperId: string;
   onClose: () => void;
   onSave?: (updatedPaper: QuestionPaper) => void;
+  onPDFRegenerated?: (downloadUrl: string) => void;
 }
 
 const DIFFICULTY_OPTIONS = [
@@ -58,8 +59,10 @@ export default function EditQuestionPaper({
   questionPaperId,
   onClose,
   onSave,
+  onPDFRegenerated,
 }: EditQuestionPaperProps) {
   const [questionPaper, setQuestionPaper] = useState<QuestionPaper | null>(null);
+  const [currentDownloadUrl, setCurrentDownloadUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -95,8 +98,10 @@ export default function EditQuestionPaper({
   const loadQuestionPaper = async () => {
     try {
       setLoading(true);
-      const questionPaper = await questionPaperAPI.getById(questionPaperId);
+      const response = await questionPaperAPI.getQuestionPaper(questionPaperId);
+      const questionPaper = response.data;
       setQuestionPaper(questionPaper);
+      setCurrentDownloadUrl(questionPaper.generatedPdf?.downloadUrl || null);
       setFormData({
         title: questionPaper.title,
         className: questionPaper.className,
@@ -135,9 +140,11 @@ export default function EditQuestionPaper({
     setShowAddQuestion(true);
   };
 
-  const handleSaveQuestion = () => {
+  const handleSaveQuestion = async () => {
+    console.log('handleSaveQuestion called!');
     if (!questionPaper) return;
 
+    console.log('Question paper exists, proceeding with save...');
     const updatedQuestions = [...questionPaper.questions];
     
     if (editingQuestion) {
@@ -151,10 +158,44 @@ export default function EditQuestionPaper({
       updatedQuestions.push({ ...questionForm, _id: Date.now().toString() });
     }
 
-    setQuestionPaper({
+    const updatedQuestionPaper = {
       ...questionPaper,
       questions: updatedQuestions,
-    });
+    };
+
+    setQuestionPaper(updatedQuestionPaper);
+
+    // Save to backend and regenerate PDF
+    try {
+      console.log('About to call updateQuestionPaper...');
+      await questionPaperAPI.updateQuestionPaper(questionPaperId, {
+        questions: updatedQuestions,
+      });
+      
+      console.log('updateQuestionPaper completed, about to call regeneratePDF...');
+      // Regenerate PDF to get updated download URL
+      const response = await questionPaperAPI.regeneratePDF(questionPaperId);
+      console.log('Regenerate response:', response);
+      setQuestionPaper(response.questionPaper);
+      setCurrentDownloadUrl(response.downloadUrl);
+      
+      // Store the download URL for immediate use
+      console.log('Regenerate response downloadUrl:', response.downloadUrl);
+      console.log('QuestionPaper generatedPdf downloadUrl:', response.questionPaper.generatedPdf?.downloadUrl);
+      console.log('Current download URL set to:', response.downloadUrl);
+      
+      toast({
+        title: 'Success',
+        description: 'Question saved and PDF updated',
+      });
+    } catch (error) {
+      console.error('Error in handleSaveQuestion:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save question',
+        variant: 'destructive',
+      });
+    }
 
     setShowAddQuestion(false);
     setEditingQuestion(null);
@@ -185,6 +226,9 @@ export default function EditQuestionPaper({
 
     try {
       setSaving(true);
+      console.log('handleSaveChanges called!');
+      
+      // First update the question paper
       const response = await questionPaperAPI.updateQuestionPaper(questionPaperId, {
         title: formData.title,
         className: formData.className,
@@ -194,14 +238,22 @@ export default function EditQuestionPaper({
         instructions: formData.instructions,
       });
 
-      setQuestionPaper(response.data);
-      onSave?.(response.data);
+      console.log('Question paper updated, now regenerating PDF...');
+      
+      // Then regenerate PDF to get updated download URL
+      const regenerateResponse = await questionPaperAPI.regeneratePDF(questionPaperId);
+      console.log('Regenerate response in handleSaveChanges:', regenerateResponse);
+      
+      setQuestionPaper(regenerateResponse.questionPaper);
+      setCurrentDownloadUrl(regenerateResponse.downloadUrl);
+      onSave?.(regenerateResponse.questionPaper);
       
       toast({
         title: 'Success',
-        description: 'Question paper updated successfully',
+        description: 'Question paper updated and PDF regenerated',
       });
     } catch (error) {
+      console.error('Error in handleSaveChanges:', error);
       toast({
         title: 'Error',
         description: 'Failed to save question paper',
@@ -217,11 +269,15 @@ export default function EditQuestionPaper({
 
     try {
       setRegenerating(true);
-      const response = await questionPaperAPI.updateQuestionPaper(questionPaperId, {
+      // First save the questions to the backend
+      await questionPaperAPI.updateQuestionPaper(questionPaperId, {
         questions: questionPaper.questions,
       });
-
-      setQuestionPaper(response.data);
+      
+      // Then regenerate the PDF
+      const response = await questionPaperAPI.regeneratePDF(questionPaperId);
+      setQuestionPaper(response.questionPaper);
+      setCurrentDownloadUrl(response.downloadUrl);
       
       toast({
         title: 'Success',
@@ -239,36 +295,52 @@ export default function EditQuestionPaper({
   };
 
   const handleDownloadPDF = async () => {
-    if (!questionPaper?.generatedPdf?.downloadUrl) {
-      toast({
-        title: 'Error',
-        description: 'No PDF available for download',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+    console.log('handleDownloadPDF called!');
+    
     try {
-      const downloadUrl = questionPaper.generatedPdf.downloadUrl;
+      // Always fetch the latest question paper data to get the most recent PDF URL
+      console.log('Fetching latest question paper data...');
+      const response = await questionPaperAPI.getQuestionPaper(questionPaperId);
+      const latestQuestionPaper = response.data;
       
-      // Construct full URL by adding Vite base URL and removing /api
-      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "") || 'http://localhost:4000';
-      const fullDownloadUrl = `${baseUrl}${downloadUrl}`;
+      const downloadUrl = latestQuestionPaper.generatedPdf?.downloadUrl;
+      
+      if (!downloadUrl) {
+        console.log('No download URL available!');
+        toast({
+          title: 'Error',
+          description: 'No PDF available for download',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-      // Open the PDF directly in a new tab/window
-      window.open(fullDownloadUrl, '_blank');
+      console.log('Downloading PDF with latest URL:', downloadUrl);
+      await questionPaperAPI.downloadPDF(downloadUrl);
+      
+      // Update the local state with the latest data
+      setQuestionPaper(latestQuestionPaper);
+      setCurrentDownloadUrl(downloadUrl);
       
       toast({
         title: 'Download Started',
-        description: 'PDF opened in new tab',
+        description: 'PDF download initiated',
       });
     } catch (error) {
+      console.error('Download error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to open PDF',
+        description: 'Failed to download PDF',
         variant: 'destructive',
       });
     }
+  };
+
+  // Function to handle PDF regeneration from external components
+  const handleExternalPDFRegeneration = (downloadUrl: string) => {
+    console.log('External PDF regeneration detected, updating download URL:', downloadUrl);
+    setCurrentDownloadUrl(downloadUrl);
+    onPDFRegenerated?.(downloadUrl);
   };
 
   if (loading) {

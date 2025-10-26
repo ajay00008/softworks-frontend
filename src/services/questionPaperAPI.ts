@@ -18,7 +18,13 @@ export interface QuestionPaper {
   className: string;
   subjects: string[];
   questions: Question[];
-  pdfUrl: string;
+  generatedPdf?: {
+    fileName: string;
+    filePath: string;
+    fileSize: number;
+    generatedAt: string;
+    downloadUrl: string;
+  };
   totalMarks: number;
   duration: number;
   instructions: string;
@@ -76,7 +82,7 @@ class QuestionPaperAPI {
   }
 
   async createQuestionPaper(data: CreateQuestionPaperRequest): Promise<QuestionPaperResponse> {
-    const response = await fetch(`${API_BASE_URL}/question-papers`, {
+    const response = await fetch(`${API_BASE_URL}/admin/question-papers`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data)
@@ -91,7 +97,7 @@ class QuestionPaperAPI {
   }
 
   async getQuestionPaper(id: string): Promise<QuestionPaperResponse> {
-    const response = await fetch(`${API_BASE_URL}/question-papers/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}`, {
       method: 'GET',
       headers: this.getAuthHeaders()
     });
@@ -105,7 +111,7 @@ class QuestionPaperAPI {
   }
 
   async updateQuestionPaper(id: string, data: UpdateQuestionPaperRequest): Promise<QuestionPaperResponse> {
-    const response = await fetch(`${API_BASE_URL}/question-papers/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data)
@@ -120,7 +126,7 @@ class QuestionPaperAPI {
   }
 
   async deleteQuestionPaper(id: string): Promise<{ success: boolean; message: string }> {
-    const response = await fetch(`${API_BASE_URL}/question-papers/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders()
     });
@@ -148,7 +154,7 @@ class QuestionPaperAPI {
     if (params?.subjects) queryParams.append('subjects', params.subjects.join(','));
     if (params?.createdBy) queryParams.append('createdBy', params.createdBy);
 
-    const response = await fetch(`${API_BASE_URL}/question-papers?${queryParams}`, {
+    const response = await fetch(`${API_BASE_URL}/admin/question-papers?${queryParams}`, {
       method: 'GET',
       headers: this.getAuthHeaders()
     });
@@ -161,8 +167,33 @@ class QuestionPaperAPI {
     return response.json();
   }
 
-  async downloadPDF(pdfUrl: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}${pdfUrl}`, {
+  async regeneratePDF(questionPaperId: string): Promise<{ success: boolean; questionPaper: QuestionPaper; downloadUrl: string }> {
+    const response = await fetch(`${API_BASE_URL}/admin/question-papers/${questionPaperId}/regenerate-pdf`, {
+      method: 'POST',
+      headers: this.getAuthHeaders()
+    });
+    console.log(response,'Regenerate response:')
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to regenerate PDF');
+    }
+
+    const data = await response.json();
+    console.log('Raw regenerate response:', data);
+    
+    // Return the full response object with downloadUrl
+    return {
+      success: data.success,
+      questionPaper: data.questionPaper,
+      downloadUrl: data.downloadUrl
+    };
+  }
+
+  async downloadPDF(downloadUrl: string): Promise<void> {
+    // Remove /api prefix from API_BASE_URL for static file serving
+    const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '');
+    const response = await fetch(`${baseUrl}${downloadUrl}`, {
       method: 'GET',
       headers: this.getAuthHeaders()
     });

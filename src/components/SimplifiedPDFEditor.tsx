@@ -22,7 +22,7 @@ interface SimplifiedPDFEditorProps {
   questionPaper: QuestionPaper;
   isOpen: boolean;
   onClose: () => void;
-  onUpdate: () => void;
+  onUpdate: (updatedQuestionPaper?: QuestionPaper) => void;
 }
 
 const SimplifiedPDFEditor: React.FC<SimplifiedPDFEditorProps> = ({
@@ -95,12 +95,24 @@ const SimplifiedPDFEditor: React.FC<SimplifiedPDFEditorProps> = ({
 
       // Automatically regenerate PDF after updating question
       try {
-        await questionPaperAPI.regeneratePDF(questionPaperId);
+        console.log('SimplifiedPDFEditor: Calling regeneratePDF after question update...');
+        const regenerateResponse = await questionPaperAPI.regeneratePDF(questionPaperId);
+        console.log('SimplifiedPDFEditor: Regenerate response:', regenerateResponse);
+        console.log('SimplifiedPDFEditor: New download URL:', regenerateResponse.downloadUrl);
+        
+        // Log the updated question paper data and notify parent
+        if (regenerateResponse.questionPaper) {
+          console.log('SimplifiedPDFEditor: Regenerate returned updated questionPaper:', regenerateResponse.questionPaper);
+          console.log('SimplifiedPDFEditor: Notifying parent component of update with new data');
+          onUpdate(regenerateResponse.questionPaper); // Pass updated question paper to parent
+        }
+        
         toast({
           title: "PDF Updated",
           description: "PDF has been regenerated with updated questions"
         });
       } catch (regenerateError) {
+        console.error('SimplifiedPDFEditor: PDF regeneration failed:', regenerateError);
         toast({
           title: "Warning",
           description: "Question updated but PDF regeneration failed. Please regenerate manually.",
@@ -163,6 +175,10 @@ const SimplifiedPDFEditor: React.FC<SimplifiedPDFEditorProps> = ({
       const result = await questionPaperAPI.regeneratePDF(questionPaperId);
       
       if (result.success) {
+        // Notify parent component to refresh data
+        console.log('SimplifiedPDFEditor: Manual regenerate successful, notifying parent with new data');
+        onUpdate(result.questionPaper);
+        
         toast({
           title: "Success",
           description: "PDF regenerated successfully with updated questions",

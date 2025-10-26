@@ -1056,7 +1056,7 @@ export const subjectManagementAPI = {
   // Check if reference book file exists
   checkReferenceBookExists: async (id: string): Promise<{ exists: boolean; message: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book/check`, {
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book/check-upload`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });

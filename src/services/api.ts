@@ -1924,17 +1924,19 @@ export const questionPaperAPI = {
   // Download question paper as PDF
   download: async (id: string): Promise<{ success: boolean; downloadUrl: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/download`, {
-        method: 'GET',
+      // Create download URL - the backend will serve the file directly
+      const downloadUrl = `${API_BASE_URL}/admin/question-papers/${id}/download`;
+      
+      // Test if the endpoint is accessible (optional check)
+      const response = await fetch(downloadUrl, {
+        method: 'HEAD', // Use HEAD to check if file exists without downloading
         headers: getAuthHeaders(),
       });
       
       if (!response.ok) {
-        throw new Error('Failed to download question paper');
+        throw new Error('Failed to access question paper download');
       }
       
-      // Create download URL
-      const downloadUrl = `${API_BASE_URL}/admin/question-papers/${id}/download`;
       return { success: true, downloadUrl };
     } catch (error) {
       throw error;

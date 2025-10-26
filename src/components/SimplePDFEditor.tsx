@@ -187,14 +187,25 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
     }
   };
 
-  const handleDownloadOriginal = () => {
-    if (questionPaper.pdfUrl) {
-      const link = document.createElement('a');
-      link.href = questionPaper.pdfUrl;
-      link.download = `${questionPaper.title || 'question-paper'}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  const handleDownloadOriginal = async () => {
+    try {
+      const questionPaperId = questionPaper._id || questionPaper.id;
+      const response = await questionPaperAPI.download(questionPaperId);
+      
+      if (response.downloadUrl) {
+        const link = document.createElement('a');
+        link.href = response.downloadUrl;
+        link.download = `${questionPaper.title || 'question-paper'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download PDF",
+        variant: "destructive",
+      });
     }
   };
 

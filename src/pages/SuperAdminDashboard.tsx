@@ -10,7 +10,8 @@ import {
   BarChart3,
   UserPlus,
   Activity,
-  Database
+  Database,
+  BookOpen
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { adminsAPI, User } from '@/services/api';
@@ -59,10 +60,18 @@ const SuperAdminDashboard = () => {
       badge: 'Core'
     },
     {
+      title: 'Subject Management',
+      description: 'Manage subjects and templates across all admins',
+      icon: BookOpen,
+      color: 'secondary',
+      onClick: () => navigate('/dashboard/subject-management'),
+      badge: 'New'
+    },
+    {
       title: 'System Settings',
       description: 'Configure global system settings and preferences',
       icon: Settings,
-      color: 'secondary',
+      color: 'accent',
       onClick: () => navigate('/dashboard/settings'),
       badge: null
     },
@@ -70,16 +79,8 @@ const SuperAdminDashboard = () => {
       title: 'System Analytics',
       description: 'View system performance and admin activity reports',
       icon: BarChart3,
-      color: 'accent',
-      onClick: () => navigate('/dashboard/analytics'),
-      badge: null
-    },
-    {
-      title: 'Admin Activity',
-      description: 'Monitor admin actions and system logs',
-      icon: Activity,
       color: 'success',
-      onClick: () => navigate('/dashboard/admin-activity'),
+      onClick: () => navigate('/dashboard/analytics'),
       badge: null
     }
   ];

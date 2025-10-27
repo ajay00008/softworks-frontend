@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { ViewButton } from '@/components/ui/view-button';
 import { 
   Upload, 
   Download, 
@@ -19,19 +20,18 @@ import {
   Eye
 } from 'lucide-react';
 import { questionPaperTemplateAPI } from '@/services/api';
+import { authAPI } from '@/services/api';
 import { QuestionPaperTemplate, CreateTemplateRequest } from '@/types/question-paper-template';
 
 interface QuestionPaperTemplateManagerProps {
   subjectId: string;
   subjectName: string;
-  templates?: QuestionPaperTemplate[];
   onUpdate: () => void;
 }
 
 export default function QuestionPaperTemplateManager({ 
   subjectId, 
   subjectName,
-  templates = [], 
   onUpdate 
 }: QuestionPaperTemplateManagerProps) {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -41,6 +41,8 @@ export default function QuestionPaperTemplateManager({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<QuestionPaperTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const { toast } = useToast();
 
   // Upload form state
@@ -49,6 +51,25 @@ export default function QuestionPaperTemplateManager({
     description: '',
     subjectId: subjectId
   });
+
+  // Load templates for this subject
+  const loadTemplates = useCallback(async () => {
+    try {
+      setIsLoadingTemplates(true);
+      const templates = await questionPaperTemplateAPI.getAll({ subjectId });
+      setTemplates(templates as unknown as QuestionPaperTemplate[] || []);
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      setTemplates([]);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  }, [subjectId]);
+
+  // Load templates when component mounts
+  useEffect(() => {
+    loadTemplates();
+  }, [subjectId, loadTemplates]);
 
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,6 +126,9 @@ export default function QuestionPaperTemplateManager({
         description: '',
         subjectId: subjectId
       });
+      // Refresh templates locally
+      await loadTemplates();
+      // Also notify parent for any other updates
       onUpdate();
     } catch (error) {
       toast({
@@ -169,6 +193,9 @@ export default function QuestionPaperTemplateManager({
       });
       setIsDeleteDialogOpen(false);
       setTemplateToDelete(null);
+      // Refresh templates locally
+      await loadTemplates();
+      // Also notify parent for any other updates
       onUpdate();
     } catch (error) {
       toast({
@@ -190,24 +217,24 @@ export default function QuestionPaperTemplateManager({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <BookOpen className="h-3 w-3 text-muted-foreground" />
+    <div className="space-y-2 sm:space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center space-x-2 min-w-0">
+          <BookOpen className="h-3 w-3 text-muted-foreground flex-shrink-0" />
           <span className="text-xs font-medium">Question Paper Templates</span>
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className="text-xs flex-shrink-0">
             {templates.length} template{templates.length !== 1 ? 's' : ''}
           </Badge>
         </div>
         
         <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="h-6 px-2">
+            <Button variant="outline" size="sm" className="h-6 px-2 w-full sm:w-auto">
               <Plus className="h-3 w-3 mr-1" />
               <span className="text-xs">Upload</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl mx-4 sm:mx-0">
             <DialogHeader>
               <DialogTitle>Upload Question Paper Template</DialogTitle>
               <DialogDescription>
@@ -237,10 +264,9 @@ export default function QuestionPaperTemplateManager({
                 />
               </div>
 
-
               <div>
                 <Label>Upload Template File *</Label>
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 sm:p-6 text-center">
                   <input
                     type="file"
                     accept=".pdf"
@@ -249,8 +275,8 @@ export default function QuestionPaperTemplateManager({
                     id="template-upload"
                   />
                   <label htmlFor="template-upload" className="cursor-pointer">
-                    <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
+                    <Upload className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Click to upload or drag and drop
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -258,23 +284,25 @@ export default function QuestionPaperTemplateManager({
                     </p>
                   </label>
                   {uploadFile && (
-                    <p className="text-sm text-primary mt-2">
+                    <p className="text-xs sm:text-sm text-primary mt-2 truncate">
                       Selected: {uploadFile.name}
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t">
+              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t">
                 <Button
                   variant="outline"
                   onClick={() => setIsUploadDialogOpen(false)}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleUpload}
                   disabled={isUploading || !uploadFile || !uploadForm.title}
+                  className="w-full sm:w-auto"
                 >
                   {isUploading ? "Uploading..." : "Upload Template"}
                 </Button>
@@ -284,29 +312,40 @@ export default function QuestionPaperTemplateManager({
         </Dialog>
       </div>
 
-      {templates.length > 0 ? (
-        <div className="space-y-2 max-h-32 overflow-y-auto">
+      {isLoadingTemplates ? (
+        <div className="space-y-1.5 max-h-28">
+          <div className="flex items-center justify-center p-4">
+            <div className="text-xs text-muted-foreground">Loading templates...</div>
+          </div>
+        </div>
+      ) : templates.length > 0 ? (
+        <div className="space-y-1.5 max-h-28 overflow-y-auto">
           {templates.map((template) => (
-            <div key={template._id} className="flex items-center justify-between p-2 border rounded bg-gray-50">
+            <div key={template._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-0 p-2 border rounded bg-gray-50/50">
               <div className="flex items-center space-x-2 min-w-0 flex-1">
                 <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium truncate">{template.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatFileSize(template.templateFile.fileSize)} • {template.language}
+                    {formatFileSize(template.templateFile.fileSize)} • {(template as QuestionPaperTemplate & { language?: string }).language || 'English'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-1 flex-shrink-0">
+              <div className="flex items-center justify-end sm:justify-start space-x-1 flex-shrink-0">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => handleDownload(template._id, template.templateFile.fileName)}
                   disabled={isDownloading}
-                  className="h-6 px-2"
+                  className="h-5 px-1.5 flex-1 sm:flex-none"
                 >
-                  <Download className="h-3 w-3" />
+                  <Download className="h-2.5 w-2.5 mr-1 sm:mr-0" />
+                  <span className="sm:hidden text-xs">Download</span>
                 </Button>
+                <ViewButton
+                  onClick={() => handleDownload(template._id, template.templateFile.fileName)}
+                  disabled={isDownloading}
+                />
                 <Button
                   size="sm"
                   variant="outline"
@@ -315,9 +354,10 @@ export default function QuestionPaperTemplateManager({
                     setIsDeleteDialogOpen(true);
                   }}
                   disabled={isDeleting}
-                  className="h-6 px-2"
+                  className="h-5 px-1.5 flex-1 sm:flex-none"
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-2.5 w-2.5 mr-1 sm:mr-0" />
+                  <span className="sm:hidden text-xs">Delete</span>
                 </Button>
               </div>
             </div>
@@ -325,7 +365,7 @@ export default function QuestionPaperTemplateManager({
         </div>
       ) : (
         <div className="text-center py-2 text-muted-foreground">
-          <BookOpen className="h-6 w-6 mx-auto mb-1 text-muted-foreground/50" />
+          <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 mx-auto mb-1 text-muted-foreground/50" />
           <p className="text-xs">No templates uploaded yet</p>
           <p className="text-xs">Upload a sample question paper to use as a template</p>
         </div>
@@ -333,17 +373,18 @@ export default function QuestionPaperTemplateManager({
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="mx-4 sm:mx-0">
           <DialogHeader>
             <DialogTitle>Delete Template</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this template? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end space-x-3">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
             <Button
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
@@ -351,6 +392,7 @@ export default function QuestionPaperTemplateManager({
               variant="destructive"
               onClick={handleDelete}
               disabled={isDeleting}
+              className="w-full sm:w-auto"
             >
               {isDeleting ? "Deleting..." : "Delete"}
             </Button>

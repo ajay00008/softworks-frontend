@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { ViewButton } from '@/components/ui/view-button';
+import { ViewTabs } from '@/components/ui/view-tabs';
 import { 
   Upload, 
   Brain, 

@@ -525,7 +525,7 @@ export const teachersAPI = {
 
 // Admins API (Super Admin endpoints)
 export const adminsAPI = {
-  getAll: async (params: PaginationParams = {}): Promise<{ admins: { data: User[] }; pagination?: any }> => {
+  getAll: async (params: PaginationParams = {}): Promise<{ admins: User[]; pagination?: any }> => {
     try {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.append('page', params.page.toString());
@@ -539,7 +539,7 @@ export const adminsAPI = {
       });
 
       const data = await handleApiResponse<{ data: User[]; pagination?: any }>(response);
-      return { admins: data };
+      return { admins: data.data, pagination: data.pagination };
     } catch (error) {
       throw error;
     }
@@ -967,6 +967,32 @@ export const subjectManagementAPI = {
         headers: getAuthHeaders(),
       });
       return await handleApiResponse<Subject[]>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAllByAdmin: async (adminId: string, filters?: SubjectFilters): Promise<{ subjects: Subject[]; total: number; page: number; limit: number }> => {
+    try {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.search) params.append('search', filters.search);
+      if (filters?.category) params.append('category', filters.category);
+      if (filters?.level) params.append('level', filters.level.toString());
+      if (filters?.isActive !== undefined) params.append('isActive', filters.isActive.toString());
+
+      const response = await fetch(`${API_BASE_URL}/admin/subjects/admin/${adminId}?${params}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{ data: Subject[]; pagination?: any }>(response);
+      return { 
+        subjects: result.data || [], 
+        total: result.pagination?.total || 0, 
+        page: result.pagination?.page || 1, 
+        limit: result.pagination?.limit || 10 
+      };
     } catch (error) {
       throw error;
     }

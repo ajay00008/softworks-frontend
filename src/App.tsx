@@ -12,6 +12,7 @@ import ClassPerformance from "./pages/ClassPerformance";
 import SubjectPerformance from "./pages/SubjectPerformance";
 import StudentPerformance from "./pages/StudentPerformance";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import SuperAdminSubjectManagement from "./pages/SuperAdminSubjectManagement";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import PerformanceAnalytics from "./pages/PerformanceAnalytics";
@@ -64,6 +65,7 @@ const App = () => (
             {/* Super Admin Routes */}
             <Route path="super-admin" element={<SuperAdminDashboard />} />
             <Route path="admin-management" element={<AdminManagement />} />
+            <Route path="subject-management" element={<SuperAdminSubjectManagement />} />
             <Route path="data-migration" element={<DataMigrationDashboard />} />
             <Route path="settings" element={<div className="p-6">System Settings - Super Admin Only</div>} />
             <Route path="analytics" element={<div className="p-6">System Analytics - Super Admin Only</div>} />

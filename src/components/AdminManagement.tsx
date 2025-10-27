@@ -37,7 +37,7 @@ const AdminManagement = () => {
     try {
       setIsLoading(true);
       const response = await adminsAPI.getAll();
-      setAdmins(response?.admins?.data || []);
+      setAdmins(response?.admins || []);
     } catch (error) {
       toast({
         title: "Error",

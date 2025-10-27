@@ -37,7 +37,6 @@ import {
   UpdateSubjectRequest
 } from '@/services/api';
 import ReferenceBookManager from '@/components/ReferenceBookManager';
-import QuestionPaperTemplateManager from '@/components/QuestionPaperTemplateManager';
 
 const ClassSubjectManagement = () => {
   const [activeTab, setActiveTab] = useState('classes');
@@ -728,16 +727,6 @@ const ClassSubjectManagement = () => {
                           <ReferenceBookManager
                             subjectId={subject._id}
                             referenceBook={subject.referenceBook}
-                            onUpdate={loadSubjects}
-                          />
-                        </div>
-                        
-                        {/* Question Paper Template Section */}
-                        <div className="pt-3 border-t">
-                          <QuestionPaperTemplateManager
-                            subjectId={subject._id}
-                            subjectName={subject.name}
-                            templates={(subject as any).templates || []}
                             onUpdate={loadSubjects}
                           />
                         </div>

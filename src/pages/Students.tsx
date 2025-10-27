@@ -6,6 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { ViewButton } from '@/components/ui/view-button';
+import { ViewTabs } from '@/components/ui/view-tabs';
 import { studentsAPI, classesAPI, Student, ClassMapping } from '@/services/api';
 import { Pagination } from '@/components/ui/pagination';
 import { Plus, Users, Edit, Trash2, UserPlus, AlertCircle, ExternalLink } from 'lucide-react';

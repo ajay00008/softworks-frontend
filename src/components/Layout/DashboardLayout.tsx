@@ -38,6 +38,7 @@ const getNavigation = (userRole?: string) => {
   if (isSuperAdmin) {
     return [
       { name: 'Admin Management', href: '/dashboard/admin-management', icon: Shield, section: 'SUPER_ADMIN' },
+      { name: 'Subject Management', href: '/dashboard/subject-management', icon: BookOpen, section: 'SUPER_ADMIN' },
       { name: 'System Settings', href: '/dashboard/settings', icon: Settings, section: 'SYSTEM' },
       { name: 'System Analytics', href: '/dashboard/analytics', icon: BarChart3, section: 'SYSTEM' },
     ];

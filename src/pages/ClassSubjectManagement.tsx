@@ -75,8 +75,29 @@ const ClassSubjectManagement = () => {
     description: '',
     color: '#3B82F6'
   });
+
+  // Validation states
+  const [subjectCodeError, setSubjectCodeError] = useState<string | null>(null);
   
   const { toast } = useToast();
+
+  // Validation functions
+  const validateSubjectCode = (code: string) => {
+    if (!code.trim()) {
+      setSubjectCodeError('Subject code is required');
+      return false;
+    }
+    if (code !== code.toUpperCase()) {
+      setSubjectCodeError('Subject code must be in uppercase letters');
+      return false;
+    }
+    if (!/^[A-Z0-9_]+$/.test(code)) {
+      setSubjectCodeError('Subject code can only contain uppercase letters, numbers, and underscores');
+      return false;
+    }
+    setSubjectCodeError(null);
+    return true;
+  };
 
   // Load data on component mount
   useEffect(() => {
@@ -175,7 +196,7 @@ const ClassSubjectManagement = () => {
     try {
       setIsLoading(true);
       const updatedClass = await classManagementAPI.update(editingClass._id, classForm);
-      setClasses(prev => prev.map(c => c._id === editingClass._id ? updatedClass.class : c));
+      setClasses(prev => prev.map(c => c._id === editingClass._id ? updatedClass : c));
       setShowClassDialog(false);
       setEditingClass(null);
       resetClassForm();
@@ -256,6 +277,16 @@ const ClassSubjectManagement = () => {
       return;
     }
 
+    // Validate subject code
+    if (!validateSubjectCode(subjectForm.code)) {
+      toast({
+        title: "Validation Error",
+        description: subjectCodeError || "Please fix the subject code format.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
       const newSubject = await subjectManagementAPI.create(subjectForm);
@@ -283,7 +314,7 @@ const ClassSubjectManagement = () => {
     try {
       setIsLoading(true);
       const updatedSubject = await subjectManagementAPI.update(editingSubject._id, subjectForm);
-      setSubjects(prev => prev.map(s => s._id === editingSubject._id ? updatedSubject.subject : s));
+      setSubjects(prev => prev.map(s => s._id === editingSubject._id ? updatedSubject : s));
       setShowSubjectDialog(false);
       setEditingSubject(null);
       resetSubjectForm();
@@ -326,7 +357,7 @@ const ClassSubjectManagement = () => {
       code: subject.code,
       name: subject.name,
       shortName: subject.shortName,
-      category: subject.category as 'SCIENCE' | 'MATHEMATICS' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'COMMERCE' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'OTHER',
+      category: subject.category as 'SCIENCE' | 'MATHEMATICS' | 'ENGLISH' | 'HINDI' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'HISTORY' | 'GEOGRAPHY' | 'CIVICS' | 'ECONOMICS' | 'COMMERCE' | 'ACCOUNTANCY' | 'BUSINESS_STUDIES' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'INFORMATION_TECHNOLOGY' | 'OTHER',
       classIds: subject.classIds, // Now classIds is always an array of strings
       description: subject.description || '',
       color: subject.color || '#3B82F6'
@@ -357,6 +388,7 @@ const ClassSubjectManagement = () => {
       color: '#3B82F6'
     });
     setEditingSubject(null);
+    setSubjectCodeError(null);
   };
 // Backend filtering is now handled in loadClasses function
   // No need for frontend filtering since we're using backend filters
@@ -368,12 +400,21 @@ const ClassSubjectManagement = () => {
     const colors = {
       SCIENCE: 'bg-blue-100 text-blue-800',
       MATHEMATICS: 'bg-green-100 text-green-800',
+      ENGLISH: 'bg-purple-100 text-purple-800',
+      HINDI: 'bg-orange-100 text-orange-800',
       LANGUAGES: 'bg-purple-100 text-purple-800',
-      SOCIAL_SCIENCES: 'bg-orange-100 text-orange-800',
-      COMMERCE: 'bg-yellow-100 text-yellow-800',
+      SOCIAL_SCIENCES: 'bg-yellow-100 text-yellow-800',
+      HISTORY: 'bg-amber-100 text-amber-800',
+      GEOGRAPHY: 'bg-emerald-100 text-emerald-800',
+      CIVICS: 'bg-teal-100 text-teal-800',
+      ECONOMICS: 'bg-cyan-100 text-cyan-800',
+      COMMERCE: 'bg-indigo-100 text-indigo-800',
+      ACCOUNTANCY: 'bg-violet-100 text-violet-800',
+      BUSINESS_STUDIES: 'bg-fuchsia-100 text-fuchsia-800',
       ARTS: 'bg-pink-100 text-pink-800',
       PHYSICAL_EDUCATION: 'bg-red-100 text-red-800',
-      COMPUTER_SCIENCE: 'bg-indigo-100 text-indigo-800',
+      COMPUTER_SCIENCE: 'bg-slate-100 text-slate-800',
+      INFORMATION_TECHNOLOGY: 'bg-gray-100 text-gray-800',
       OTHER: 'bg-gray-100 text-gray-800'
     };
     return colors[category as keyof typeof colors] || 'bg-gray-100 text-gray-800';
@@ -450,12 +491,21 @@ const ClassSubjectManagement = () => {
                   <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="SCIENCE">Science</SelectItem>
                   <SelectItem value="MATHEMATICS">Mathematics</SelectItem>
+                  <SelectItem value="ENGLISH">English</SelectItem>
+                  <SelectItem value="HINDI">Hindi</SelectItem>
                   <SelectItem value="LANGUAGES">Languages</SelectItem>
                   <SelectItem value="SOCIAL_SCIENCES">Social Sciences</SelectItem>
+                  <SelectItem value="HISTORY">History</SelectItem>
+                  <SelectItem value="GEOGRAPHY">Geography</SelectItem>
+                  <SelectItem value="CIVICS">Civics</SelectItem>
+                  <SelectItem value="ECONOMICS">Economics</SelectItem>
                   <SelectItem value="COMMERCE">Commerce</SelectItem>
+                  <SelectItem value="ACCOUNTANCY">Accountancy</SelectItem>
+                  <SelectItem value="BUSINESS_STUDIES">Business Studies</SelectItem>
                   <SelectItem value="ARTS">Arts</SelectItem>
                   <SelectItem value="PHYSICAL_EDUCATION">Physical Education</SelectItem>
                   <SelectItem value="COMPUTER_SCIENCE">Computer Science</SelectItem>
+                  <SelectItem value="INFORMATION_TECHNOLOGY">Information Technology</SelectItem>
                   <SelectItem value="OTHER">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -687,7 +737,7 @@ const ClassSubjectManagement = () => {
                           <QuestionPaperTemplateManager
                             subjectId={subject._id}
                             subjectName={subject.name}
-                            templates={subject.templates || []}
+                            templates={(subject as any).templates || []}
                             onUpdate={loadSubjects}
                           />
                         </div>
@@ -843,8 +893,16 @@ const ClassSubjectManagement = () => {
                 <Input
                   placeholder="e.g., MATH_10"
                   value={subjectForm.code}
-                  onChange={(e) => setSubjectForm(prev => ({ ...prev, code: e.target.value }))}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setSubjectForm(prev => ({ ...prev, code: value }));
+                    validateSubjectCode(value);
+                  }}
+                  className={subjectCodeError ? "border-red-500" : ""}
                 />
+                {subjectCodeError && (
+                  <p className="text-sm text-red-500">{subjectCodeError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Subject Name *</Label>
@@ -877,12 +935,21 @@ const ClassSubjectManagement = () => {
                   <SelectContent>
                     <SelectItem value="SCIENCE">Science</SelectItem>
                     <SelectItem value="MATHEMATICS">Mathematics</SelectItem>
+                    <SelectItem value="ENGLISH">English</SelectItem>
+                    <SelectItem value="HINDI">Hindi</SelectItem>
                     <SelectItem value="LANGUAGES">Languages</SelectItem>
                     <SelectItem value="SOCIAL_SCIENCES">Social Sciences</SelectItem>
+                    <SelectItem value="HISTORY">History</SelectItem>
+                    <SelectItem value="GEOGRAPHY">Geography</SelectItem>
+                    <SelectItem value="CIVICS">Civics</SelectItem>
+                    <SelectItem value="ECONOMICS">Economics</SelectItem>
                     <SelectItem value="COMMERCE">Commerce</SelectItem>
+                    <SelectItem value="ACCOUNTANCY">Accountancy</SelectItem>
+                    <SelectItem value="BUSINESS_STUDIES">Business Studies</SelectItem>
                     <SelectItem value="ARTS">Arts</SelectItem>
                     <SelectItem value="PHYSICAL_EDUCATION">Physical Education</SelectItem>
                     <SelectItem value="COMPUTER_SCIENCE">Computer Science</SelectItem>
+                    <SelectItem value="INFORMATION_TECHNOLOGY">Information Technology</SelectItem>
                     <SelectItem value="OTHER">Other</SelectItem>
                   </SelectContent>
                 </Select>
@@ -962,7 +1029,7 @@ const ClassSubjectManagement = () => {
               </Button>
               <Button
                 onClick={editingSubject ? handleUpdateSubject : handleCreateSubject}
-                disabled={isLoading || !subjectForm.code || !subjectForm.name || !subjectForm.shortName || subjectForm.classIds.length === 0 || classes.length === 0}
+                disabled={isLoading || !subjectForm.code || !subjectForm.name || !subjectForm.shortName || subjectForm.classIds.length === 0 || classes.length === 0 || !!subjectCodeError}
               >
                 {isLoading ? "Saving..." : editingSubject ? "Update Subject" : "Create Subject"}
               </Button>

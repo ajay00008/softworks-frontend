@@ -730,7 +730,7 @@ export interface Subject {
   code: string;
   name: string;
   shortName: string;
-  category: 'SCIENCE' | 'MATHEMATICS' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'COMMERCE' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'OTHER';
+  category: 'SCIENCE' | 'MATHEMATICS' | 'ENGLISH' | 'HINDI' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'HISTORY' | 'GEOGRAPHY' | 'CIVICS' | 'ECONOMICS' | 'COMMERCE' | 'ACCOUNTANCY' | 'BUSINESS_STUDIES' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'INFORMATION_TECHNOLOGY' | 'OTHER';
   classIds: string[]; // Array of class IDs
   classes: Class[]; // Populated class data from aggregation
   level: number[]; // Array of levels from associated classes
@@ -753,7 +753,7 @@ export interface CreateSubjectRequest {
   code: string;
   name: string;
   shortName: string;
-  category: 'SCIENCE' | 'MATHEMATICS' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'COMMERCE' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'OTHER';
+  category: 'SCIENCE' | 'MATHEMATICS' | 'ENGLISH' | 'HINDI' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'HISTORY' | 'GEOGRAPHY' | 'CIVICS' | 'ECONOMICS' | 'COMMERCE' | 'ACCOUNTANCY' | 'BUSINESS_STUDIES' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'INFORMATION_TECHNOLOGY' | 'OTHER';
   classIds: string[];
   description?: string;
   color?: string;
@@ -763,7 +763,7 @@ export interface UpdateSubjectRequest {
   code?: string;
   name?: string;
   shortName?: string;
-  category?: 'SCIENCE' | 'MATHEMATICS' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'COMMERCE' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'OTHER';
+  category?: 'SCIENCE' | 'MATHEMATICS' | 'ENGLISH' | 'HINDI' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'HISTORY' | 'GEOGRAPHY' | 'CIVICS' | 'ECONOMICS' | 'COMMERCE' | 'ACCOUNTANCY' | 'BUSINESS_STUDIES' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'INFORMATION_TECHNOLOGY' | 'OTHER';
   classIds?: string[];
   description?: string;
   color?: string;

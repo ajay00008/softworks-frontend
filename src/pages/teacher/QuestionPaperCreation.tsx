@@ -688,7 +688,6 @@ const QuestionPaperCreation = () => {
                     value={formData.markDistribution.fiveMark}
                     onChange={(e) => {
                       const value = parseInt(e.target.value) || 0;
-                      console.log('Debug - FiveMark input changed to:', value);
                       setFormData(prev => ({ 
                         ...prev, 
                         markDistribution: { 

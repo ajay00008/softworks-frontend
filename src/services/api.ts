@@ -2776,6 +2776,85 @@ export const teacherDashboardAPI = {
       throw error;
     }
   },
+
+  // Delete answer sheet
+    deleteAnswerSheet: async (answerSheetId: string): Promise<{ success: boolean; message: string }> => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/answer-sheets/${answerSheetId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+        });
+        return await handleApiResponse<{ success: boolean; message: string }>(response);
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    matchAnswerSheetToStudent: async (answerSheetId: string, rollNumber: string): Promise<{ success: boolean; message: string; data: any }> => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/match`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ answerSheetId, rollNumber }),
+        });
+        return await handleApiResponse<{ success: boolean; message: string; data: any }>(response);
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    getExamStudents: async (examId: string): Promise<{ success: boolean; data: any }> => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/teacher/exams/${examId}/students`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        });
+        return await handleApiResponse<{ success: boolean; data: any }>(response);
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    // Update answer sheet marks manually
+    updateAnswerSheetMarks: async (answerSheetId: string, marks: number): Promise<{ success: boolean; data: any }> => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/answer-sheets/${answerSheetId}/manual-marks`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ marks }),
+        });
+        return await handleApiResponse<{ success: boolean; data: any }>(response);
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    // Get students for exam (for notification)
+    getStudentsForExam: async (examId: string): Promise<{ success: boolean; data: any }> => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/teacher/exams/${examId}/students`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        });
+        return await handleApiResponse<{ success: boolean; data: any }>(response);
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    // Send notification for missing answer sheets
+    sendMissingAnswerSheetNotification: async (examId: string, studentIds: string[]): Promise<{ success: boolean; data: any }> => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/teacher/notifications/missing-answer-sheets`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ examId, studentIds }),
+        });
+        return await handleApiResponse<{ success: boolean; data: any }>(response);
+      } catch (error) {
+        throw error;
+      }
+    },
 };
 
 // Performance Analytics API

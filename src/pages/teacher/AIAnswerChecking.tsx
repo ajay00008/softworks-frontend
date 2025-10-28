@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import {
   AlertTriangle, 
   Eye, 
   Download,
+  Upload,
   Search,
   Filter,
   Clock,
@@ -129,6 +130,25 @@ interface Exam {
   totalMarks: number;
 }
 
+interface AIStats {
+  totalProcessed: number;
+  averageConfidence: number;
+  averagePercentage: number;
+  qualityDistribution: {
+    excellent: number;
+    good: number;
+    average: number;
+    needsImprovement: number;
+  };
+  commonStrengths: string[];
+  commonWeaknesses: string[];
+  processingTime: {
+    average: number;
+    min: number;
+    max: number;
+  };
+}
+
 const AIAnswerChecking = () => {
   const [selectedExam, setSelectedExam] = useState('');
   const [exams, setExams] = useState<Exam[]>([]);
@@ -139,10 +159,72 @@ const AIAnswerChecking = () => {
   const [processing, setProcessing] = useState(false);
   const [selectedSheet, setSelectedSheet] = useState<AnswerSheet | null>(null);
   const [showResults, setShowResults] = useState(false);
-  const [aiStats, setAiStats] = useState<any>(null);
+  const [aiStats, setAiStats] = useState<AIStats | null>(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [aiErrors, setAiErrors] = useState<{ [key: string]: string }>({});
+  const [showManualOverride, setShowManualOverride] = useState(false);
+  const [selectedSheetForOverride, setSelectedSheetForOverride] = useState<AnswerSheet | null>(null);
+  const [manualMarks, setManualMarks] = useState<{ [key: string]: number }>({});
   const { toast } = useToast();
+
+  const loadExams = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await teacherDashboardAPI.getExams();
+      setExams(response.data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to load exams: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const loadAnswerSheets = useCallback(async () => {
+    if (!selectedExam) return;
+    
+    try {
+      setLoading(true);
+      const response = await teacherDashboardAPI.getAnswerSheetsForAIChecking(selectedExam, {
+        page: 1,
+        limit: 100,
+        status: filterStatus === 'all' ? undefined : filterStatus
+      });
+      
+      if (response.success) {
+        setAnswerSheets(response.data.answerSheets || []);
+      } else {
+        toast({
+          title: "Error",
+          description: `Failed to load answer sheets: ${(response as { error?: string }).error || 'Unknown error'}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to load answer sheets: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedExam, filterStatus, toast]);
+
+  const loadAIStats = useCallback(async () => {
+    if (!selectedExam) return;
+    
+    try {
+      const response = await teacherDashboardAPI.getAIStats(selectedExam);
+      setAiStats(response.data);
+    } catch (error) {
+      console.error('Failed to load AI stats:', error);
+    }
+  }, [selectedExam]);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -158,95 +240,21 @@ const AIAnswerChecking = () => {
     }
     
     loadExams();
-  }, []);
+  }, [loadExams, toast]);
 
   useEffect(() => {
     if (selectedExam) {
       loadAnswerSheets();
       loadAIStats();
     }
-  }, [selectedExam, filterStatus]);
-
-  const loadExams = async () => {
-    try {
-      setLoading(true);
-      const response = await teacherDashboardAPI.getExams();
-      setExams(response.data || []);
-    } catch (error) {
-      console.error('Error loading exams:', error);
-      
-      // Check if it's an authentication error
-      if (error.message.includes('Unauthorized') || error.message.includes('Invalid or expired token') || error.message.includes('No authentication token')) {
-        toast({
-          title: "Authentication Error",
-          description: "Your session has expired. Please log in again.",
-          variant: "destructive",
-        });
-        // Redirect to login or clear auth data
-        localStorage.removeItem('auth-token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        return;
-      }
-      
-      toast({
-        title: "Error",
-        description: `Failed to load exams: ${error.message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAnswerSheets = async () => {
-    try {
-      setLoading(true);
-      const response = await teacherDashboardAPI.getAnswerSheetsForAIChecking(selectedExam, {
-        status: filterStatus !== 'all' ? filterStatus : undefined,
-        page: 1,
-        limit: 50
-      });
-      setAnswerSheets(response.data.answerSheets || []);
-    } catch (error) {
-      console.error('Error loading answer sheets:', error);
-      
-      // Check if it's an authentication error
-      if (error.message.includes('Unauthorized') || error.message.includes('Invalid or expired token') || error.message.includes('No authentication token')) {
-        toast({
-          title: "Authentication Error",
-          description: "Your session has expired. Please log in again.",
-          variant: "destructive",
-        });
-        // Redirect to login or clear auth data
-        localStorage.removeItem('auth-token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        return;
-      }
-      
-      toast({
-        title: "Error",
-        description: `Failed to load answer sheets: ${error.message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAIStats = async () => {
-    try {
-      const response = await teacherDashboardAPI.getAIStats(selectedExam);
-      setAiStats(response.data);
-    } catch (error) {
-      console.error('Failed to load AI stats:', error);
-    }
-  };
+  }, [selectedExam, filterStatus, loadAnswerSheets, loadAIStats, toast]);
 
   const handleSingleAICheck = async (answerSheetId: string) => {
     try {
       setProcessing(true);
+      // Clear any previous errors for this sheet
+      setAiErrors(prev => ({ ...prev, [answerSheetId]: '' }));
+      
       const response = await teacherDashboardAPI.checkAnswerSheetWithAI(answerSheetId);
       
       if (response.success) {
@@ -262,11 +270,24 @@ const AIAnswerChecking = () => {
         
         // Reload answer sheets to get updated status
         loadAnswerSheets();
+      } else {
+        // Handle AI processing failure
+        const errorMessage = (response as { error?: string }).error || 'AI processing failed';
+        setAiErrors(prev => ({ ...prev, [answerSheetId]: errorMessage }));
+        
+        toast({
+          title: "AI Processing Failed",
+          description: `${errorMessage}. You can manually enter marks.`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
+      const errorMessage = (error as Error).message || 'Failed to process answer sheet';
+      setAiErrors(prev => ({ ...prev, [answerSheetId]: errorMessage }));
+      
       toast({
         title: "Error",
-        description: `Failed to process answer sheet: ${error.message}`,
+        description: `${errorMessage}. You can manually enter marks.`,
         variant: "destructive",
       });
     } finally {
@@ -387,6 +408,99 @@ const AIAnswerChecking = () => {
     setSelectedSheets([]);
   };
 
+  const handleManualOverride = (answerSheet: AnswerSheet) => {
+    setSelectedSheetForOverride(answerSheet);
+    setShowManualOverride(true);
+    // Initialize manual marks if not set
+    if (!manualMarks[answerSheet._id]) {
+      setManualMarks(prev => ({ ...prev, [answerSheet._id]: 0 }));
+    }
+  };
+
+  const handleSaveManualMarks = async () => {
+    if (!selectedSheetForOverride) return;
+
+    try {
+      const marks = manualMarks[selectedSheetForOverride._id];
+      if (marks === undefined || marks < 0) {
+        toast({
+          title: "Error",
+          description: "Please enter valid marks",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Call API to save manual marks
+      const response = await teacherDashboardAPI.updateAnswerSheetMarks(
+        selectedSheetForOverride._id, 
+        marks
+      );
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Marks updated successfully",
+        });
+        
+        // Clear error and reload
+        setAiErrors(prev => ({ ...prev, [selectedSheetForOverride._id]: '' }));
+        setShowManualOverride(false);
+        setSelectedSheetForOverride(null);
+        loadAnswerSheets();
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to update marks: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendNotification = async () => {
+    try {
+      // Get list of students who haven't submitted answer sheets
+      const response = await teacherDashboardAPI.getStudentsForExam(selectedExam);
+      const allStudents = response.data || [];
+      
+      // Get submitted answer sheets
+      const submittedStudentIds = answerSheets.map(sheet => sheet.studentId?._id).filter(Boolean);
+      
+      // Find missing students
+      const missingStudents = allStudents.filter(student => 
+        !submittedStudentIds.includes(student._id)
+      );
+
+      if (missingStudents.length === 0) {
+        toast({
+          title: "Info",
+          description: "All students have submitted their answer sheets",
+        });
+        return;
+      }
+
+      // Send notification for missing answer sheets
+      const notificationResponse = await teacherDashboardAPI.sendMissingAnswerSheetNotification(
+        selectedExam,
+        missingStudents.map(s => s._id)
+      );
+
+      if (notificationResponse.success) {
+        toast({
+          title: "Success",
+          description: `Notification sent to ${missingStudents.length} students about missing answer sheets`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to send notification: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       UPLOADED: { color: 'bg-blue-100 text-blue-800', icon: Upload },
@@ -415,8 +529,9 @@ const AIAnswerChecking = () => {
   };
 
   const filteredSheets = answerSheets.filter(sheet => {
-    const matchesSearch = sheet.studentId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         sheet.studentId.rollNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!sheet.studentId) return false;
+    const matchesSearch = sheet.studentId.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         sheet.studentId.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -445,6 +560,14 @@ const AIAnswerChecking = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSendNotification}
+            disabled={!selectedExam}
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Notify Missing Sheets
+          </Button>
           <Button
             variant="outline"
             onClick={loadAnswerSheets}
@@ -607,9 +730,9 @@ const AIAnswerChecking = () => {
                         className="w-4 h-4"
                       />
                       <div>
-                        <div className="font-medium">{sheet.studentId.name}</div>
+                        <div className="font-medium">{sheet.studentId?.name || 'Unknown Student'}</div>
                         <div className="text-sm text-gray-600">
-                          Roll: {sheet.studentId.rollNumber}
+                          Roll: {sheet.studentId?.rollNumber || 'N/A'}
                         </div>
                       </div>
                     </div>
@@ -646,6 +769,28 @@ const AIAnswerChecking = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Error Display */}
+                  {aiErrors[sheet._id] && (
+                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-500 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm text-red-800 font-medium">AI Processing Failed</p>
+                          <p className="text-sm text-red-700 mt-1">{aiErrors[sheet._id]}</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-2 text-red-700 border-red-300 hover:bg-red-100"
+                            onClick={() => handleManualOverride(sheet)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Enter Marks Manually
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex gap-2 mt-3">
                     {sheet.status === 'UPLOADED' && (
@@ -689,6 +834,15 @@ const AIAnswerChecking = () => {
                         View Results
                       </Button>
                     )}
+                    {/* Manual Override Button for any status */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleManualOverride(sheet)}
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Manual Marks
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -712,7 +866,7 @@ const AIAnswerChecking = () => {
               AI Analysis Results
             </DialogTitle>
             <DialogDescription>
-              Detailed AI analysis for {selectedSheet?.studentId.name}
+              Detailed AI analysis for {selectedSheet?.studentId?.name || 'Unknown Student'}
             </DialogDescription>
           </DialogHeader>
 
@@ -964,6 +1118,55 @@ const AIAnswerChecking = () => {
                 )}
               </TabsContent>
             </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Override Dialog */}
+      <Dialog open={showManualOverride} onOpenChange={setShowManualOverride}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Manual Marks Entry
+            </DialogTitle>
+            <DialogDescription>
+              Enter marks manually for {selectedSheetForOverride?.studentId?.name || 'Unknown Student'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSheetForOverride && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="marks">Total Marks</Label>
+                <Input
+                  id="marks"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={manualMarks[selectedSheetForOverride._id] || 0}
+                  onChange={(e) => setManualMarks(prev => ({
+                    ...prev,
+                    [selectedSheetForOverride._id]: parseInt(e.target.value) || 0
+                  }))}
+                  placeholder="Enter total marks"
+                />
+              </div>
+              
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowManualOverride(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveManualMarks}
+                >
+                  Save Marks
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

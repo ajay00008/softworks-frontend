@@ -864,7 +864,11 @@ export default function ExamManagement() {
                             setIsDatePickerOpen(false);
                           }
                         }}
-                        disabled={(date) => date < new Date()}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0); // Reset time to start of day
+                          return date < today;
+                        }}
                         initialFocus
                       />
                     </PopoverContent>

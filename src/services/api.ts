@@ -2474,6 +2474,193 @@ export const teacherDashboardAPI = {
     }
   },
 
+  // Get exams with context data
+  getExamsWithContext: async (): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/exams-with-context`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get exam context data
+  getExamContext: async (examId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/exam-context/${examId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Validate teacher access to exam operations
+  validateTeacherAccess: async (examId: string, operation: 'upload' | 'evaluate' | 'view'): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/exam-context/${examId}/validate-access?operation=${operation}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get exam statistics
+  getExamStatistics: async (examId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/exam-context/${examId}/statistics`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Flag Management APIs
+  addFlag: async (answerSheetId: string, flagData: {
+    type: string;
+    severity: string;
+    description: string;
+    autoResolved?: boolean;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/${answerSheetId}/flags`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(flagData),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  resolveFlag: async (answerSheetId: string, flagIndex: number, resolutionData: {
+    resolutionNotes?: string;
+    autoResolved?: boolean;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/${answerSheetId}/flags/${flagIndex}/resolve`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(resolutionData),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  resolveAllFlags: async (answerSheetId: string, resolutionData: {
+    resolutionNotes?: string;
+    autoResolved?: boolean;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/${answerSheetId}/flags/resolve-all`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(resolutionData),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAnswerSheetFlags: async (answerSheetId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/${answerSheetId}/flags`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getFlaggedAnswerSheets: async (examId: string, filters?: {
+    severity?: string;
+    type?: string;
+    resolved?: boolean;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters?.severity) queryParams.append('severity', filters.severity);
+      if (filters?.type) queryParams.append('type', filters.type);
+      if (filters?.resolved !== undefined) queryParams.append('resolved', filters.resolved.toString());
+
+      const response = await fetch(`${API_BASE_URL}/teacher/exams/${examId}/flagged-sheets?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getFlagStatistics: async (examId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/exams/${examId}/flag-statistics`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  autoDetectFlags: async (answerSheetId: string, analysisData: {
+    rollNumberDetected?: string;
+    rollNumberConfidence?: number;
+    scanQuality?: string;
+    isAligned?: boolean;
+    fileSize?: number;
+    fileFormat?: string;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/${answerSheetId}/auto-detect-flags`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(analysisData),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  bulkResolveFlags: async (answerSheetIds: string[], resolutionData: {
+    resolutionNotes?: string;
+    autoResolved?: boolean;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/flags/bulk-resolve`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          answerSheetIds,
+          ...resolutionData
+        }),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
   // Get question papers
   getQuestionPapers: async (params?: {
     classId?: string;

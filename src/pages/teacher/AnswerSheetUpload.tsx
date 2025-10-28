@@ -137,7 +137,8 @@ const AnswerSheetUpload = () => {
   const loadExams = useCallback(async () => {
     try {
       setLoadingExams(true);
-      const response = await teacherDashboardAPI.getExams();
+      // Use the new exam context API for enhanced data
+      const response = await teacherDashboardAPI.getExamsWithContext();
       setExams(response.data || []);
     } catch (error) {
       console.error('Error loading exams:', error);
@@ -302,6 +303,39 @@ const AnswerSheetUpload = () => {
 
   const cancelDelete = () => {
     setDeleteConfirm({ isOpen: false, answerSheetId: null, fileName: '' });
+  };
+
+  // Auto-detect flags for answer sheet
+  const handleAutoDetectFlags = async (answerSheet: any) => {
+    try {
+      const analysisData = {
+        rollNumberDetected: answerSheet.rollNumberDetected,
+        rollNumberConfidence: answerSheet.rollNumberConfidence,
+        scanQuality: answerSheet.scanQuality,
+        isAligned: answerSheet.isAligned,
+        fileSize: 0, // Would need to get from file
+        fileFormat: 'application/pdf'
+      };
+
+      const response = await teacherDashboardAPI.autoDetectFlags(answerSheet._id, analysisData);
+
+      toast({
+        title: "Success",
+        description: `${response.data.length} flags auto-detected`,
+      });
+
+      // Reload existing answer sheets to show updated flags
+      if (selectedExam) {
+        await loadExistingAnswerSheets(selectedExam);
+      }
+    } catch (error) {
+      console.error('Error auto-detecting flags:', error);
+      toast({
+        title: "Error",
+        description: `Failed to auto-detect flags: ${error.message}`,
+        variant: "destructive",
+      });
+    }
   };
 
 
@@ -496,6 +530,23 @@ const AnswerSheetUpload = () => {
                           <div className="flex items-center gap-2">
                             {getStatusBadge(sheet.status)}
                             {sheet.scanQuality && getQualityBadge(sheet.scanQuality)}
+                            {/* Flag count indicator */}
+                            {sheet.flagCount > 0 && (
+                              <Badge variant={sheet.hasCriticalFlags ? 'destructive' : 'secondary'} className="text-xs">
+                                <Flag className="h-3 w-3 mr-1" />
+                                {sheet.flagCount}
+                              </Badge>
+                            )}
+                            {/* Auto-detect flags button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAutoDetectFlags(sheet)}
+                              title="Auto-detect flags"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"

@@ -404,11 +404,22 @@ const SuperAdminSubjectManagement = () => {
                       </p>
                     )}
                     
-                    <div className="flex items-center space-x-2">
-                      <Users className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-xs sm:text-sm text-muted-foreground">
-                        {subject.classIds?.length || 0} classes
-                      </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <Users className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs sm:text-sm text-muted-foreground">
+                          {subject.classIds?.length || 0} classes
+                        </span>
+                      </div>
+                      {subject.classIds && subject.classIds.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {subject.classIds.map((classItem: any, index: number) => (
+                            <Badge key={classItem._id || index} variant="secondary" className="text-xs">
+                              {classItem.name || classItem.displayName || `Class ${classItem.level}`}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex items-center space-x-2">

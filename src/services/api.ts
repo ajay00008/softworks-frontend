@@ -731,7 +731,7 @@ export interface Subject {
   name: string;
   shortName: string;
   category: 'SCIENCE' | 'MATHEMATICS' | 'ENGLISH' | 'HINDI' | 'LANGUAGES' | 'SOCIAL_SCIENCES' | 'HISTORY' | 'GEOGRAPHY' | 'CIVICS' | 'ECONOMICS' | 'COMMERCE' | 'ACCOUNTANCY' | 'BUSINESS_STUDIES' | 'ARTS' | 'PHYSICAL_EDUCATION' | 'COMPUTER_SCIENCE' | 'INFORMATION_TECHNOLOGY' | 'OTHER';
-  classIds: string[]; // Array of class IDs
+  classIds: (string | Class)[]; // Array of class IDs or populated class objects
   classes: Class[]; // Populated class data from aggregation
   level: number[]; // Array of levels from associated classes
   description?: string;

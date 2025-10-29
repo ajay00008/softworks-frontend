@@ -222,8 +222,8 @@ export default function ExamManagement() {
       // Prepare data for API call - remove empty adminId to avoid validation error
       const { adminId, ...examData } = formData;
       
-      // Handle custom exam type - convert to valid enum value
-      const finalExamType = isCustomExamType ? 'UNIT_TEST' : formData.examType;
+      // Handle custom exam type - CUSTOM_EXAM is now a valid enum value
+      const finalExamType = formData.examType;
       
       const apiData = {
         ...examData,
@@ -248,7 +248,8 @@ export default function ExamManagement() {
       resetForm();
     } catch (error) {
       // Fallback to mock creation
-      const finalExamType = isCustomExamType ? 'UNIT_TEST' : formData.examType;
+      // Use CUSTOM_EXAM directly (it's now a valid enum value)
+      const finalExamType = formData.examType;
       
       const newExam: Exam = {
         id: Date.now().toString(),
@@ -305,6 +306,12 @@ export default function ExamManagement() {
 
   // Exam type options
   const examTypeOptions = [
+    { value: 'UNIT_TEST', label: 'Unit Test', description: 'Unit-based examinations' },
+    { value: 'MID_TERM', label: 'Mid Term', description: 'Mid-term examinations' },
+    { value: 'FINAL', label: 'Final Exam', description: 'Final examinations' },
+    { value: 'QUIZ', label: 'Quiz', description: 'Quick quiz assessments' },
+    { value: 'ASSIGNMENT', label: 'Assignment', description: 'Assignment-based assessments' },
+    { value: 'PRACTICAL', label: 'Practical', description: 'Practical examinations' },
     { value: 'DAILY', label: 'Daily Test', description: 'Daily assessment tests' },
     { value: 'WEEKLY', label: 'Weekly Test', description: 'Weekly assessment tests' },
     { value: 'MONTHLY', label: 'Monthly Test', description: 'Monthly assessment tests' },
@@ -312,7 +319,7 @@ export default function ExamManagement() {
     { value: 'PAGE_WISE', label: 'Page Wise Test', description: 'Tests based on specific pages' },
     { value: 'TERM_TEST', label: 'Term Test', description: 'Term-based examinations' },
     { value: 'ANNUAL_EXAM', label: 'Annual Exam', description: 'Annual examinations' },
-    { value: 'CUSTOM', label: 'Custom', description: 'Custom exam type' }
+    { value: 'CUSTOM_EXAM', label: 'Custom Exam', description: 'Custom exam type' }
   ];
 
   const resetForm = () => {
@@ -358,9 +365,9 @@ export default function ExamManagement() {
   };
 
   const handleExamTypeChange = (value: string) => {
-    if (value === 'CUSTOM') {
+    if (value === 'CUSTOM_EXAM') {
       setIsCustomExamType(true);
-      setFormData(prev => ({ ...prev, examType: 'UNIT_TEST' as any })); // Use valid enum value
+      setFormData(prev => ({ ...prev, examType: 'CUSTOM_EXAM' as any }));
     } else {
       setIsCustomExamType(false);
       setFormData(prev => ({ ...prev, examType: value as any }));
@@ -646,6 +653,12 @@ export default function ExamManagement() {
                   >
                     <CardContent className="p-4 text-center">
                       <div className="text-2xl mb-2">
+                        {option.value === 'UNIT_TEST' && '📝'}
+                        {option.value === 'MID_TERM' && '📋'}
+                        {option.value === 'FINAL' && '📖'}
+                        {option.value === 'QUIZ' && '✏️'}
+                        {option.value === 'ASSIGNMENT' && '📑'}
+                        {option.value === 'PRACTICAL' && '🔬'}
                         {option.value === 'DAILY' && '📅'}
                         {option.value === 'WEEKLY' && '📊'}
                         {option.value === 'MONTHLY' && '📈'}
@@ -653,7 +666,7 @@ export default function ExamManagement() {
                         {option.value === 'PAGE_WISE' && '📄'}
                         {option.value === 'TERM_TEST' && '🎓'}
                         {option.value === 'ANNUAL_EXAM' && '🏆'}
-                        {option.value === 'CUSTOM' && '⚙️'}
+                        {option.value === 'CUSTOM_EXAM' && '⚙️'}
                       </div>
                       <h4 className="font-medium text-sm mb-1">{option.label}</h4>
                       <p className="text-xs text-gray-600">{option.description}</p>

@@ -1606,7 +1606,7 @@ export interface Exam {
   id: string;
   title: string;
   description?: string;
-  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'UNIT_WISE' | 'PAGE_WISE' | 'TERM_TEST' | 'ANNUAL_EXAM';
+  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'UNIT_WISE' | 'PAGE_WISE' | 'TERM_TEST' | 'ANNUAL_EXAM' | 'CUSTOM_EXAM';
   subjectIds: string[]; // Changed to array for multiple subjects
   classId: string;
   duration: number; // in minutes
@@ -1633,7 +1633,7 @@ export interface Exam {
 export interface CreateExamRequest {
   title: string;
   description?: string;
-  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'UNIT_WISE' | 'PAGE_WISE' | 'TERM_TEST' | 'ANNUAL_EXAM';
+  examType: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'QUIZ' | 'ASSIGNMENT' | 'PRACTICAL' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'UNIT_WISE' | 'PAGE_WISE' | 'TERM_TEST' | 'ANNUAL_EXAM' | 'CUSTOM_EXAM';
   subjectIds: string[]; // Changed to array for multiple subjects
   classId: string;
   adminId?: string; // Optional, will be set from auth if not provided
@@ -3242,10 +3242,14 @@ export const performanceAPI = {
 // Question Paper Template Management API
 export const questionPaperTemplateAPI = {
   // Get all templates
-  getAll: async (params?: { subjectId?: string }): Promise<QuestionPaperTemplate[]> => {
+  getAll: async (params?: { 
+    subjectId?: string; 
+    examType?: string; 
+  }): Promise<QuestionPaperTemplate[]> => {
     try {
       const queryParams = new URLSearchParams();
       if (params?.subjectId) queryParams.append('subjectId', params.subjectId);
+      if (params?.examType) queryParams.append('examType', params.examType);
       
       const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates?${queryParams}`, {
         method: 'GET',
@@ -3273,12 +3277,16 @@ export const questionPaperTemplateAPI = {
   },
 
   // Create template
-  create: async (data: CreateTemplateRequest): Promise<QuestionPaperTemplate> => {
+  create: async (data: CreateTemplateRequest): Promise<any> => {
     try {
       const formData = new FormData();
       formData.append('title', data.title);
       if (data.description) formData.append('description', data.description);
       formData.append('subjectId', data.subjectId);
+      formData.append('examType', data.examType);
+      if (data.aiSettings) {
+        formData.append('aiSettings', JSON.stringify(data.aiSettings));
+      }
       if (data.templateFile) formData.append('templateFile', data.templateFile);
 
       const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates`, {
@@ -3286,8 +3294,8 @@ export const questionPaperTemplateAPI = {
         headers: getAuthHeadersForUpload(),
         body: formData,
       });
-      const result = await handleApiResponse<{success: boolean, template: QuestionPaperTemplate}>(response);
-      return result.template;
+      const result = await handleApiResponse<{success: boolean, template: QuestionPaperTemplate, validation?: any}>(response);
+      return result;
     } catch (error) {
       throw error;
     }
@@ -3316,6 +3324,55 @@ export const questionPaperTemplateAPI = {
         headers: getAuthHeaders(),
       });
       await handleApiResponse<void>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get default template for subject/class/exam type
+  getDefault: async (subjectId: string, classId: string, examType: string): Promise<QuestionPaperTemplate | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates/default/${subjectId}/${classId}/${examType}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, template: QuestionPaperTemplate | null}>(response);
+      return result.template;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Check if templates exist for an exam
+  checkTemplatesExist: async (examId: string): Promise<{success: boolean, hasTemplates: boolean, templateCount: number}> => {
+    try {
+      const params = new URLSearchParams();
+      params.append('examId', examId);
+      
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates/check-exists?${params}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, hasTemplates: boolean, templateCount: number}>(response);
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get templates suitable for auto-fetch marks
+  getTemplatesForAutoFetch: async (subjectId: string, examType: string): Promise<any[]> => {
+    try {
+      const queryParams = new URLSearchParams();
+      queryParams.append('subjectId', subjectId);
+      queryParams.append('examType', examType);
+      
+      const response = await fetch(`${API_BASE_URL}/admin/question-paper-templates/auto-fetch?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      const result = await handleApiResponse<{success: boolean, templates: any[]}>(response);
+      return result.templates || [];
     } catch (error) {
       throw error;
     }

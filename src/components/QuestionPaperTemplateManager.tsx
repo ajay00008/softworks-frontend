@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { ViewButton } from '@/components/ui/view-button';
 import { 
@@ -20,7 +21,7 @@ import {
   Eye
 } from 'lucide-react';
 import { questionPaperTemplateAPI } from '@/services/api';
-import { authAPI } from '@/services/api';
+import { authAPI, subjectManagementAPI } from '@/services/api';
 import { QuestionPaperTemplate, CreateTemplateRequest } from '@/types/question-paper-template';
 
 interface QuestionPaperTemplateManagerProps {
@@ -43,13 +44,34 @@ export default function QuestionPaperTemplateManager({
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
   const [templates, setTemplates] = useState<QuestionPaperTemplate[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [validationResult, setValidationResult] = useState<any>(null);
   const { toast } = useToast();
+
+  // Exam types
+  const examTypes = [
+    { value: 'UNIT_TEST', label: 'Unit Test' },
+    { value: 'MID_TERM', label: 'Mid Term' },
+    { value: 'FINAL', label: 'Final Exam' },
+    { value: 'QUIZ', label: 'Quiz' },
+    { value: 'ASSIGNMENT', label: 'Assignment' },
+    { value: 'PRACTICAL', label: 'Practical' },
+    { value: 'DAILY', label: 'Daily Test' },
+    { value: 'WEEKLY', label: 'Weekly Test' },
+    { value: 'MONTHLY', label: 'Monthly Test' },
+    { value: 'UNIT_WISE', label: 'Unit Wise' },
+    { value: 'PAGE_WISE', label: 'Page Wise' },
+    { value: 'TERM_TEST', label: 'Term Test' },
+    { value: 'ANNUAL_EXAM', label: 'Annual Exam' },
+    { value: 'CUSTOM_EXAM', label: 'Custom Exam' }
+  ];
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState<CreateTemplateRequest>({
     title: '',
     description: '',
-    subjectId: subjectId
+    subjectId: subjectId,
+    examType: 'UNIT_TEST'
   });
 
   // Load templates for this subject
@@ -66,10 +88,21 @@ export default function QuestionPaperTemplateManager({
     }
   }, [subjectId]);
 
+  // Load subjects
+  const loadSubjects = useCallback(async () => {
+    try {
+      const subjectsResponse = await subjectManagementAPI.getAll();
+      setSubjects(subjectsResponse.subjects || []);
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+    }
+  }, []);
+
   // Load templates when component mounts
   useEffect(() => {
     loadTemplates();
-  }, [subjectId, loadTemplates]);
+    loadSubjects();
+  }, [subjectId, loadTemplates, loadSubjects]);
 
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,7 +131,7 @@ export default function QuestionPaperTemplateManager({
   };
 
   const handleUpload = async () => {
-    if (!uploadFile || !uploadForm.title) {
+    if (!uploadFile || !uploadForm.title || !uploadForm.examType) {
       toast({
         title: "Error",
         description: "Please fill in all required fields and select a file",
@@ -114,18 +147,41 @@ export default function QuestionPaperTemplateManager({
         templateFile: uploadFile
       };
 
-      await questionPaperTemplateAPI.create(templateData);
-      toast({
-        title: "Success",
-        description: "Question paper template uploaded successfully",
-      });
+      const response = await questionPaperTemplateAPI.create(templateData);
+      
+      // Show validation results if available
+      if (response.validation) {
+        setValidationResult(response.validation);
+        
+        if (response.validation.isValid) {
+          toast({
+            title: "Success",
+            description: `Template uploaded successfully! Confidence: ${response.validation.confidence}%`,
+          });
+        } else {
+          toast({
+            title: "Template uploaded with warnings",
+            description: `Template uploaded but validation failed. Confidence: ${response.validation.confidence}%`,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Success",
+          description: "Question paper template uploaded successfully",
+        });
+      }
+      
       setIsUploadDialogOpen(false);
       setUploadFile(null);
       setUploadForm({
         title: '',
         description: '',
-        subjectId: subjectId
+        subjectId: subjectId,
+        examType: 'UNIT_TEST'
       });
+      setValidationResult(null);
+      
       // Refresh templates locally
       await loadTemplates();
       // Also notify parent for any other updates
@@ -254,6 +310,25 @@ export default function QuestionPaperTemplateManager({
               </div>
 
               <div>
+                <Label htmlFor="examType">Exam Type *</Label>
+                <Select
+                  value={uploadForm.examType}
+                  onValueChange={(value) => setUploadForm(prev => ({ ...prev, examType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select exam type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {examTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
@@ -263,6 +338,7 @@ export default function QuestionPaperTemplateManager({
                   rows={3}
                 />
               </div>
+
 
               <div>
                 <Label>Upload Template File *</Label>
@@ -291,6 +367,43 @@ export default function QuestionPaperTemplateManager({
                 </div>
               </div>
 
+              {validationResult && (
+                <div className="p-4 border rounded-lg bg-muted/50">
+                  <div className="flex items-center space-x-2 mb-2">
+                    {validationResult.isValid ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    )}
+                    <span className="text-sm font-medium">
+                      AI Validation Results (Confidence: {validationResult.confidence}%)
+                    </span>
+                  </div>
+                  
+                  {validationResult.warnings && validationResult.warnings.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-sm font-medium text-yellow-700 mb-1">Warnings:</p>
+                      <ul className="text-xs text-yellow-600 list-disc list-inside">
+                        {validationResult.warnings.map((warning: string, index: number) => (
+                          <li key={index}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {validationResult.suggestions && validationResult.suggestions.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-blue-700 mb-1">Suggestions:</p>
+                      <ul className="text-xs text-blue-600 list-disc list-inside">
+                        {validationResult.suggestions.map((suggestion: string, index: number) => (
+                          <li key={index}>{suggestion}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t">
                 <Button
                   variant="outline"
@@ -301,7 +414,7 @@ export default function QuestionPaperTemplateManager({
                 </Button>
                 <Button
                   onClick={handleUpload}
-                  disabled={isUploading || !uploadFile || !uploadForm.title}
+                  disabled={isUploading || !uploadFile || !uploadForm.title || !uploadForm.examType}
                   className="w-full sm:w-auto"
                 >
                   {isUploading ? "Uploading..." : "Upload Template"}
@@ -325,10 +438,26 @@ export default function QuestionPaperTemplateManager({
               <div className="flex items-center space-x-2 min-w-0 flex-1">
                 <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium truncate">{template.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(template.templateFile.fileSize)} • {(template as QuestionPaperTemplate & { language?: string }).language || 'English'}
-                  </p>
+                  <div className="flex items-center space-x-1">
+                    <p className="text-xs font-medium truncate">{template.title}</p>
+                  </div>
+                  <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                    <span>{template.examType?.replace('_', ' ')}</span>
+                    <span>•</span>
+                    <span>{formatFileSize(template.templateFile.fileSize)}</span>
+                  </div>
+                  {template.aiValidation && (
+                    <div className="flex items-center space-x-1 mt-1">
+                      {template.aiValidation.isValid ? (
+                        <CheckCircle className="h-2.5 w-2.5 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-2.5 w-2.5 text-yellow-500" />
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        AI Confidence: {template.aiValidation.confidence}%
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center justify-end sm:justify-start space-x-1 flex-shrink-0">

@@ -8,6 +8,7 @@ export interface QuestionPaperTemplate {
     name: string;
     shortName: string;
   };
+  examType: string;
   adminId: string;
   uploadedBy: {
     _id: string;
@@ -26,6 +27,17 @@ export interface QuestionPaperTemplate {
   
   // Template analysis data
   analysis: TemplateAnalysis;
+  
+  // AI validation results
+  aiValidation: {
+    isValid: boolean;
+    confidence: number;
+    detectedSubject?: string;
+    detectedExamType?: string;
+    validationErrors: string[];
+    suggestions: string[];
+    validatedAt: string;
+  };
   
   // AI settings
   aiSettings: {
@@ -75,6 +87,13 @@ export interface CreateTemplateRequest {
   title: string;
   description?: string;
   subjectId: string;
+  examType: string;
+  aiSettings?: {
+    useTemplate?: boolean;
+    followPattern?: boolean;
+    maintainStructure?: boolean;
+    customInstructions?: string;
+  };
   templateFile?: File;
 }
 

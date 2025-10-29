@@ -70,9 +70,11 @@
     subjectManagementAPI,
     classManagementAPI,
     examsAPI,
+    questionPaperTemplateAPI,
   } from "@/services/api";
   import PDFEditor from "@/components/PDFEditor";
   import SimplifiedPDFEditor from "@/components/SimplifiedPDFEditor";
+  import AutoFetchMarks from "@/components/AutoFetchMarks";
 
   // Question Types
   const QUESTION_TYPES = [
@@ -216,6 +218,25 @@
     },
   ];
 
+  // Helper function to ensure bloomsDistribution is always an array
+  const getBloomsDistribution = (distribution: any) => {
+    if (Array.isArray(distribution)) {
+      return distribution;
+    }
+    // If it's an object, convert to array format
+    if (distribution && typeof distribution === 'object') {
+      return BLOOMS_LEVELS.map(level => ({
+        level: level.id,
+        percentage: distribution[level.id.toLowerCase()] || 0
+      }));
+    }
+    // Default array if neither
+    return BLOOMS_LEVELS.map(level => ({
+      level: level.id,
+      percentage: 0
+    }));
+  };
+
   export default function QuestionPaperManagement() {
     const [questionPapers, setQuestionPapers] = useState<QuestionPaper[]>([]);
     const [loading, setLoading] = useState(true);
@@ -241,7 +262,11 @@
     const [uploadedPatternId, setUploadedPatternId] = useState<string | null>(
       null
     );
-    const { toast } = useToast();
+  const [isAutoFetchDialogOpen, setIsAutoFetchDialogOpen] = useState(false);
+  const [autoFetchSubjectId, setAutoFetchSubjectId] = useState<string | null>(null);
+  const [hasTemplates, setHasTemplates] = useState<boolean>(false);
+  const [isCheckingTemplates, setIsCheckingTemplates] = useState(false);
+  const { toast } = useToast();
 
     // Form state
     const [formData, setFormData] = useState<CreateQuestionPaperRequest>({
@@ -481,6 +506,56 @@
       setUploadedPattern(null);
       setUploadedPatternId(null);
       setSelectedSubjects([]);
+    };
+
+    const handleAutoFetchMarks = (markDistribution: any, bloomsDistribution: any, customMarks?: Array<{mark: number, count: number}>) => {
+      // If auto-fetching for a specific subject in multi-subject mode
+      if (autoFetchSubjectId && selectedSubjects.length > 1) {
+        setSubjectDistributions(prev => ({
+          ...prev,
+          [autoFetchSubjectId]: {
+            ...prev[autoFetchSubjectId],
+            markDistribution: {
+              ...prev[autoFetchSubjectId]?.markDistribution,
+              ...markDistribution
+            },
+            // Only update blooms distribution if provided, otherwise keep existing
+            ...(bloomsDistribution && { bloomsDistribution }),
+            customMarks: customMarks || prev[autoFetchSubjectId]?.customMarks || []
+          }
+        }));
+      } else {
+        // Update main form data for single subject or no-subject mode
+        setFormData(prev => ({
+          ...prev,
+          markDistribution: {
+            ...prev.markDistribution,
+            ...markDistribution
+          },
+          // Only update blooms distribution if provided, otherwise keep existing
+          ...(bloomsDistribution && { bloomsDistribution })
+        }));
+        
+        // Update custom marks if provided
+        if (customMarks && customMarks.length > 0) {
+          setCustomMarks(customMarks);
+        }
+      }
+      setAutoFetchSubjectId(null);
+    };
+
+    // Check if templates exist for an exam
+    const checkTemplatesForExam = async (examId: string) => {
+      try {
+        setIsCheckingTemplates(true);
+        const result = await questionPaperTemplateAPI.checkTemplatesExist(examId);
+        setHasTemplates(result.hasTemplates || false);
+      } catch (error) {
+        console.error('Error checking templates:', error);
+        setHasTemplates(false);
+      } finally {
+        setIsCheckingTemplates(false);
+      }
     };
 
     const updateMarkDistribution = (field: string, value: number) => {
@@ -743,7 +818,7 @@
           }
 
           // Validate Blooms taxonomy totals 100%
-          const bloomsTotal = (distribution.bloomsDistribution || []).reduce(
+          const bloomsTotal = getBloomsDistribution(distribution.bloomsDistribution).reduce(
             (sum: number, dist: any) => sum + dist.percentage,
             0
           );
@@ -1083,10 +1158,10 @@
           console.log("Debug: markDistribution =", markDistribution);
           // Use subject-specific Bloom's distribution if it has values, otherwise use global distribution
           const subjectBloomsDistribution = subjectDistribution?.bloomsDistribution;
-          const hasSubjectBlooms = subjectBloomsDistribution && 
-            subjectBloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0) > 0;
+          const subjectBloomsArray = getBloomsDistribution(subjectBloomsDistribution);
+          const hasSubjectBlooms = subjectBloomsArray.reduce((sum, dist) => sum + dist.percentage, 0) > 0;
           
-          const bloomsDistribution = hasSubjectBlooms ? subjectBloomsDistribution : formData.bloomsDistribution;
+          const bloomsDistribution = hasSubjectBlooms ? subjectBloomsArray : getBloomsDistribution(formData.bloomsDistribution);
           
           console.log("Debug: bloomsDistribution =", bloomsDistribution);
           console.log("Debug: bloomsDistribution total =", bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0));
@@ -1136,7 +1211,8 @@
               ...markDistribution,
               totalMarks: subjectTotalMarks,
             },
-            bloomsDistribution: bloomsDistribution,
+            // Only update blooms distribution if provided, otherwise keep existing
+            ...(bloomsDistribution && { bloomsDistribution }),
             questionTypeDistribution: (() => {
               // Convert question counts to percentages for backend compatibility
               const converted: any = {};
@@ -1357,7 +1433,7 @@
           }
 
           // Validate Blooms taxonomy totals 100%
-          const bloomsTotal = (distribution.bloomsDistribution || []).reduce(
+          const bloomsTotal = getBloomsDistribution(distribution.bloomsDistribution).reduce(
             (sum: number, dist: any) => sum + dist.percentage,
             0
           );
@@ -1809,6 +1885,12 @@
                           ...prev,
                           examId: value,
                         }));
+                        
+                        // Check if templates exist for this exam
+                        if (value) {
+                          checkTemplatesForExam(value);
+                        }
+                        
                         // Set selected subjects based on exam
                         if (selectedExam?.subjectIds) {
                           setSelectedSubjects(selectedExam.subjectIds);
@@ -1964,7 +2046,20 @@
                       
                       {/* Mark Distribution */}
                       <div className="space-y-4">
-                        <h5 className="text-md font-medium">Mark Distribution</h5>
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-md font-medium">Mark Distribution</h5>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAutoFetchDialogOpen(true)}
+                            className="flex items-center space-x-2"
+                            disabled={!formData.examId || isCheckingTemplates || !hasTemplates}
+                          >
+                            <Wand2 className="h-4 w-4" />
+                            <span>{isCheckingTemplates ? "Checking..." : hasTemplates ? "Auto-Fetch" : "No Templates"}</span>
+                          </Button>
+                        </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
                             <Label htmlFor="oneMark">1 Mark Questions</Label>
@@ -2043,11 +2138,11 @@
                                   <p className="text-sm text-gray-600">{level.description}</p>
                                 </div>
                                 <span className="text-sm font-medium">
-                                  {formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0}%
+                                  {getBloomsDistribution(formData.bloomsDistribution).find(d => d.level === level.id)?.percentage || 0}%
                                 </span>
                               </div>
                               <Slider
-                                value={[formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0]}
+                                value={[getBloomsDistribution(formData.bloomsDistribution).find(d => d.level === level.id)?.percentage || 0]}
                                 onValueChange={([value]) => updateBloomsDistribution(level.id, value)}
                                 max={100}
                                 step={1}
@@ -2220,7 +2315,20 @@
                     
                     {/* Mark Distribution */}
                     <div className="space-y-4">
-                      <h5 className="text-md font-medium">Mark Distribution</h5>
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-md font-medium">Mark Distribution</h5>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAutoFetchDialogOpen(true)}
+                            className="flex items-center space-x-2"
+                            disabled={!formData.examId || isCheckingTemplates || !hasTemplates}
+                          >
+                            <Wand2 className="h-4 w-4" />
+                            <span>{isCheckingTemplates ? "Checking..." : "Auto-Fetch"}</span>
+                          </Button>
+                      </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                           <Label htmlFor="oneMark">1 Mark Questions</Label>
@@ -2299,11 +2407,11 @@
                                 <p className="text-sm text-gray-600">{level.description}</p>
                               </div>
                               <span className="text-sm font-medium">
-                                {formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0}%
+                                {getBloomsDistribution(formData.bloomsDistribution).find(d => d.level === level.id)?.percentage || 0}%
                               </span>
                             </div>
                             <Slider
-                              value={[formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0]}
+                              value={[getBloomsDistribution(formData.bloomsDistribution).find(d => d.level === level.id)?.percentage || 0]}
                               onValueChange={([value]) => updateBloomsDistribution(level.id, value)}
                               max={100}
                               step={1}
@@ -2318,7 +2426,7 @@
                         <h6 className="font-medium text-sm mb-2">Distribution Summary</h6>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           {BLOOMS_LEVELS.map((level) => {
-                            const percentage = formData.bloomsDistribution.find(d => d.level === level.id)?.percentage || 0;
+                            const percentage = getBloomsDistribution(formData.bloomsDistribution).find(d => d.level === level.id)?.percentage || 0;
                             return (
                               <div key={level.id} className="flex justify-between">
                                 <span className="text-gray-600">{level.name}:</span>
@@ -2333,7 +2441,7 @@
                           <div className="flex justify-between items-center">
                             <span className="text-gray-600 font-medium">Total:</span>
                             <span className={`font-bold ${
-                              formData.bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0) === 100
+                              getBloomsDistribution(formData.bloomsDistribution).reduce((sum, dist) => sum + dist.percentage, 0) === 100
                                 ? "text-green-600"
                                 : "text-red-600"
                             }`}>
@@ -2618,9 +2726,26 @@
                           <CardContent className="space-y-4">
                             {/* Mark Distribution for this subject */}
                             <div className="space-y-2">
-                              <Label className="text-sm font-medium">
-                                Mark Distribution
-                              </Label>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium">
+                                  Mark Distribution
+                                </Label>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    // Set the subject ID for auto-fetch
+                                    setAutoFetchSubjectId(subjectData._id);
+                                    setIsAutoFetchDialogOpen(true);
+                                  }}
+                                  className="flex items-center space-x-2"
+                                  disabled={!formData.examId || isCheckingTemplates || !hasTemplates}
+                                >
+                                  <Wand2 className="h-3 w-3" />
+                                  <span>Auto-Fetch</span>
+                                </Button>
+                              </div>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
                                   <Label htmlFor={`${subjectData._id}-oneMark`}>
@@ -2792,7 +2917,7 @@
                                         </p>
                                       </div>
                                       <span className="text-sm font-medium">
-                                        {distribution.bloomsDistribution?.find(
+                                        {getBloomsDistribution(distribution.bloomsDistribution).find(
                                           (d: any) => d.level === level.id
                                         )?.percentage || 0}
                                         %
@@ -2800,7 +2925,7 @@
                                     </div>
                                     <Slider
                                       value={[
-                                        distribution.bloomsDistribution?.find(
+                                        getBloomsDistribution(distribution.bloomsDistribution).find(
                                           (d: any) => d.level === level.id
                                         )?.percentage || 0,
                                       ]}
@@ -2809,9 +2934,8 @@
                                           ...prev,
                                           [subjectData._id]: {
                                             ...prev[subjectData._id],
-                                            bloomsDistribution: (
-                                              prev[subjectData._id]
-                                                ?.bloomsDistribution || []
+                                            bloomsDistribution: getBloomsDistribution(
+                                              prev[subjectData._id]?.bloomsDistribution
                                             )
                                               .filter(
                                                 (d: any) => d.level !== level.id
@@ -2841,7 +2965,7 @@
                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                   {BLOOMS_LEVELS.map((level) => {
                                     const percentage =
-                                      distribution.bloomsDistribution?.find(
+                                      getBloomsDistribution(distribution.bloomsDistribution).find(
                                         (d: any) => d.level === level.id
                                       )?.percentage || 0;
                                     return (
@@ -2893,7 +3017,7 @@
                                       %
                                     </span>
                                   </div>
-                                  {(distribution.bloomsDistribution || []).reduce(
+                                  {getBloomsDistribution(distribution.bloomsDistribution).reduce(
                                     (sum: number, dist: any) =>
                                       sum + dist.percentage,
                                     0
@@ -3788,6 +3912,39 @@
               loadData();
             }}
           />
+        )}
+
+        {/* Auto-Fetch Marks Dialog */}
+        {isAutoFetchDialogOpen && (
+          <Dialog open={isAutoFetchDialogOpen} onOpenChange={setIsAutoFetchDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Auto-Fetch Marks from Template</DialogTitle>
+                <DialogDescription>
+                  Select a validated template to automatically fetch mark distribution
+                </DialogDescription>
+              </DialogHeader>
+              
+              {formData.examId && (selectedSubjects.length > 0 || autoFetchSubjectId) ? (
+                <AutoFetchMarks
+                  subjectId={autoFetchSubjectId || selectedSubjects[0]?._id || ''}
+                  examType={exams.find(e => e._id === formData.examId)?.examType || 'UNIT_TEST'}
+                  onMarksFetched={handleAutoFetchMarks}
+                  onClose={() => {
+                    setIsAutoFetchDialogOpen(false);
+                    setAutoFetchSubjectId(null);
+                  }}
+                />
+              ) : (
+                <div className="p-8 text-center">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground">
+                    Please select an exam and at least one subject to use auto-fetch marks.
+                  </p>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     );

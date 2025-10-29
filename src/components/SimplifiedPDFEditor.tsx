@@ -328,18 +328,40 @@ const SimplifiedPDFEditor: React.FC<SimplifiedPDFEditorProps> = ({
                           </select>
                         </div>
 
-                        <div>
-                          <Label htmlFor="marks">Marks</Label>
-                          <Input
-                            id="marks"
-                            type="number"
-                            value={editedQuestion.marks || 1}
-                            onChange={(e) => {
-                              setEditedQuestion({ ...editedQuestion, marks: parseInt(e.target.value) || 1 });
-                              setHasChanges(true);
-                            }}
-                            className="mt-1"
-                          />
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="marks">Marks</Label>
+                            <Input
+                              id="marks"
+                              type="number"
+                              value={editedQuestion.marks || 1}
+                              onChange={(e) => {
+                                setEditedQuestion({ ...editedQuestion, marks: parseInt(e.target.value) || 1 });
+                                setHasChanges(true);
+                              }}
+                              className="mt-1"
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label htmlFor="blooms-level">Blooms Level</Label>
+                            <select
+                              id="blooms-level"
+                              value={editedQuestion.bloomsTaxonomyLevel || editedQuestion.bloomsLevel || 'UNDERSTAND'}
+                              onChange={(e) => {
+                                setEditedQuestion({ ...editedQuestion, bloomsTaxonomyLevel: e.target.value });
+                                setHasChanges(true);
+                              }}
+                              className="mt-1 w-full p-2 border rounded-md"
+                            >
+                              <option value="REMEMBER">Remember</option>
+                              <option value="UNDERSTAND">Understand</option>
+                              <option value="APPLY">Apply</option>
+                              <option value="ANALYZE">Analyze</option>
+                              <option value="EVALUATE">Evaluate</option>
+                              <option value="CREATE">Create</option>
+                            </select>
+                          </div>
                         </div>
 
                         <div>
@@ -421,11 +443,20 @@ const SimplifiedPDFEditor: React.FC<SimplifiedPDFEditorProps> = ({
                           </Badge>
                         </div>
                         
-                        <div>
-                          <h4 className="font-medium">Marks:</h4>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {selectedQuestion.marks || 1}
-                          </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="font-medium">Marks:</h4>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {selectedQuestion.marks || 1}
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <h4 className="font-medium">Blooms Level:</h4>
+                            <Badge variant="outline" className="mt-1">
+                              {selectedQuestion.bloomsTaxonomyLevel || selectedQuestion.bloomsLevel || 'UNDERSTAND'}
+                            </Badge>
+                          </div>
                         </div>
 
                         {selectedQuestion.options && selectedQuestion.options.length > 0 && (

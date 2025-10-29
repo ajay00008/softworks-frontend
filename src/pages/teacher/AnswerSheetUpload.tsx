@@ -28,7 +28,9 @@ import {
   Target,
   Zap,
   BarChart3,
-  Trash2
+  Trash2,
+  Flag,
+  Edit
 } from 'lucide-react';
 import { teacherDashboardAPI } from '@/services/api';
 
@@ -92,18 +94,39 @@ interface UploadResult {
 
 interface AnswerSheet {
   _id: string;
+  examId: string;
   originalFileName: string;
+  cloudStorageUrl?: string;
   status: string;
   uploadedAt: string;
   scanQuality?: string;
+  isAligned?: boolean;
   rollNumberDetected?: string;
+  rollNumberConfidence?: number;
   studentId?: {
+    _id?: string;
     name: string;
     rollNumber: string;
+    email?: string;
   };
   uploadedBy?: {
     name: string;
   };
+  flags?: Array<{
+    _id: string;
+    type: string;
+    severity: string;
+    description: string;
+    createdAt: string;
+    resolvedAt?: string;
+    resolvedBy?: string;
+    resolutionNotes?: string;
+    autoResolved: boolean;
+  }>;
+  processingStatus?: string;
+  flagCount?: number;
+  hasCriticalFlags?: boolean;
+  flagResolutionRate?: number;
 }
 
 const AnswerSheetUpload = () => {
@@ -408,7 +431,11 @@ const AnswerSheetUpload = () => {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       UPLOADED: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-      PROCESSING: { color: 'bg-blue-100 text-blue-800', icon: RefreshCw },
+      PROCESSING: { color: 'bg-yellow-100 text-yellow-800', icon: RefreshCw },
+      AI_CORRECTED: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+      MANUALLY_REVIEWED: { color: 'bg-purple-100 text-purple-800', icon: Edit },
+      COMPLETED: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
+      FLAGGED: { color: 'bg-red-100 text-red-800', icon: Flag },
       ERROR: { color: 'bg-red-100 text-red-800', icon: X },
     };
 
@@ -418,9 +445,40 @@ const AnswerSheetUpload = () => {
     return (
       <Badge className={config.color}>
         <Icon className="w-3 h-3 mr-1" />
-        {status}
+        {status.replace('_', ' ')}
       </Badge>
     );
+  };
+
+  const getErrorBadge = (sheet: AnswerSheet) => {
+    if (!sheet.rollNumberDetected) {
+      return (
+        <Badge variant="destructive" className="text-xs">
+          <X className="h-3 w-3 mr-1" />
+          No Roll Number
+        </Badge>
+      );
+    }
+    
+    if (!sheet.studentId) {
+      return (
+        <Badge variant="destructive" className="text-xs">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          Student Not Found
+        </Badge>
+      );
+    }
+
+    if (sheet.rollNumberConfidence && sheet.rollNumberConfidence < 70) {
+      return (
+        <Badge variant="secondary" className="text-xs">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          Low Confidence
+        </Badge>
+      );
+    }
+
+    return null;
   };
 
   // No need for teacher access check since we load all exams directly
@@ -477,14 +535,18 @@ const AnswerSheetUpload = () => {
       {/* Tabs */}
       {selectedExam && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="existing" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Existing Answer Sheets
+              All Sheets
+            </TabsTrigger>
+            <TabsTrigger value="errors" className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Issues ({existingAnswerSheets.filter(s => !s.studentId || !s.rollNumberDetected).length})
             </TabsTrigger>
             <TabsTrigger value="upload" className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
-              Upload New Sheets
+              Upload New
             </TabsTrigger>
           </TabsList>
 
@@ -514,83 +576,220 @@ const AnswerSheetUpload = () => {
                     <p className="text-sm mt-2">Switch to the "Upload New Sheets" tab to add answer sheets</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {existingAnswerSheets.map((sheet, index) => (
-                      <div key={sheet._id} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-gray-500" />
-                            <span className="font-medium">{sheet.originalFileName}</span>
-                            {sheet.studentId && (
-                              <Badge variant="outline" className="text-xs">
-                                {sheet.studentId.name} ({sheet.studentId.rollNumber})
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {getStatusBadge(sheet.status)}
-                            {sheet.scanQuality && getQualityBadge(sheet.scanQuality)}
-                            {/* Flag count indicator */}
-                            {sheet.flagCount > 0 && (
-                              <Badge variant={sheet.hasCriticalFlags ? 'destructive' : 'secondary'} className="text-xs">
-                                <Flag className="h-3 w-3 mr-1" />
-                                {sheet.flagCount}
-                              </Badge>
-                            )}
-                            {/* Auto-detect flags button */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAutoDetectFlags(sheet)}
-                              title="Auto-detect flags"
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            >
-                              <RefreshCw className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteAnswerSheet(sheet._id, sheet.originalFileName)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                  <div className="space-y-6">
+                    {/* Summary Statistics */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          <div>
+                            <div className="text-2xl font-bold text-green-800">
+                              {existingAnswerSheets.filter(s => s.studentId).length}
+                            </div>
+                            <div className="text-sm text-green-600">Matched</div>
                           </div>
                         </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500">Uploaded:</span>
-                            <div>{new Date(sheet.uploadedAt).toLocaleDateString()}</div>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Status:</span>
-                            <div>{sheet.status}</div>
-                          </div>
-                          {sheet.rollNumberDetected && (
-                            <div>
-                              <span className="text-gray-500">Roll Number:</span>
-                              <div className="flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3 text-green-500" />
-                                <span>{sheet.rollNumberDetected}</span>
-                              </div>
-                            </div>
-                          )}
-                          {sheet.scanQuality && (
-                            <div>
-                              <span className="text-gray-500">Quality:</span>
-                              <div>{sheet.scanQuality}</div>
-                            </div>
-                          )}
-                        </div>
-
-                        {sheet.uploadedBy && (
-                          <div className="mt-2 text-xs text-gray-500">
-                            Uploaded by: {sheet.uploadedBy.name}
-                          </div>
-                        )}
                       </div>
-                    ))}
+                      <div className="bg-yellow-50 p-4 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                          <div>
+                            <div className="text-2xl font-bold text-yellow-800">
+                              {existingAnswerSheets.filter(s => !s.studentId).length}
+                            </div>
+                            <div className="text-sm text-yellow-600">Unmatched</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-red-50 p-4 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <X className="h-5 w-5 text-red-600" />
+                          <div>
+                            <div className="text-2xl font-bold text-red-800">
+                              {existingAnswerSheets.filter(s => !s.rollNumberDetected).length}
+                            </div>
+                            <div className="text-sm text-red-600">No Roll Number</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Flag className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <div className="text-2xl font-bold text-blue-800">
+                              {existingAnswerSheets.filter(s => s.flagCount && s.flagCount > 0).length}
+                            </div>
+                            <div className="text-sm text-blue-600">Flagged</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Unmatched/Problematic Sheets Section */}
+                    {existingAnswerSheets.filter(s => !s.studentId || !s.rollNumberDetected).length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-red-700">
+                            <AlertTriangle className="h-5 w-5" />
+                            Sheets Requiring Attention ({existingAnswerSheets.filter(s => !s.studentId || !s.rollNumberDetected).length})
+                          </CardTitle>
+                          <CardDescription>
+                            These answer sheets have issues that need to be resolved before evaluation
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {existingAnswerSheets
+                              .filter(s => !s.studentId || !s.rollNumberDetected)
+                              .map((sheet) => (
+                              <div key={sheet._id} className="border border-red-200 bg-red-50 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-red-600" />
+                                    <span className="font-medium text-red-800">{sheet.originalFileName}</span>
+                                    {getErrorBadge(sheet)}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {/* TODO: Add manual matching */}}
+                                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    >
+                                      <Edit className="h-4 w-4 mr-1" />
+                                      Match Manually
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDeleteAnswerSheet(sheet._id, sheet.originalFileName)}
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                <div className="text-sm text-red-700 space-y-1">
+                                  {!sheet.rollNumberDetected && (
+                                    <div className="flex items-center gap-2">
+                                      <X className="h-3 w-3" />
+                                      <span>Roll number could not be detected from the image</span>
+                                    </div>
+                                  )}
+                                  {sheet.rollNumberDetected && !sheet.studentId && (
+                                    <div className="flex items-center gap-2">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      <span>Student with roll number "{sheet.rollNumberDetected}" not found in this exam's class</span>
+                                    </div>
+                                  )}
+                                  {sheet.rollNumberConfidence && sheet.rollNumberConfidence < 70 && (
+                                    <div className="flex items-center gap-2">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      <span>Low confidence ({sheet.rollNumberConfidence}%) in roll number detection</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* All Answer Sheets */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <FileText className="h-5 w-5" />
+                          All Answer Sheets ({existingAnswerSheets.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {existingAnswerSheets.map((sheet, index) => (
+                            <div key={sheet._id} className={`border rounded-lg p-4 ${!sheet.studentId ? 'border-yellow-200 bg-yellow-50' : 'border-gray-200'}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-4 w-4 text-gray-500" />
+                                  <span className="font-medium">{sheet.originalFileName}</span>
+                                  {sheet.studentId && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {sheet.studentId.name} ({sheet.studentId.rollNumber})
+                                    </Badge>
+                                  )}
+                                  {getErrorBadge(sheet)}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {getStatusBadge(sheet.status)}
+                                  {sheet.scanQuality && getQualityBadge(sheet.scanQuality)}
+                                  {/* Flag count indicator */}
+                                  {sheet.flagCount && sheet.flagCount > 0 && (
+                                    <Badge variant={sheet.hasCriticalFlags ? 'destructive' : 'secondary'} className="text-xs">
+                                      <Flag className="h-3 w-3 mr-1" />
+                                      {sheet.flagCount}
+                                    </Badge>
+                                  )}
+                                  {/* Auto-detect flags button */}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleAutoDetectFlags(sheet)}
+                                    title="Auto-detect flags"
+                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  >
+                                    <RefreshCw className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteAnswerSheet(sheet._id, sheet.originalFileName)}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <span className="text-gray-500">Uploaded:</span>
+                                  <div>{new Date(sheet.uploadedAt).toLocaleDateString()}</div>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Status:</span>
+                                  <div>{sheet.status}</div>
+                                </div>
+                                {sheet.rollNumberDetected && (
+                                  <div>
+                                    <span className="text-gray-500">Roll Number:</span>
+                                    <div className="flex items-center gap-1">
+                                      <CheckCircle className="h-3 w-3 text-green-500" />
+                                      <span>{sheet.rollNumberDetected}</span>
+                                      {sheet.rollNumberConfidence && (
+                                        <span className="text-xs text-gray-500">({sheet.rollNumberConfidence}%)</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {sheet.scanQuality && (
+                                  <div>
+                                    <span className="text-gray-500">Quality:</span>
+                                    <div>{sheet.scanQuality}</div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {sheet.uploadedBy && (
+                                <div className="mt-2 text-xs text-gray-500">
+                                  Uploaded by: {sheet.uploadedBy.name}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
               </CardContent>
@@ -688,6 +887,157 @@ const AnswerSheetUpload = () => {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Issues Tab */}
+          <TabsContent value="errors" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-700">
+                  <AlertTriangle className="h-5 w-5" />
+                  Answer Sheets with Issues
+                </CardTitle>
+                <CardDescription>
+                  These answer sheets require attention before they can be processed for evaluation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {existingAnswerSheets.filter(s => !s.studentId || !s.rollNumberDetected).length === 0 ? (
+                  <div className="text-center py-8 text-green-600">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                    <p className="text-lg font-medium">No Issues Found!</p>
+                    <p className="text-sm mt-2">All answer sheets have been successfully matched to students</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Issue Summary */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                        <div className="flex items-center gap-2">
+                          <X className="h-5 w-5 text-red-600" />
+                          <div>
+                            <div className="text-xl font-bold text-red-800">
+                              {existingAnswerSheets.filter(s => !s.rollNumberDetected).length}
+                            </div>
+                            <div className="text-sm text-red-600">No Roll Number Detected</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                          <div>
+                            <div className="text-xl font-bold text-yellow-800">
+                              {existingAnswerSheets.filter(s => s.rollNumberDetected && !s.studentId).length}
+                            </div>
+                            <div className="text-sm text-yellow-600">Student Not Found</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                        <div className="flex items-center gap-2">
+                          <Flag className="h-5 w-5 text-orange-600" />
+                          <div>
+                            <div className="text-xl font-bold text-orange-800">
+                              {existingAnswerSheets.filter(s => s.flagCount && s.flagCount > 0).length}
+                            </div>
+                            <div className="text-sm text-orange-600">Flagged Issues</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Detailed Issue List */}
+                    <div className="space-y-3">
+                      {existingAnswerSheets
+                        .filter(s => !s.studentId || !s.rollNumberDetected)
+                        .map((sheet) => (
+                        <div key={sheet._id} className="border border-red-200 bg-red-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-5 w-5 text-red-600" />
+                              <div>
+                                <h4 className="font-medium text-red-800">{sheet.originalFileName}</h4>
+                                <p className="text-sm text-red-600">
+                                  Uploaded: {new Date(sheet.uploadedAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                              {getErrorBadge(sheet)}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {/* TODO: Add manual matching */}}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Fix Manually
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAutoDetectFlags(sheet)}
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              >
+                                <RefreshCw className="h-4 w-4 mr-1" />
+                                Retry AI
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteAnswerSheet(sheet._id, sheet.originalFileName)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-white rounded p-3 space-y-2">
+                            <h5 className="font-medium text-gray-800">Issues Found:</h5>
+                            <div className="space-y-1">
+                              {!sheet.rollNumberDetected && (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <X className="h-4 w-4 text-red-500" />
+                                  <span className="text-red-700">Roll number could not be detected from the image</span>
+                                </div>
+                              )}
+                              {sheet.rollNumberDetected && !sheet.studentId && (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                  <span className="text-yellow-700">Student with roll number "{sheet.rollNumberDetected}" not found in this exam's class</span>
+                                </div>
+                              )}
+                              {sheet.rollNumberConfidence && sheet.rollNumberConfidence < 70 && (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                                  <span className="text-orange-700">Low confidence ({sheet.rollNumberConfidence}%) in roll number detection</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="mt-3 pt-2 border-t border-gray-200">
+                              <h6 className="font-medium text-gray-700 mb-1">Suggested Actions:</h6>
+                              <div className="text-sm text-gray-600 space-y-1">
+                                {!sheet.rollNumberDetected && (
+                                  <div>• Check if roll number is clearly written and visible in the image</div>
+                                )}
+                                {sheet.rollNumberDetected && !sheet.studentId && (
+                                  <div>• Verify the roll number is correct for this exam's class</div>
+                                )}
+                                <div>• Try uploading a higher quality scan</div>
+                                <div>• Manually match the sheet to the correct student</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Upload New Sheets Tab */}

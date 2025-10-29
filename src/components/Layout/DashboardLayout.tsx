@@ -48,6 +48,7 @@ const getNavigation = (userRole?: string) => {
   if (isTeacher) {
     return [
       { name: 'Teacher Dashboard', href: '/dashboard/teacher-dashboard', icon: GraduationCap, section: 'MAIN' },
+      { name: 'My Students', href: '/dashboard/teacher/students', icon: Users, section: 'MAIN' },
       { name: 'Upload Answer Sheets', href: '/dashboard/teacher/upload-sheets', icon: Upload, section: 'TEACHING' },
       { name: 'AI Answer Checking', href: '/dashboard/teacher/ai-checking', icon: Brain, section: 'TEACHING' },
       { name: 'Question Papers', href: '/dashboard/teacher/question-papers', icon: BookOpen, section: 'TEACHING' },

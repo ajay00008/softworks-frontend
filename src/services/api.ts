@@ -2622,6 +2622,30 @@ export const teacherDashboardAPI = {
     }
   },
 
+  // Get students in assigned classes
+  getAssignedStudents: async (params?: {
+    classId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.classId) queryParams.append('classId', params.classId);
+      if (params?.search) queryParams.append('search', params.search);
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+      const response = await fetch(`${API_BASE_URL}/teacher/students?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
   autoDetectFlags: async (answerSheetId: string, analysisData: {
     rollNumberDetected?: string;
     rollNumberConfidence?: number;
@@ -3042,6 +3066,70 @@ export const teacherDashboardAPI = {
         throw error;
       }
     },
+
+  // Enhanced Answer Sheet Upload Methods
+  batchUploadAnswerSheetsEnhanced: async (examId: string, formData: FormData): Promise<{ success: boolean; data: any; errors?: any; summary?: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/upload-enhanced/${examId}`, {
+        method: 'POST',
+        headers: getAuthHeadersForUpload(),
+        body: formData,
+      });
+      return await handleApiResponse<{ success: boolean; data: any; errors?: any; summary?: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  uploadAnswerSheetEnhanced: async (formData: FormData): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/upload-single-enhanced`, {
+        method: 'POST',
+        headers: getAuthHeadersForUpload(),
+        body: formData,
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  matchAnswerSheetToStudentEnhanced: async (answerSheetId: string, data: { rollNumber?: string; studentId?: string }): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/match-enhanced`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ answerSheetId, ...data }),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAnswerSheetsWithAIResults: async (examId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/ai-results/${examId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  autoMatchUnmatchedSheets: async (examId: string): Promise<{ success: boolean; data: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/auto-match/${examId}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
 };
 
 // Performance Analytics API

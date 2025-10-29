@@ -33,6 +33,7 @@ import AIAnswerChecking from "./pages/teacher/AIAnswerChecking";
 import QuestionPaperCreation from "./pages/teacher/QuestionPaperCreation";
 import TeacherResults from "./pages/teacher/TeacherResults";
 import TeacherAnalytics from "./pages/teacher/TeacherAnalytics";
+import TeacherStudents from "./pages/teacher/TeacherStudents";
 import { authAPI } from "./services/api";
 import "./utils/testMigration"; // Load test migration script
 
@@ -90,6 +91,7 @@ const App = () => (
               <Route path="mirror" element={<div className="p-6">Mirror Login - Coming Soon</div>} />
               
               {/* Teacher Specific Routes */}
+              <Route path="teacher/students" element={<TeacherStudents />} />
               <Route path="teacher/upload-sheets" element={<AnswerSheetUpload />} />
               <Route path="teacher/ai-checking" element={<AIAnswerChecking />} />
               <Route path="teacher/question-papers" element={<QuestionPaperCreation />} />

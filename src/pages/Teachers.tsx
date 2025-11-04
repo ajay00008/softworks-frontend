@@ -70,6 +70,19 @@ const Teachers = () => {
     selectedClasses: [] as string[],
   });
 
+  // Filter subjects based on selected classes
+  const filteredSubjects = createFormAssignments.selectedClasses.length > 0
+    ? subjects.filter(subject => {
+        if (!subject.classIds || subject.classIds.length === 0) return false;
+        return subject.classIds.some((classId: any) => {
+          const classIdStr = typeof classId === 'string' 
+            ? classId 
+            : (classId._id || classId.id || classId.toString());
+          return createFormAssignments.selectedClasses.includes(classIdStr);
+        });
+      })
+    : subjects;
+
   useEffect(() => {
     // Clear any existing search term on page load
     setSearchTerm("");
@@ -841,65 +854,17 @@ const Teachers = () => {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground mb-4">
-                        You can assign subjects and classes now, or do it later from the teacher list.
+                        First select a class, then choose subjects mapped to that class. You can assign subjects and classes now, or do it later from the teacher list.
                       </p>
                     )}
                   </div>
 
-                  {/* Subjects Assignment */}
-                  <div className="space-y-3">
-                    <Label className="text-base font-medium flex items-center">
-                      <BookOpen className="w-4 h-4 mr-2 text-green-600" />
-                      Assign Subjects *
-                      <span className="text-red-500 ml-1">(Required)</span>
-                    </Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50">
-                      {subjects.length === 0 ? (
-                        <p className="text-sm text-gray-500 col-span-full text-center py-4">No subjects available</p>
-                      ) : (
-                        subjects.map((subject) => (
-                          <div key={subject._id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`create-subject-${subject._id}`}
-                              checked={createFormAssignments.selectedSubjects.includes(subject._id)}
-                              onCheckedChange={() => handleCreateSubjectToggle(subject._id)}
-                            />
-                            <Label
-                              htmlFor={`create-subject-${subject._id}`}
-                              className="text-sm font-normal cursor-pointer"
-                            >
-                              {subject.name}
-                            </Label>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    {createFormAssignments.selectedSubjects.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-xs text-muted-foreground">Selected:</span>
-                        {createFormAssignments.selectedSubjects.map(id => {
-                          const subject = subjects.find(s => s._id === id);
-                          return (
-                            <Badge key={id} variant="secondary" className="text-xs">
-                              {subject?.name || id}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                        <span className="text-sm font-medium">Please select at least one subject</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Classes Assignment */}
+                  {/* Classes Assignment - Show First */}
                   <div className="space-y-3">
                     <Label className="text-base font-medium flex items-center">
                       <Users className="w-4 h-4 mr-2 text-purple-600" />
                       Assign Classes *
-                      <span className="text-red-500 ml-1">(Required)</span>
+                      <span className="text-red-500 ml-1">(Required - Select First)</span>
                     </Label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50">
                       {classes.length === 0 ? (
@@ -910,7 +875,14 @@ const Teachers = () => {
                             <Checkbox
                               id={`create-class-${cls.id}`}
                               checked={createFormAssignments.selectedClasses.includes(cls.id)}
-                              onCheckedChange={() => handleCreateClassToggle(cls.id)}
+                              onCheckedChange={() => {
+                                handleCreateClassToggle(cls.id);
+                                // Clear selected subjects when class selection changes
+                                setCreateFormAssignments(prev => ({
+                                  ...prev,
+                                  selectedSubjects: []
+                                }));
+                              }}
                             />
                             <Label
                               htmlFor={`create-class-${cls.id}`}
@@ -937,8 +909,68 @@ const Teachers = () => {
                     ) : (
                       <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
                         <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                        <span className="text-sm font-medium">Please select at least one class</span>
+                        <span className="text-sm font-medium">Please select at least one class first to see subjects</span>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Subjects Assignment - Show After Classes Are Selected */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-medium flex items-center">
+                      <BookOpen className="w-4 h-4 mr-2 text-green-600" />
+                      Assign Subjects *
+                      <span className="text-red-500 ml-1">(Required - Select after class)</span>
+                    </Label>
+                    {createFormAssignments.selectedClasses.length === 0 ? (
+                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Please select a class first to see subjects mapped to that class.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50">
+                          {filteredSubjects.length === 0 ? (
+                            <p className="text-sm text-gray-500 col-span-full text-center py-4">
+                              No subjects available for the selected class(es)
+                            </p>
+                          ) : (
+                            filteredSubjects.map((subject) => (
+                              <div key={subject._id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`create-subject-${subject._id}`}
+                                  checked={createFormAssignments.selectedSubjects.includes(subject._id)}
+                                  onCheckedChange={() => handleCreateSubjectToggle(subject._id)}
+                                />
+                                <Label
+                                  htmlFor={`create-subject-${subject._id}`}
+                                  className="text-sm font-normal cursor-pointer"
+                                >
+                                  {subject.name}
+                                </Label>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        {createFormAssignments.selectedSubjects.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            <span className="text-xs text-muted-foreground">Selected:</span>
+                            {createFormAssignments.selectedSubjects.map(id => {
+                              const subject = filteredSubjects.find(s => s._id === id);
+                              return (
+                                <Badge key={id} variant="secondary" className="text-xs">
+                                  {subject?.name || id}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
+                            <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                            <span className="text-sm font-medium">Please select at least one subject</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -953,7 +985,7 @@ const Teachers = () => {
                         <span className="text-gray-600 dark:text-gray-400">Subjects:</span>
                         <span className={`ml-2 font-medium ${createFormAssignments.selectedSubjects.length > 0 ? 'text-green-600' : 'text-red-500'}`}>
                           {createFormAssignments.selectedSubjects.length > 0 
-                            ? createFormAssignments.selectedSubjects.map(id => subjects.find(s => s._id === id)?.name).join(', ')
+                            ? createFormAssignments.selectedSubjects.map(id => filteredSubjects.find(s => s._id === id)?.name || subjects.find(s => s._id === id)?.name).join(', ')
                             : 'None selected (Required)'
                           }
                         </span>

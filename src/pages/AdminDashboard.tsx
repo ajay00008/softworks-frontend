@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, Line, LineChart, Pie, PieChart, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import NotificationCenter from '@/components/Notifications/NotificationCenter';
 
 // Mock data for demonstration
 const mockDashboardData = {
@@ -439,45 +440,7 @@ const AdminDashboard = () => {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Bell className="w-5 h-5 mr-2" />
-                System Notifications
-              </CardTitle>
-              <CardDescription>
-                Missing sheets, absent students, and system alerts
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockDashboardData.recentNotifications.map((notification) => (
-                  <div key={notification.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
-                        {notification.type === 'MISSING_SHEET' && <AlertTriangle className="w-5 h-5 text-red-500" />}
-                        {notification.type === 'ABSENT_STUDENT' && <Users className="w-5 h-5 text-yellow-500" />}
-                        {notification.type === 'AI_CORRECTION_COMPLETE' && <CheckCircle className="w-5 h-5 text-green-500" />}
-                      </div>
-                      <div>
-                        <h4 className="font-medium">{notification.title}</h4>
-                        <p className="text-sm text-muted-foreground">{notification.message}</p>
-                        <p className="text-xs text-muted-foreground">{notification.time}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge className={getPriorityColor(notification.priority)}>
-                        {notification.priority}
-                      </Badge>
-                      <Button variant="outline" size="sm">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <NotificationCenter />
         </TabsContent>
       </Tabs>
 

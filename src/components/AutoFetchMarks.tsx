@@ -18,7 +18,7 @@ import { questionPaperTemplateAPI } from '@/services/api';
 interface AutoFetchMarksProps {
   subjectId: string;
   examType: string;
-  onMarksFetched: (markDistribution: any, bloomsDistribution: any, customMarks?: Array<{mark: number, count: number}>) => void;
+  onMarksFetched: (markDistribution: any, bloomsDistribution: any, customMarks?: Array<{mark: number, count: number}>, patternId?: string) => void;
   onClose: () => void;
 }
 
@@ -26,6 +26,13 @@ interface TemplateForAutoFetch {
   _id: string;
   title: string;
   confidence: number;
+  templateFile?: {
+    fileName: string;
+    filePath: string;
+    fileSize: number;
+    uploadedAt: string;
+    downloadUrl: string;
+  };
   markDistribution: {
     oneMark: number;
     twoMark: number;
@@ -76,7 +83,6 @@ export default function AutoFetchMarks({
         setSelectedTemplate(templatesData[0]._id);
       }
     } catch (error) {
-      console.error('Error loading templates:', error);
       toast({
         title: "Error",
         description: "Failed to load templates for auto-fetch",
@@ -141,18 +147,38 @@ export default function AutoFetchMarks({
         });
       }
 
+      // Extract patternId from template file
+      // Template files are stored in question-paper-templates folder
+      // We use the fileName as patternId, and backend will check both folders:
+      // 1. question-patterns/{fileName} (manually uploaded patterns)
+      // 2. question-paper-templates/{fileName} (template files)
+      let patternId: string | undefined = undefined;
+      if (template.templateFile?.fileName) {
+        // Use the fileName directly - backend will find it in question-paper-templates folder
+        patternId = template.templateFile.fileName;
+        console.log('✅ Extracted patternId from template:', patternId);
+      } else if (template.templateFile?.filePath) {
+        // Fallback: extract filename from filePath if fileName is not available
+        const filePath = template.templateFile.filePath;
+        const fileName = filePath.split('/').pop() || filePath.split('\\').pop();
+        if (fileName) {
+          patternId = fileName;
+          console.log('✅ Extracted patternId from template filePath:', patternId);
+        }
+      }
+      
       // Don't auto-fetch blooms distribution - let admin set it manually
       // Pass undefined for blooms distribution to keep existing values
-      onMarksFetched(markDistribution, undefined, customMarks.length > 0 ? customMarks : undefined);
+      // Pass patternId so it can be used when generating the question paper
+      onMarksFetched(markDistribution, undefined, customMarks.length > 0 ? customMarks : undefined, patternId);
       
       toast({
         title: "Success",
-        description: `Marks fetched from template "${template.title}"${customMarks.length > 0 ? ` with ${customMarks.length} custom mark type(s)` : ''}`,
+        description: `Marks fetched from template "${template.title}"${customMarks.length > 0 ? ` with ${customMarks.length} custom mark type(s)` : ''}${patternId ? ' (template file included)' : ''}`,
       });
       
       onClose();
     } catch (error) {
-      console.error('Error fetching marks:', error);
       toast({
         title: "Error",
         description: "Failed to fetch marks from template",

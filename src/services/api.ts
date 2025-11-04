@@ -2,7 +2,32 @@
 import { CreateTemplateRequest, UpdateTemplateRequest, TemplateAnalysis } from '@/types/question-paper-template';
 import { SamplePaper, CreateSamplePaperRequest, UpdateSamplePaperRequest, SamplePaperAnalysis } from '@/types/sample-paper';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+// Construct API base URL with proper protocol
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  
+  if (envUrl) {
+    // If environment variable is set, use it as is
+    return envUrl.startsWith('http') ? envUrl : `http://${envUrl}`;
+  }
+  
+  // Auto-detect from window location when running in browser
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+    
+    // Use current host with port 4000 for API (or 4001, 4002, etc. if 4000 is frontend)
+    const apiPort = port === '8080' || port === '5173' || port === '3000' ? '4000' : (port || '4000');
+    
+    return `${protocol}//${hostname}:${apiPort}/api`;
+  }
+  
+  // Fallback for SSR or Node.js environments
+  return 'http://localhost:4000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Backend connection will be tested when needed through actual API calls
 
@@ -134,11 +159,48 @@ export interface ClassMapping {
   updatedAt?: string;
 }
 
-// Helper function to get auth headers
-const getAuthHeaders = () => {
+// Helper function to validate token synchronously (inline implementation to avoid async)
+const validateTokenSync = (): void => {
   const token = localStorage.getItem('auth-token');
   if (!token) {
-    console.error('No auth token found in localStorage');
+    throw new Error('No authentication token found. Please log in again.');
+  }
+  
+  try {
+    // Parse JWT token to check expiration
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload.exp;
+    
+    if (!exp) {
+      // No expiration claim, consider it invalid
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('user');
+      throw new Error('Invalid token. Please log in again.');
+    }
+    
+    // exp is in seconds, Date.now() is in milliseconds
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (exp < currentTime) {
+      // Token expired, clear it
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('user');
+      throw new Error('Session expired. Please log in again.');
+    }
+  } catch (parseError) {
+    // If we can't parse the token, consider it expired/invalid
+    localStorage.removeItem('auth-token');
+    localStorage.removeItem('user');
+    throw new Error('Invalid token. Please log in again.');
+  }
+};
+
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  // Validate token before making request
+  validateTokenSync();
+  
+  const token = localStorage.getItem('auth-token');
+  if (!token) {
     throw new Error('No authentication token found. Please log in again.');
   }
   return {
@@ -149,9 +211,11 @@ const getAuthHeaders = () => {
 
 // Helper function to get auth headers for file uploads (without Content-Type)
 const getAuthHeadersForUpload = () => {
+  // Validate token before making request
+  validateTokenSync();
+  
   const token = localStorage.getItem('auth-token');
   if (!token) {
-    console.error('No auth token found in localStorage');
     throw new Error('No authentication token found. Please log in again.');
   }
   return {
@@ -163,7 +227,10 @@ const getAuthHeadersForUpload = () => {
 export const authAPI = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const url = `${API_BASE_URL}/auth/login`;
+      console.log('[AUTH] 🔐 Attempting login:', { url, email, hasPassword: !!password });
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -171,28 +238,78 @@ export const authAPI = {
         body: JSON.stringify({ email, password }),
       });
 
+      console.log('[AUTH] 📡 Login response:', { 
+        status: response.status, 
+        statusText: response.statusText,
+        ok: response.ok 
+      });
+
       if (!response.ok) {
-        const errorData: ApiError = await response.json().catch(() => ({ error: { message: 'Login failed' } }));
-        throw new Error(errorData.error?.message || (typeof errorData.error === 'string' ? errorData.error : 'Login failed'));
+        let errorMessage = 'Login failed. Please check your credentials.';
+        
+        try {
+          const errorData: ApiError = await response.json();
+          errorMessage = errorData.error?.message || 
+                        (typeof errorData.error === 'string' ? errorData.error : errorMessage);
+          console.error('[AUTH] ❌ Login error response:', errorData);
+        } catch (jsonError) {
+          // If response is not JSON, try to get text
+          try {
+            const textResponse = await response.text();
+            errorMessage = textResponse || errorMessage;
+            console.error('[AUTH] ❌ Login error (text):', textResponse);
+          } catch (textError) {
+            console.error('[AUTH] ❌ Failed to parse error response:', textError);
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      const data: LoginResponse = await response.json();
+      const data: any = await response.json();
+      console.log('[AUTH] ✅ Login response received:', { 
+        success: data.success, 
+        hasToken: !!data.token,
+        user: data.user?.email 
+      });
+      
       if (!data.success) {
-        throw new Error('Login failed');
+        throw new Error(data.error?.message || data.message || 'Login failed. Please try again.');
       }
       
-      return data;
+      if (!data.token) {
+        throw new Error('No token received from server. Please try again.');
+      }
+      
+      return data as LoginResponse;
     } catch (error) {
+      console.error('[AUTH] ❌ Login exception:', error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Unable to connect to server. Please check your internet connection or contact support.');
+      }
+      
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Network error occurred');
+      
+      throw new Error('An unexpected error occurred during login. Please try again.');
     }
   },
 
   logout: async (): Promise<void> => {
+    // Clear auth and disconnect socket
     localStorage.removeItem('auth-token');
     localStorage.removeItem('user');
+    
+    // Disconnect socket connection
+    try {
+      const { notificationService } = await import('@/services/notifications');
+      notificationService.disconnect();
+    } catch (e) {
+      // Ignore if notification service not available
+    }
   },
 
   getCurrentUser: (): User | null => {
@@ -203,33 +320,35 @@ export const authAPI = {
 
 // Helper function to handle API responses
 const handleApiResponse = async <T>(response: Response): Promise<T> => {
-  console.log('API Response Status:', response.status);
-  console.log('API Response Headers:', Object.fromEntries(response.headers.entries()));
   
   if (!response.ok) {
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
     
     try {
       const errorData: ApiError = await response.json();
-      console.log('API Error Data:', errorData);
       errorMessage = errorData.error?.message || (typeof errorData.error === 'string' ? errorData.error : errorMessage);
     } catch (jsonError) {
-      console.log('Failed to parse error response as JSON:', jsonError);
       // Try to get text response
       try {
         const textResponse = await response.text();
-        console.log('API Error Text Response:', textResponse);
         errorMessage = textResponse || errorMessage;
       } catch (textError) {
-        console.log('Failed to get text response:', textError);
       }
     }
     
     // Handle authentication errors globally
     if (response.status === 401 || errorMessage.includes('Unauthorized') || errorMessage.includes('Invalid or expired token')) {
-      console.log('Authentication error detected, clearing auth data');
+      // Clear auth and disconnect socket
       localStorage.removeItem('auth-token');
       localStorage.removeItem('user');
+      
+      // Disconnect socket connection
+      try {
+        const { notificationService } = require('@/services/notifications');
+        notificationService.disconnect();
+      } catch (e) {
+        // Ignore if notification service not available
+      }
       
       // Only redirect if not already on login page
       if (!window.location.pathname.includes('/login')) {
@@ -237,55 +356,40 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
       }
     }
     
-    console.log('Throwing error:', errorMessage);
     throw new Error(errorMessage);
   }
   
   const data = await response.json();
-  console.log('handleApiResponse - Raw data:', data);
   
   if (data.success !== undefined) {
-    console.log('handleApiResponse - Success field found:', data.success);
     if (!data.success) {
       throw new Error('API request failed');
     }
     // Handle different response structures
     if (data.data) {
-      console.log('handleApiResponse - Returning data.data:', data.data);
       return data as T;
     } else if (data.question) {
-      console.log('handleApiResponse - Returning data.question:', data.question);
       return data.question;
     } else if (data.questions) {
-      console.log('handleApiResponse - Returning data.questions:', data.questions);
       return data as T;
     } else if (data.student) {
-      console.log('handleApiResponse - Returning data.student:', data.student);
       return data.student;
     } else if (data.teacher) {
-      console.log('handleApiResponse - Returning data.teacher:', data.teacher);
       return data.teacher;
     } else if (data.class) {
-      console.log('handleApiResponse - Returning data.class:', data.class);
       return data.class;
     } else if (data.subject) {
-      console.log('handleApiResponse - Returning data.subject:', data.subject);
       return data.subject;
     } else if (data.exam) {
-      console.log('handleApiResponse - Returning data.exam:', data.exam);
       return data.exam;
     } else if (data.questionPaper) {
-      console.log('handleApiResponse - Returning data.questionPaper:', data.questionPaper);
       return data.questionPaper;
     } else {
-      console.log('handleApiResponse - Returning data as T:', data);
       return data as T;
     }
   } else if (Array.isArray(data)) {
-    console.log('handleApiResponse - Returning array data:', data);
     return data as T;
   } else {
-    console.log('handleApiResponse - Returning data as T (fallback):', data);
     return data as T;
   }
 };
@@ -1001,12 +1105,6 @@ export const subjectManagementAPI = {
   // Upload reference book
   uploadReferenceBook: async (id: string, file: File): Promise<Subject> => {
     try {
-      console.log('API - Converting file to base64:', {
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
-      
       // Convert file to base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -1020,7 +1118,6 @@ export const subjectManagementAPI = {
         reader.readAsDataURL(file);
       });
       
-      console.log('API - Base64 conversion completed, length:', base64.length);
       
       const requestBody = {
         fileName: file.name,
@@ -1029,23 +1126,13 @@ export const subjectManagementAPI = {
         fileData: base64
       };
       
-      console.log('API - Request body prepared:', {
-        fileName: requestBody.fileName,
-        fileSize: requestBody.fileSize,
-        fileType: requestBody.fileType,
-        dataLength: requestBody.fileData.length
-      });
 
       const headers = getAuthHeaders();
-      console.log('API - Request headers:', headers);
-      console.log('API - Request URL:', `${API_BASE_URL}/admin/subjects/${id}/reference-book-base64`);
       
       // Test if backend is accessible
       try {
         const testResponse = await fetch(`${API_BASE_URL}/health`, { method: 'GET' });
-        console.log('Backend health check:', testResponse.status);
       } catch (healthError) {
-        console.log('Backend health check failed:', healthError);
       }
 
       const response = await fetch(`${API_BASE_URL}/admin/subjects/${id}/reference-book-base64`, {
@@ -1054,16 +1141,12 @@ export const subjectManagementAPI = {
         body: JSON.stringify(requestBody),
       });
       
-      console.log('API - Response status:', response.status);
-      console.log('API - Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         let errorText = '';
         try {
           errorText = await response.text();
-          console.log('API - Error response text:', errorText);
         } catch (e) {
-          console.log('API - Could not read error response:', e);
         }
         throw new Error(`Upload failed: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
       }
@@ -1071,13 +1154,10 @@ export const subjectManagementAPI = {
       // Debug: Log the raw response before processing
       const responseClone = response.clone();
       const rawResponse = await responseClone.text();
-      console.log('API - Raw response:', rawResponse);
       
       const result = await handleApiResponse<Subject>(response);
-      console.log('API - Processed result:', result);
       return result;
     } catch (error) {
-      console.error('API - Upload error:', error);
       throw error;
     }
   },
@@ -1985,23 +2065,18 @@ export const questionPaperAPI = {
   // Regenerate PDF with updated questions
   regeneratePDF: async (id: string): Promise<{ success: boolean; questionPaper: QuestionPaper; downloadUrl: string }> => {
     try {
-      console.log('api.ts regeneratePDF called with id:', id);
       const response = await fetch(`${API_BASE_URL}/admin/question-papers/${id}/regenerate-pdf`, {
         method: 'POST',
         headers: getAuthHeaders(),
       });
       
-      console.log('api.ts regeneratePDF response status:', response.status);
-      console.log('api.ts regeneratePDF response ok:', response.ok);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('api.ts regeneratePDF error:', errorData);
         throw new Error(errorData.message || 'Failed to regenerate PDF');
       }
 
       const data = await response.json();
-      console.log('api.ts Raw regenerate response:', data);
       
       // Return the full response object with downloadUrl
       return {
@@ -2010,7 +2085,6 @@ export const questionPaperAPI = {
         downloadUrl: data.downloadUrl
       };
     } catch (error) {
-      console.error('api.ts regeneratePDF catch error:', error);
       throw error;
     }
   },
@@ -2032,24 +2106,17 @@ export const questionPaperAPI = {
   getQuestions: async (id: string): Promise<Question[]> => {
     try {
       const url = `${API_BASE_URL}/admin/question-papers/${id}/questions`;
-      console.log('API - Fetching questions from:', url);
-      console.log('API - Question paper ID:', id);
       
       const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
       
-      console.log('API - Response status:', response.status);
-      console.log('API - Response ok:', response.ok);
       
       const result = await handleApiResponse<{success: boolean, questions: Question[]}>(response);
-      console.log('API - Parsed result:', result);
-      console.log('API - Questions from result:', result.questions);
       
       return result.questions || [];
     } catch (error) {
-      console.error('API - Error fetching questions:', error);
       return [];
     }
   },
@@ -2724,6 +2791,20 @@ export const teacherDashboardAPI = {
     }
   },
 
+  // Generate complete question paper with AI (same as admin)
+  generateCompleteAI: async (request: any): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teacher/question-papers/generate-complete-ai`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(request),
+      });
+      return await handleApiResponse<any>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
   // Generate AI question paper
   generateAIQuestionPaper: async (paperId: string): Promise<{ success: boolean; data: any }> => {
     try {
@@ -2819,10 +2900,10 @@ export const teacherDashboardAPI = {
     }
   },
 
-  // Upload answer sheets with files
+  // Upload answer sheets with files (using enhanced AI upload)
   uploadAnswerSheetFiles: async (examId: string, formData: FormData): Promise<{ success: boolean; data: any }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/upload/${examId}`, {
+      const response = await fetch(`${API_BASE_URL}/teacher/answer-sheets/upload-enhanced/${examId}`, {
         method: 'POST',
         headers: getAuthHeadersForUpload(),
         body: formData,

@@ -44,7 +44,6 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
 
   // Load questions when component mounts
   useEffect(() => {
-    console.log('SimplePDFEditor - Component mounted, loading questions for:', questionPaper._id);
     loadQuestions();
   }, [questionPaper]);
 
@@ -52,8 +51,6 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
     try {
       const questionPaperId = questionPaper._id || questionPaper.id;
       const questionsData = await questionPaperAPI.getQuestions(questionPaperId);
-      console.log('SimplePDFEditor - Questions loaded:', questionsData);
-      console.log('SimplePDFEditor - First question structure:', questionsData?.[0]);
       
       setQuestions(questionsData || []);
       
@@ -63,7 +60,6 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
         setEditedQuestion({ ...questionsData[0] });
       }
     } catch (error) {
-      console.error('SimplePDFEditor - Error loading questions:', error);
       toast({
         title: "Error",
         description: "Failed to load questions",
@@ -106,15 +102,10 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
 
       // Automatically regenerate PDF after updating question
       try {
-        console.log('SimplePDFEditor: Calling regeneratePDF after question update...');
         const regenerateResponse = await questionPaperAPI.regeneratePDF(questionPaperId);
-        console.log('SimplePDFEditor: Regenerate response:', regenerateResponse);
-        console.log('SimplePDFEditor: New download URL:', regenerateResponse.downloadUrl);
         
         // Log the updated question paper data and notify parent
         if (regenerateResponse.questionPaper) {
-          console.log('SimplePDFEditor: Regenerate returned updated questionPaper:', regenerateResponse.questionPaper);
-          console.log('SimplePDFEditor: Notifying parent component of update');
           onUpdate(); // Notify parent component to refresh data
         }
         
@@ -123,7 +114,6 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
           description: "PDF has been regenerated with updated questions"
         });
       } catch (regenerateError) {
-        console.error('SimplePDFEditor: PDF regeneration failed:', regenerateError);
         toast({
           title: "Warning",
           description: "Question updated but PDF regeneration failed. Please regenerate manually.",
@@ -237,16 +227,11 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
       setIsRegenerating(true);
       const questionPaperId = questionPaper._id || questionPaper.id;
       
-      console.log('SimplePDFEditor: Manual regeneratePDF called...');
       const result = await questionPaperAPI.regeneratePDF(questionPaperId);
-      console.log('SimplePDFEditor: Manual regenerate response:', result);
-      console.log('SimplePDFEditor: Manual regenerate download URL:', result.downloadUrl);
       
       if (result.success) {
         // Log the updated question paper data and notify parent
         if (result.questionPaper) {
-          console.log('SimplePDFEditor: Manual regenerate returned updated questionPaper:', result.questionPaper);
-          console.log('SimplePDFEditor: Notifying parent component of update');
           onUpdate(); // Notify parent component to refresh data
         }
         
@@ -277,8 +262,6 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
     }
   };
 
-  console.log('SimplePDFEditor - Component rendering with questions:', questions.length);
-  console.log('SimplePDFEditor - Questions data:', questions);
 
   return (
     <div className="space-y-6 max-h-full overflow-y-auto">
@@ -315,7 +298,7 @@ const SimplePDFEditor: React.FC<SimplePDFEditorProps> = ({
           </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-80 overflow-y-auto">
-              {console.log('SimplePDFEditor - Rendering questions list, count:', questions.length)}
+              {}
               {questions.length === 0 && (
                 <div className="text-center py-4 text-gray-500">
                   No questions found. Check console for debugging info.

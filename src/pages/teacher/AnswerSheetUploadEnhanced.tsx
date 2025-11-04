@@ -138,7 +138,6 @@ const AnswerSheetUploadEnhanced = () => {
       const response = await teacherDashboardAPI.getExamsWithContext();
       setExams(response.data || []);
     } catch (error) {
-      console.error('Error loading exams:', error);
       
       if (error.message.includes('Unauthorized') || error.message.includes('Invalid or expired token') || error.message.includes('No authentication token')) {
         toast({
@@ -168,7 +167,6 @@ const AnswerSheetUploadEnhanced = () => {
       const response = await teacherDashboardAPI.getAnswerSheets(examId);
       setExistingAnswerSheets(response.data || []);
     } catch (error) {
-      console.error('Error loading existing answer sheets:', error);
       toast({
         title: "Error",
         description: `Failed to load existing answer sheets: ${error.message}`,
@@ -185,7 +183,6 @@ const AnswerSheetUploadEnhanced = () => {
       const response = await teacherDashboardAPI.getExamStudents(examId);
       setExamStudents(response.data.students || []);
     } catch (error) {
-      console.error('Error loading exam students:', error);
       toast({
         title: "Error",
         description: `Failed to load students: ${error.message}`,
@@ -340,7 +337,6 @@ const AnswerSheetUploadEnhanced = () => {
         });
       }
     } catch (error) {
-      console.error('Upload error:', error);
       toast({
         title: "Upload Error",
         description: `Failed to upload answer sheets: ${error.message}`,

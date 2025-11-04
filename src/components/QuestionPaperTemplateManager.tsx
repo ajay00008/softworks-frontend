@@ -81,7 +81,6 @@ export default function QuestionPaperTemplateManager({
       const templates = await questionPaperTemplateAPI.getAll({ subjectId });
       setTemplates(templates as unknown as QuestionPaperTemplate[] || []);
     } catch (error) {
-      console.error('Error loading templates:', error);
       setTemplates([]);
     } finally {
       setIsLoadingTemplates(false);
@@ -94,7 +93,6 @@ export default function QuestionPaperTemplateManager({
       const subjectsResponse = await subjectManagementAPI.getAll();
       setSubjects(subjectsResponse.subjects || []);
     } catch (error) {
-      console.error('Error loading subjects:', error);
     }
   }, []);
 
@@ -215,7 +213,6 @@ export default function QuestionPaperTemplateManager({
       setIsDownloading(true);
       await questionPaperTemplateAPI.download(templateId);
     } catch (error) {
-      console.error('Download error:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to download template";
       
       // Check if it's an authentication error

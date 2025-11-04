@@ -155,7 +155,6 @@ const TextEditablePDFEditor: React.FC<TextEditablePDFEditorProps> = ({
           }
         });
       } catch (error) {
-        console.error(`Error extracting text from page ${pageNum}:`, error);
       }
     }
     

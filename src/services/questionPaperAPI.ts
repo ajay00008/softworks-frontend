@@ -172,7 +172,6 @@ class QuestionPaperAPI {
       method: 'POST',
       headers: this.getAuthHeaders()
     });
-    console.log(response,'Regenerate response:')
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -180,7 +179,6 @@ class QuestionPaperAPI {
     }
 
     const data = await response.json();
-    console.log('Raw regenerate response:', data);
     
     // Return the full response object with downloadUrl
     return {

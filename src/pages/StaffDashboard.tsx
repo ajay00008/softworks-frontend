@@ -34,6 +34,7 @@ import {
   X,
   Plus
 } from 'lucide-react';
+import ResultsChartsStaff from '@/components/Results/ResultsChartsStaff';
 
 // Mock data for demonstration
 const mockStaffData = {
@@ -390,24 +391,7 @@ const StaffDashboard = () => {
 
         {/* Performance Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BarChart3 className="w-5 h-5 mr-2" />
-                Class Performance Analytics
-              </CardTitle>
-              <CardDescription>
-                Performance insights for your assigned classes
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Performance analytics for assigned classes</p>
-                <p className="text-sm">Features: Grade buckets, subject-wise performance, individual student tracking</p>
-              </div>
-            </CardContent>
-          </Card>
+          <ResultsChartsStaff />
         </TabsContent>
       </Tabs>
 

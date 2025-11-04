@@ -249,7 +249,6 @@ const AIAnswerCheckingEnhanced = () => {
       const response = await teacherDashboardAPI.getExamStudents(selectedExam);
       setStudents(response.data.students || []);
     } catch (error) {
-      console.error('Failed to load students:', error);
     }
   }, [selectedExam]);
 
@@ -260,7 +259,6 @@ const AIAnswerCheckingEnhanced = () => {
       const response = await teacherDashboardAPI.getAIStats(selectedExam);
       setAiStats(response.data);
     } catch (error) {
-      console.error('Failed to load AI stats:', error);
     }
   }, [selectedExam]);
 

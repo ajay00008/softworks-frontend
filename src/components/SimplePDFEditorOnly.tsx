@@ -48,10 +48,8 @@ const SimplePDFEditorOnly: React.FC<SimplePDFEditorOnlyProps> = ({
     try {
       const questionPaperId = questionPaper._id || questionPaper.id;
       const questionsData = await questionPaperAPI.getQuestions(questionPaperId);
-      console.log('SimplePDFEditor - Questions loaded:', questionsData);
       setQuestions(questionsData || []);
     } catch (error) {
-      console.error('Error loading questions:', error);
       toast({
         title: "Error",
         description: "Failed to load questions",
@@ -94,15 +92,10 @@ const SimplePDFEditorOnly: React.FC<SimplePDFEditorOnlyProps> = ({
 
       // Automatically regenerate PDF after updating question
       try {
-        console.log('SimplePDFEditorOnly: Calling regeneratePDF after question update...');
         const regenerateResponse = await questionPaperAPI.regeneratePDF(questionPaperId);
-        console.log('SimplePDFEditorOnly: Regenerate response:', regenerateResponse);
-        console.log('SimplePDFEditorOnly: New download URL:', regenerateResponse.downloadUrl);
         
         // Log the updated question paper data (parent component should handle state update)
         if (regenerateResponse.questionPaper) {
-          console.log('SimplePDFEditorOnly: Regenerate returned updated questionPaper:', regenerateResponse.questionPaper);
-          console.log('SimplePDFEditorOnly: Note - Parent component should update questionPaper state');
         }
         
         toast({
@@ -110,7 +103,6 @@ const SimplePDFEditorOnly: React.FC<SimplePDFEditorOnlyProps> = ({
           description: "PDF has been regenerated with updated questions"
         });
       } catch (regenerateError) {
-        console.error('SimplePDFEditorOnly: PDF regeneration failed:', regenerateError);
         toast({
           title: "Warning",
           description: "Question updated but PDF regeneration failed. Please regenerate manually.",

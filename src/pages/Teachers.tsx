@@ -341,19 +341,12 @@ const Teachers = () => {
           _id: "" as any,
         };
         
-        console.log("🔍 Creating teacher with payload:", {
-          subjectIds: createFormAssignments.selectedSubjects,
-          classIds: createFormAssignments.selectedClasses,
-          subjectIdsLength: createFormAssignments.selectedSubjects.length,
-          classIdsLength: createFormAssignments.selectedClasses.length
-        });
         
         // Check if class IDs look like valid ObjectIds (24 hex characters)
         const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
         const validClassIds = createFormAssignments.selectedClasses.filter(id => isValidObjectId(id));
         
         const newTeacher = await teachersAPI.create(createPayload as any);
-        console.log("New teacher created:", newTeacher);
         
         // Add the new teacher to the state immediately for better UX
         setTeachers(prevTeachers => [...prevTeachers, newTeacher]);

@@ -56,7 +56,6 @@ export default function QuestionPaperList({ onEdit, onCreateNew }: QuestionPaper
       const response = await examsAPI.getAll();
       setExams(response?.data || response?.exams || []);
     } catch (error) {
-      console.error('Error loading exams:', error);
       setExams([]);
     }
   };

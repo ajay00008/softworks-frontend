@@ -353,19 +353,15 @@
           classesResponse,
         ] = await Promise.all([
           examsAPI.getAll().catch((error) => {
-            console.error('Error loading exams:', error);
             return null;
           }),
           questionPaperAPI.getAll(questionPaperFilters).catch((error) => {
-            console.error('Error loading question papers:', error);
             return null;
           }),
           subjectManagementAPI.getAll().catch((error) => {
-            console.error('Error loading subjects:', error);
             return null;
           }),
           classManagementAPI.getAll().catch((error) => {
-            console.error('Error loading classes:', error);
             return null;
           }),
         ]);
@@ -375,10 +371,6 @@
         setClasses(classesResponse?.classes || []);
 
         // Debug log to check data structure
-        console.log('Exams response:', examsResponse);
-        console.log('Question papers response:', questionPapersResponse);
-        console.log('Subjects response:', subjectsResponse);
-        console.log('Classes response:', classesResponse);
         } catch (error) {
         toast({
           title: "Error",
@@ -508,7 +500,7 @@
       setSelectedSubjects([]);
     };
 
-    const handleAutoFetchMarks = (markDistribution: any, bloomsDistribution: any, customMarks?: Array<{mark: number, count: number}>) => {
+    const handleAutoFetchMarks = (markDistribution: any, bloomsDistribution: any, customMarks?: Array<{mark: number, count: number}>, patternId?: string) => {
       // If auto-fetching for a specific subject in multi-subject mode
       if (autoFetchSubjectId && selectedSubjects.length > 1) {
         setSubjectDistributions(prev => ({
@@ -541,6 +533,16 @@
           setCustomMarks(customMarks);
         }
       }
+      
+      // If template includes a pattern file, set it as uploadedPatternId
+      if (patternId) {
+        setUploadedPatternId(patternId);
+        toast({
+          title: "Template pattern loaded",
+          description: "Template file will be used as pattern for question paper generation",
+        });
+      }
+      
       setAutoFetchSubjectId(null);
     };
 
@@ -551,7 +553,6 @@
         const result = await questionPaperTemplateAPI.checkTemplatesExist(examId);
         setHasTemplates(result.hasTemplates || false);
       } catch (error) {
-        console.error('Error checking templates:', error);
         setHasTemplates(false);
       } finally {
         setIsCheckingTemplates(false);
@@ -957,15 +958,6 @@
         );
         const actualTotalMarks = totalFromQuestions + customMarksTotal;
 
-        console.log("Mark distribution debug:", {
-          oneMark: formData.markDistribution.oneMark,
-          twoMark: formData.markDistribution.twoMark,
-          threeMark: formData.markDistribution.threeMark,
-          fiveMark: formData.markDistribution.fiveMark,
-          totalMarks: formData.markDistribution.totalMarks,
-          calculatedTotal: actualTotalMarks,
-          customMarksTotal
-        });
 
         // Distribute custom marks into existing categories for backend compatibility
         let adjustedMarkDistribution = { ...formData.markDistribution };
@@ -1023,12 +1015,8 @@
         const createdQuestionPapers = [];
 
         // Handle case where exam has no subjects (use global form data)
-        console.log("Debug: selectedSubjects.length =", selectedSubjects.length);
-        console.log("Debug: selectedSubjects =", selectedSubjects);
-        console.log("Debug: subjectDistributions =", subjectDistributions);
         
         if (selectedSubjects.length === 0) {
-          console.log("No subjects found, using global form data");
           
           // Calculate total marks from global form data
           const globalStandardMarks =
@@ -1042,13 +1030,6 @@
             0
           );
           const globalTotalMarks = globalStandardMarks + globalCustomMarksTotal;
-
-          console.log("Global calculation:", {
-            globalStandardMarks,
-            globalCustomMarksTotal,
-            globalTotalMarks,
-            adjustedMarkDistribution
-          });
 
           // Create a single question paper without subject
           const aiRequest = {
@@ -1077,18 +1058,10 @@
               const questionCount = formData.markDistribution[category] || 0;
               const questionTypes = formData.questionTypeDistribution[category] || [];
               
-              console.log(`🔍 Converting ${category}:`, {
-                questionCount,
-                questionTypes,
-                adjustedMarkDistribution: adjustedMarkDistribution[category],
-                formDataMarkDistribution: formData.markDistribution[category]
-              });
-              
               if (questionCount > 0 && questionTypes.length > 0) {
                 // Calculate total question count from all types
                 const totalQuestionTypeCount = questionTypes.reduce((sum: number, qt: any) => sum + (qt.questionCount || 0), 0);
                 
-                console.log(`${category} totalQuestionTypeCount:`, totalQuestionTypeCount);
                 
                 if (totalQuestionTypeCount > 0) {
                   // Convert to percentages based on the actual distribution
@@ -1096,15 +1069,12 @@
                     type: qt.type,
                     percentage: Math.round((qt.questionCount / totalQuestionTypeCount) * 100)
                   }));
-                  console.log(`${category} converted result:`, converted[category]);
                 } else {
                   // If no specific question types are set, use default distribution
                   converted[category] = [];
-                  console.log(`${category} set to empty array (totalQuestionTypeCount = 0)`);
                 }
               } else {
                 converted[category] = [];
-                console.log(`${category} set to empty array (questionCount = ${questionCount}, questionTypes.length = ${questionTypes.length})`);
               }
             });
 
@@ -1112,13 +1082,6 @@
             })(),
             aiSettings: formData.aiSettings,
           };
-
-          console.log("Sending AI request for no-subject exam:", aiRequest);
-          console.log("🔍 DEBUG - questionTypeDistribution conversion:", {
-            original: formData.questionTypeDistribution,
-            converted: aiRequest.questionTypeDistribution,
-            adjustedMarkDistribution
-          });
 
           try {
             const generatedQuestionPaper = await questionPaperAPI.generateCompleteAI(aiRequest as any);
@@ -1133,7 +1096,6 @@
               createdQuestionPapers.push(responseData);
             }
           } catch (error) {
-            console.error("Error generating question paper:", error);
             throw error;
           }
         } else {
@@ -1153,9 +1115,6 @@
           
           const markDistribution = hasSubjectMarks ? subjectMarkDistribution : adjustedMarkDistribution;
           
-          console.log("Debug: subjectDistribution =", subjectDistribution);
-          console.log("Debug: hasSubjectMarks =", hasSubjectMarks);
-          console.log("Debug: markDistribution =", markDistribution);
           // Use subject-specific Bloom's distribution if it has values, otherwise use global distribution
           const subjectBloomsDistribution = subjectDistribution?.bloomsDistribution;
           const subjectBloomsArray = getBloomsDistribution(subjectBloomsDistribution);
@@ -1163,8 +1122,6 @@
           
           const bloomsDistribution = hasSubjectBlooms ? subjectBloomsArray : getBloomsDistribution(formData.bloomsDistribution);
           
-          console.log("Debug: bloomsDistribution =", bloomsDistribution);
-          console.log("Debug: bloomsDistribution total =", bloomsDistribution.reduce((sum, dist) => sum + dist.percentage, 0));
           // Use subject-specific question type distribution if it has values, otherwise use global distribution
           const subjectQuestionTypeDistribution = subjectDistribution?.questionTypeDistribution;
           const hasSubjectQuestionTypes = subjectQuestionTypeDistribution && 
@@ -1174,9 +1131,6 @@
           
           const questionTypeDistribution = hasSubjectQuestionTypes ? subjectQuestionTypeDistribution : formData.questionTypeDistribution;
           
-          console.log("Debug: subjectQuestionTypeDistribution =", subjectQuestionTypeDistribution);
-          console.log("Debug: hasSubjectQuestionTypes =", hasSubjectQuestionTypes);
-          console.log("Debug: questionTypeDistribution =", questionTypeDistribution);
           const customMarks = subjectDistribution?.customMarks || [];
 
           // Calculate total marks for this subject including custom marks
@@ -1191,14 +1145,6 @@
             0
           );
           const subjectTotalMarks = standardMarks + customMarksTotal;
-
-          console.log("Subject-specific calculation:", {
-            subjectId: subjectData._id,
-            standardMarks,
-            customMarksTotal,
-            subjectTotalMarks,
-            markDistribution
-          });
 
           // Generate question paper for this subject
           const aiRequest = {
@@ -1228,17 +1174,10 @@
                 if (markDistribution[mark] > 0) {
                   const distributions = questionTypeDistribution[mark] || [];
                   
-                  console.log(`🔍 Subject-specific converting ${mark}:`, {
-                    markDistribution: markDistribution[mark],
-                    distributions,
-                    distributionsLength: distributions.length
-                  });
-                  
                   if (distributions.length > 0) {
                     // Calculate total question count from all types
                     const totalQuestionTypeCount = distributions.reduce((sum: number, dist: any) => sum + (dist.questionCount || 0), 0);
                     
-                    console.log(`${mark} totalQuestionTypeCount:`, totalQuestionTypeCount);
                     
                     if (totalQuestionTypeCount > 0) {
                       // Convert to percentages based on the actual distribution
@@ -1246,18 +1185,14 @@
                         type: dist.type,
                         percentage: Math.round((dist.questionCount / totalQuestionTypeCount) * 100)
                       }));
-                      console.log(`${mark} converted result:`, converted[mark]);
                     } else {
                       converted[mark] = [];
-                      console.log(`${mark} set to empty array (totalQuestionTypeCount = 0)`);
                     }
                   } else {
                     converted[mark] = [];
-                    console.log(`${mark} set to empty array (distributions.length = 0)`);
                   }
                 } else {
                   converted[mark] = [];
-                  console.log(`${mark} set to empty array (markDistribution[${mark}] = ${markDistribution[mark]})`);
                 }
               }
 
@@ -1265,13 +1200,6 @@
             })(),
             aiSettings: formData.aiSettings,
           };
-
-          console.log("🔍 DEBUG - Subject-specific questionTypeDistribution conversion:", {
-            subjectId: subjectData._id,
-            original: questionTypeDistribution,
-            converted: aiRequest.questionTypeDistribution,
-            markDistribution
-          });
 
           // Add pattern ID to request if pattern was uploaded
           if (uploadedPatternId) {
@@ -2057,7 +1985,7 @@
                             disabled={!formData.examId || isCheckingTemplates || !hasTemplates}
                           >
                             <Wand2 className="h-4 w-4" />
-                            <span>{isCheckingTemplates ? "Checking..." : hasTemplates ? "Auto-Fetch" : "No Templates"}</span>
+                            <span>{isCheckingTemplates ? "Checking..." : hasTemplates ? "Select Template & Auto-Fetch Marks" : "No Templates Available"}</span>
                           </Button>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -2326,7 +2254,7 @@
                             disabled={!formData.examId || isCheckingTemplates || !hasTemplates}
                           >
                             <Wand2 className="h-4 w-4" />
-                            <span>{isCheckingTemplates ? "Checking..." : "Auto-Fetch"}</span>
+                            <span>{isCheckingTemplates ? "Checking..." : "Select Template & Auto-Fetch Marks"}</span>
                           </Button>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -2743,7 +2671,7 @@
                                   disabled={!formData.examId || isCheckingTemplates || !hasTemplates}
                                 >
                                   <Wand2 className="h-3 w-3" />
-                                  <span>Auto-Fetch</span>
+                                  <span>Select Template</span>
                                 </Button>
                               </div>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -3902,11 +3830,9 @@
               setEditingQuestionPaper(null);
             }}
             onUpdate={(updatedQuestionPaper) => {
-              console.log('QuestionPaperManagement: Received updated question paper:', updatedQuestionPaper);
               if (updatedQuestionPaper) {
                 // Update the editing question paper with the new data
                 setEditingQuestionPaper(updatedQuestionPaper);
-                console.log('QuestionPaperManagement: Updated editingQuestionPaper with new PDF data');
               }
               // Also reload all question papers to keep the list in sync
               loadData();
@@ -3919,9 +3845,9 @@
           <Dialog open={isAutoFetchDialogOpen} onOpenChange={setIsAutoFetchDialogOpen}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Auto-Fetch Marks from Template</DialogTitle>
+                <DialogTitle>Select Question Paper Template</DialogTitle>
                 <DialogDescription>
-                  Select a validated template to automatically fetch mark distribution
+                  Choose a template to automatically load question paper format and mark distribution. The template will guide the structure, layout, and marks allocation for your question paper.
                 </DialogDescription>
               </DialogHeader>
               

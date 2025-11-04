@@ -27,12 +27,7 @@ const TestQuestionDisplay: React.FC<TestQuestionDisplayProps> = ({ questionPaper
       setLoading(true);
       setError(null);
       
-      console.log('Loading questions for question paper:', questionPaper._id);
       const questionsData = await questionPaperAPI.getQuestions(questionPaper._id);
-      console.log('Questions loaded:', questionsData);
-      console.log('Questions type:', typeof questionsData);
-      console.log('Questions length:', questionsData?.length);
-      console.log('First question:', questionsData?.[0]);
       
       setQuestions(questionsData || []);
       
@@ -40,7 +35,6 @@ const TestQuestionDisplay: React.FC<TestQuestionDisplayProps> = ({ questionPaper
         setError('No questions found for this question paper');
       }
     } catch (error) {
-      console.error('Error loading questions:', error);
       setError('Failed to load questions');
       toast({
         title: "Error",

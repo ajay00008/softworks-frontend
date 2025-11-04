@@ -49,10 +49,8 @@ const SimplifiedPDFEditor: React.FC<SimplifiedPDFEditorProps> = ({
     try {
       const questionPaperId = questionPaper._id || questionPaper.id;
       const questionsData = await questionPaperAPI.getQuestions(questionPaperId);
-      console.log('SimplifiedPDFEditor - Questions loaded:', questionsData);
       setQuestions(questionsData || []);
     } catch (error) {
-      console.error('Error loading questions:', error);
       toast({
         title: "Error",
         description: "Failed to load questions",
@@ -95,15 +93,10 @@ const SimplifiedPDFEditor: React.FC<SimplifiedPDFEditorProps> = ({
 
       // Automatically regenerate PDF after updating question
       try {
-        console.log('SimplifiedPDFEditor: Calling regeneratePDF after question update...');
         const regenerateResponse = await questionPaperAPI.regeneratePDF(questionPaperId);
-        console.log('SimplifiedPDFEditor: Regenerate response:', regenerateResponse);
-        console.log('SimplifiedPDFEditor: New download URL:', regenerateResponse.downloadUrl);
         
         // Log the updated question paper data and notify parent
         if (regenerateResponse.questionPaper) {
-          console.log('SimplifiedPDFEditor: Regenerate returned updated questionPaper:', regenerateResponse.questionPaper);
-          console.log('SimplifiedPDFEditor: Notifying parent component of update with new data');
           onUpdate(regenerateResponse.questionPaper); // Pass updated question paper to parent
         }
         
@@ -112,7 +105,6 @@ const SimplifiedPDFEditor: React.FC<SimplifiedPDFEditorProps> = ({
           description: "PDF has been regenerated with updated questions"
         });
       } catch (regenerateError) {
-        console.error('SimplifiedPDFEditor: PDF regeneration failed:', regenerateError);
         toast({
           title: "Warning",
           description: "Question updated but PDF regeneration failed. Please regenerate manually.",
@@ -176,7 +168,6 @@ const SimplifiedPDFEditor: React.FC<SimplifiedPDFEditorProps> = ({
       
       if (result.success) {
         // Notify parent component to refresh data
-        console.log('SimplifiedPDFEditor: Manual regenerate successful, notifying parent with new data');
         onUpdate(result.questionPaper);
         
         toast({

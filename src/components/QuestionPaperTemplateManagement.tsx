@@ -82,7 +82,6 @@ const QuestionPaperTemplateManagement: React.FC = () => {
       const subjectsData = await subjectManagementAPI.getAll();
       setSubjects(subjectsData.subjects || []);
     } catch (error) {
-      console.error('Error loading subjects:', error);
     }
   };
 
@@ -91,7 +90,6 @@ const QuestionPaperTemplateManagement: React.FC = () => {
       const classesData = await classesAPI.getAll();
       setClasses(classesData.classes || []);
     } catch (error) {
-      console.error('Error loading classes:', error);
     }
   };
 

@@ -28,23 +28,26 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { notificationService } from '@/services/notifications';
 
 interface Notification {
   id: string;
-  type: 'MISSING_SHEET' | 'ABSENT_STUDENT' | 'AI_CORRECTION_COMPLETE' | 'MANUAL_REVIEW_REQUIRED' | 'SYSTEM_ALERT';
+  type: 'MISSING_SHEET' | 'MISSING_ANSWER_SHEET' | 'ABSENT_STUDENT' | 'AI_CORRECTION_COMPLETE' | 'MANUAL_REVIEW_REQUIRED' | 'SYSTEM_ALERT' | 'ANSWER_SHEET_UPLOADED';
   title: string;
   message: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   status: 'UNREAD' | 'READ' | 'ACKNOWLEDGED' | 'DISMISSED';
+  readAt?: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   relatedEntityId?: string;
   relatedEntityType?: 'EXAM' | 'STUDENT' | 'ANSWER_SHEET';
   senderId?: string;
   senderName?: string;
-  isAcknowledged: boolean;
+  isAcknowledged?: boolean;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
+  recipientId?: string;
 }
 
 // Mock data - replace with actual API calls
@@ -127,11 +130,12 @@ const mockNotifications: Notification[] = [
 ];
 
 const NotificationCenter: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
-  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
   const [selectedTab, setSelectedTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newNotification, setNewNotification] = useState({
     type: 'SYSTEM_ALERT' as Notification['type'],
@@ -141,6 +145,76 @@ const NotificationCenter: React.FC = () => {
     recipientId: ''
   });
   const { toast } = useToast();
+
+  // Fetch notifications from API
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      const fetchedNotifications = await notificationService.getNotifications({});
+      // Transform API response to match component's Notification interface
+      const transformedNotifications: Notification[] = fetchedNotifications.map((notif: any) => ({
+        id: notif.id || notif._id?.toString() || notif._id,
+        type: notif.type,
+        title: notif.title,
+        message: notif.message,
+        priority: notif.priority,
+        status: notif.status || 'UNREAD',
+        createdAt: notif.createdAt,
+        updatedAt: notif.updatedAt,
+        readAt: notif.readAt, // Include readAt timestamp
+        acknowledgedAt: notif.acknowledgedAt,
+        dismissedAt: notif.dismissedAt,
+        relatedEntityId: notif.relatedEntityId,
+        relatedEntityType: notif.relatedEntityType,
+        isAcknowledged: notif.isAcknowledged || false,
+        recipientId: notif.recipientId
+      }));
+      setNotifications(transformedNotifications);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load notifications",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load notifications on mount
+  useEffect(() => {
+    loadNotifications();
+
+    // Listen for new notifications from socket
+    const handleNotificationEvent = (event: CustomEvent) => {
+      const newNotif: Notification = {
+        id: event.detail.id,
+        type: event.detail.type,
+        title: event.detail.title,
+        message: event.detail.message,
+        priority: event.detail.priority,
+        status: 'UNREAD',
+        createdAt: event.detail.createdAt || new Date().toISOString(),
+        relatedEntityId: event.detail.relatedEntityId,
+        relatedEntityType: event.detail.relatedEntityType,
+        recipientId: event.detail.recipientId
+      };
+      
+      // Add new notification to the list (prepend to show newest first)
+      setNotifications(prev => [newNotif, ...prev]);
+      
+      toast({
+        title: "New Notification",
+        description: newNotif.title,
+      });
+    };
+
+    window.addEventListener('notification', handleNotificationEvent as EventListener);
+
+    return () => {
+      window.removeEventListener('notification', handleNotificationEvent as EventListener);
+    };
+  }, [toast]);
 
   // Filter notifications based on selected tab and filters
   useEffect(() => {
@@ -155,7 +229,7 @@ const NotificationCenter: React.FC = () => {
           case 'urgent':
             return notification.priority === 'URGENT' || notification.priority === 'HIGH';
           case 'missing':
-            return notification.type === 'MISSING_SHEET' || notification.type === 'ABSENT_STUDENT';
+            return notification.type === 'MISSING_SHEET' || notification.type === 'MISSING_ANSWER_SHEET' || notification.type === 'ABSENT_STUDENT';
           case 'ai':
             return notification.type === 'AI_CORRECTION_COMPLETE' || notification.type === 'MANUAL_REVIEW_REQUIRED';
           default:
@@ -180,53 +254,153 @@ const NotificationCenter: React.FC = () => {
     setFilteredNotifications(filtered);
   }, [notifications, selectedTab, searchTerm, priorityFilter]);
 
-  const handleMarkAsRead = (notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, status: 'READ' as const, updatedAt: new Date().toISOString() }
-          : notification
-      )
-    );
-    toast({
-      title: "Marked as Read",
-      description: "Notification has been marked as read",
-    });
+  const handleMarkAsRead = async (notificationId: string) => {
+    if (!notificationId) {
+      console.error('[SOCKET] ⚠️ Cannot mark as read - notification ID is missing', {
+        notificationId,
+        timestamp: new Date().toISOString()
+      });
+      toast({
+        title: "Error",
+        description: "Notification ID is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const success = await notificationService.markAsRead(notificationId);
+      if (success) {
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === notificationId
+              ? { ...notification, status: 'READ' as const, updatedAt: new Date().toISOString() }
+              : notification
+          )
+        );
+        toast({
+          title: "Marked as Read",
+          description: "Notification has been marked as read",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to mark notification as read",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('[SOCKET] ⚠️ Error marking notification as read', {
+        notificationId,
+        error,
+        timestamp: new Date().toISOString()
+      });
+      toast({
+        title: "Error",
+        description: "Failed to mark notification as read",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleAcknowledge = (notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { 
-              ...notification, 
-              status: 'ACKNOWLEDGED' as const, 
-              isAcknowledged: true,
-              acknowledgedBy: 'current-user',
-              acknowledgedAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }
-          : notification
-      )
-    );
-    toast({
-      title: "Acknowledged",
-      description: "Notification has been acknowledged",
-    });
+  const handleAcknowledge = async (notificationId: string) => {
+    try {
+      const success = await notificationService.acknowledgeNotification(notificationId);
+      if (success) {
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === notificationId
+              ? { 
+                  ...notification, 
+                  status: 'ACKNOWLEDGED' as const, 
+                  isAcknowledged: true,
+                  acknowledgedBy: 'current-user',
+                  acknowledgedAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                }
+              : notification
+          )
+        );
+        toast({
+          title: "Acknowledged",
+          description: "Notification has been acknowledged",
+        });
+      }
+    } catch (error) {
+      // Error handling - silent
+    }
   };
 
-  const handleDismiss = (notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, status: 'DISMISSED' as const, updatedAt: new Date().toISOString() }
-          : notification
-      )
-    );
-    toast({
-      title: "Dismissed",
-      description: "Notification has been dismissed",
-    });
+  const handleDelete = async (notificationId: string) => {
+    if (!notificationId) {
+      toast({
+        title: "Error",
+        description: "Notification ID is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const success = await notificationService.deleteNotification(notificationId);
+      if (success) {
+        setNotifications(prev => prev.filter(notification => notification.id !== notificationId));
+        toast({
+          title: "Deleted",
+          description: "Notification has been deleted",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete notification",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting notification', { notificationId, error });
+      toast({
+        title: "Error",
+        description: "Failed to delete notification",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (notifications.length === 0) {
+      return;
+    }
+
+    // Confirm before clearing all
+    if (!window.confirm('Are you sure you want to clear all notifications? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const success = await notificationService.clearAllNotifications();
+      if (success) {
+        setNotifications([]);
+        // Reload to get updated list
+        await loadNotifications();
+        toast({
+          title: "Cleared",
+          description: "All notifications have been cleared",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to clear notifications",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error clearing all notifications', { error });
+      toast({
+        title: "Error",
+        description: "Failed to clear notifications",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCreateNotification = () => {
@@ -271,6 +445,7 @@ const NotificationCenter: React.FC = () => {
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'MISSING_SHEET':
+      case 'MISSING_ANSWER_SHEET':
         return <FileText className="w-5 h-5 text-red-500" />;
       case 'ABSENT_STUDENT':
         return <Users className="w-5 h-5 text-orange-500" />;
@@ -278,6 +453,8 @@ const NotificationCenter: React.FC = () => {
         return <Brain className="w-5 h-5 text-blue-500" />;
       case 'MANUAL_REVIEW_REQUIRED':
         return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+      case 'ANSWER_SHEET_UPLOADED':
+        return <CheckCircle className="w-5 h-5 text-green-500" />;
       case 'SYSTEM_ALERT':
         return <Settings className="w-5 h-5 text-gray-500" />;
       default:
@@ -329,8 +506,17 @@ const NotificationCenter: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+          <Button 
+            variant="destructive" 
+            onClick={handleClearAll} 
+            disabled={loading || notifications.length === 0}
+            className={notifications.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear All ({notifications.length})
+          </Button>
+          <Button variant="outline" onClick={loadNotifications} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Button onClick={() => setShowCreateDialog(true)}>
@@ -437,12 +623,23 @@ const NotificationCenter: React.FC = () => {
         </TabsList>
 
         <TabsContent value={selectedTab} className="space-y-4">
-          {filteredNotifications.length === 0 ? (
+          {loading ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin text-gray-400" />
+                <p className="text-gray-600">Loading notifications...</p>
+              </CardContent>
+            </Card>
+          ) : filteredNotifications.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <Bell className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications found</h3>
-                <p className="text-gray-600">No notifications match your current filters.</p>
+                <p className="text-gray-600">
+                  {selectedTab !== 'all' || searchTerm || priorityFilter !== 'all'
+                    ? 'No notifications match your current filters.'
+                    : 'You\'re all caught up!'}
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -451,8 +648,8 @@ const NotificationCenter: React.FC = () => {
                 notification.status === 'UNREAD' ? 'border-l-4 border-l-blue-500' : ''
               } ${notification.priority === 'URGENT' ? 'border-red-200 bg-red-50' : ''}`}>
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3 flex-1">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                    <div className="flex items-start space-x-3 flex-1 min-w-0">
                       <div className="flex-shrink-0 mt-1">
                         {getNotificationIcon(notification.type)}
                       </div>
@@ -462,13 +659,42 @@ const NotificationCenter: React.FC = () => {
                           <Badge className={getPriorityColor(notification.priority)}>
                             {notification.priority}
                           </Badge>
+                          {notification.status === 'READ' && (
+                            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600">
+                              <Eye className="w-3 h-3 mr-1" />
+                              Read
+                            </Badge>
+                          )}
+                          {notification.status === 'UNREAD' && (
+                            <Badge variant="outline" className="text-xs bg-blue-100 text-blue-600 border-blue-300">
+                              Unread
+                            </Badge>
+                          )}
                           {getStatusIcon(notification.status)}
                         </div>
                         <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
                         <div className="flex items-center space-x-4 text-xs text-gray-500">
-                          <span>From: {notification.senderName}</span>
-                          <span>•</span>
+                          {notification.senderName && <span>From: {notification.senderName}</span>}
+                          {notification.senderName && <span>•</span>}
                           <span>{new Date(notification.createdAt).toLocaleString()}</span>
+                          {notification.status === 'READ' && notification.readAt && (
+                            <>
+                              <span>•</span>
+                              <span className="text-gray-600 font-medium flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3 text-green-500" />
+                                Read: {new Date(notification.readAt).toLocaleString()}
+                              </span>
+                            </>
+                          )}
+                          {notification.status === 'READ' && !notification.readAt && (
+                            <>
+                              <span>•</span>
+                              <span className="text-gray-600 font-medium flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3 text-green-500" />
+                                Read
+                              </span>
+                            </>
+                          )}
                           {notification.acknowledgedAt && (
                             <>
                               <span>•</span>
@@ -480,7 +706,7 @@ const NotificationCenter: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2 ml-4">
+                    <div className="flex items-center flex-wrap gap-2 sm:ml-4 w-full sm:w-auto">
                       {notification.status === 'UNREAD' && (
                         <Button
                           size="sm"
@@ -504,10 +730,11 @@ const NotificationCenter: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDismiss(notification.id)}
+                        onClick={() => handleDelete(notification.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
                       >
-                        <XCircle className="w-4 h-4 mr-1" />
-                        Dismiss
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
                       </Button>
                     </div>
                   </div>

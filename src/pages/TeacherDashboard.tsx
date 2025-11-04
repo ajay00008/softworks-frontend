@@ -1,27 +1,36 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
-import { ViewButton } from '@/components/ui/view-button';
-import { ViewTabs } from '@/components/ui/view-tabs';
-import { 
-  Upload, 
-  Brain, 
-  BookOpen, 
-  Award, 
-  BarChart3, 
-  Users, 
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { ViewButton } from "@/components/ui/view-button";
+import { ViewTabs } from "@/components/ui/view-tabs";
+import {
+  Upload,
+  Brain,
+  BookOpen,
+  Award,
+  BarChart3,
+  Users,
   Clock,
   TrendingUp,
   Target,
   CheckCircle,
   AlertTriangle,
   FileText,
-  Zap
-} from 'lucide-react';
-import { teacherDashboardAPI } from '@/services/api';
+  Zap,
+  GraduationCap,
+} from "lucide-react";
+import { teacherDashboardAPI } from "@/services/api";
+import ResultsChartsStaff from "@/components/Results/ResultsChartsStaff";
 
 interface TeacherAccess {
   classAccess: Array<{
@@ -65,7 +74,9 @@ interface DashboardStats {
 }
 
 const TeacherDashboard = () => {
-  const [teacherAccess, setTeacherAccess] = useState<TeacherAccess | null>(null);
+  const [teacherAccess, setTeacherAccess] = useState<TeacherAccess | null>(
+    null
+  );
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -73,71 +84,42 @@ const TeacherDashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadDashboardData = async () => {
+    setLoading(true);
+    
+    // Load access data (required for dashboard)
     try {
-      setLoading(true);
-      const [accessResponse, statsResponse] = await Promise.all([
-        teacherDashboardAPI.getAccess(),
-        teacherDashboardAPI.getDashboardStats()
-      ]);
-      
-      setTeacherAccess(accessResponse.data);
-      setStats(statsResponse.data);
+      const accessResponse = await teacherDashboardAPI.getAccess();
+      if (accessResponse.success && accessResponse.data) {
+        setTeacherAccess(accessResponse.data);
+      } else {
+        console.warn('[TEACHER DASHBOARD] Access response not successful:', accessResponse);
+        setTeacherAccess(null);
+      }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      console.error('[TEACHER DASHBOARD] Failed to load access:', error);
+      // Only show error toast if access is truly critical and failed
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (!errorMessage.toLowerCase().includes('no data') && 
+          !errorMessage.toLowerCase().includes('not found')) {
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard data. Some features may be unavailable.",
+          variant: "destructive",
+        });
+      }
+      setTeacherAccess(null);
     }
-  };
 
-  const quickActions = [
-    {
-      title: 'Upload Answer Sheets',
-      description: 'Upload and process student answer sheets with AI',
-      icon: Upload,
-      color: 'bg-blue-500',
-      href: '/dashboard/teacher/upload-sheets',
-      enabled: true
-    },
-    {
-      title: 'AI Answer Checking',
-      description: 'Review and manage AI-corrected answer sheets',
-      icon: Brain,
-      color: 'bg-purple-500',
-      href: '/dashboard/teacher/ai-checking',
-      enabled: true
-    },
-    {
-      title: 'Question Papers',
-      description: 'Create and manage question papers with AI assistance',
-      icon: BookOpen,
-      color: 'bg-green-500',
-      href: '/dashboard/teacher/question-papers',
-      enabled: teacherAccess?.subjectAccess.some(subject => subject.canCreateQuestions) || false
-    },
-    {
-      title: 'Results',
-      description: 'View and analyze student performance and results',
-      icon: Award,
-      color: 'bg-orange-500',
-      href: '/dashboard/teacher/results',
-      enabled: true
-    },
-    {
-      title: 'Analytics',
-      description: 'Comprehensive analytics and insights for teaching performance',
-      icon: BarChart3,
-      color: 'bg-indigo-500',
-      href: '/dashboard/teacher/analytics',
-      enabled: teacherAccess?.globalPermissions.canAccessAnalytics || false
-    }
-  ];
+    // Stats API doesn't exist yet, so we'll set default values or calculate from other data
+    // For now, set stats to null to avoid errors (stats section is conditionally rendered)
+    setStats(null);
+    
+    setLoading(false);
+  };
 
   if (loading) {
     return (
@@ -152,16 +134,6 @@ const TeacherDashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Teacher Dashboard</h1>
-          <p className="text-gray-600">
-            Welcome to your teaching management dashboard
-          </p>
-        </div>
-      </div>
-
       {/* Stats Overview */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -176,7 +148,7 @@ const TeacherDashboard = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -188,7 +160,7 @@ const TeacherDashboard = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -200,13 +172,15 @@ const TeacherDashboard = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Avg Performance</p>
-                  <p className="text-2xl font-bold">{stats.averagePerformance.toFixed(1)}%</p>
+                  <p className="text-2xl font-bold">
+                    {stats.averagePerformance.toFixed(1)}%
+                  </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-purple-500" />
               </div>
@@ -215,45 +189,16 @@ const TeacherDashboard = () => {
         </div>
       )}
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>
-            Access your most frequently used teaching tools
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {quickActions.map((action, index) => (
-              <Card 
-                key={index} 
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  !action.enabled ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                onClick={() => action.enabled && navigate(action.href)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-lg ${action.color}`}>
-                      <action.icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium">{action.title}</h3>
-                      <p className="text-sm text-gray-600">{action.description}</p>
-                      {!action.enabled && (
-                        <Badge variant="outline" className="mt-1">
-                          Access Restricted
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Results Charts Section */}
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Performance Analytics</h2>
+          <p className="text-muted-foreground">
+            Results analysis for your assigned classes and subjects
+          </p>
+        </div>
+        <ResultsChartsStaff />
+      </div>
 
       {/* Recent Activity */}
       {stats?.recentActivity && stats.recentActivity.length > 0 && (
@@ -267,22 +212,39 @@ const TeacherDashboard = () => {
           <CardContent>
             <div className="space-y-4">
               {stats.recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
+                <div
+                  key={index}
+                  className="flex items-center space-x-3 p-3 border rounded-lg"
+                >
                   <div className="flex-shrink-0">
-                    {activity.type === 'upload' && <Upload className="h-5 w-5 text-blue-500" />}
-                    {activity.type === 'correction' && <Brain className="h-5 w-5 text-purple-500" />}
-                    {activity.type === 'question' && <BookOpen className="h-5 w-5 text-green-500" />}
-                    {activity.type === 'result' && <Award className="h-5 w-5 text-orange-500" />}
+                    {activity.type === "upload" && (
+                      <Upload className="h-5 w-5 text-blue-500" />
+                    )}
+                    {activity.type === "correction" && (
+                      <Brain className="h-5 w-5 text-purple-500" />
+                    )}
+                    {activity.type === "question" && (
+                      <BookOpen className="h-5 w-5 text-green-500" />
+                    )}
+                    {activity.type === "result" && (
+                      <Award className="h-5 w-5 text-orange-500" />
+                    )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">{activity.description}</p>
+                    <p className="text-sm font-medium">
+                      {activity.description}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {new Date(activity.timestamp).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex-shrink-0">
-                    <Badge 
-                      variant={activity.status === 'completed' ? 'default' : 'secondary'}
+                    <Badge
+                      variant={
+                        activity.status === "completed"
+                          ? "default"
+                          : "secondary"
+                      }
                     >
                       {activity.status}
                     </Badge>
@@ -294,48 +256,120 @@ const TeacherDashboard = () => {
         </Card>
       )}
 
-      {/* Access Information */}
+      {/* Classes and Subjects Management */}
       {teacherAccess && (
         <Card>
           <CardHeader>
-            <CardTitle>Your Access</CardTitle>
+            <CardTitle>My Classes & Subjects</CardTitle>
             <CardDescription>
-              Your current teaching permissions and access levels
+              Manage your assigned classes and subjects
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-medium mb-2">Class Access</h4>
-                <div className="space-y-2">
-                  {teacherAccess.classAccess.map((cls, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-sm">{cls.className}</span>
-                      <Badge variant="outline">{cls.accessLevel}</Badge>
+            <Tabs defaultValue="classes" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="classes">
+                  <GraduationCap className="w-4 h-4 mr-2" />
+                  Classes ({teacherAccess.classAccess.length})
+                </TabsTrigger>
+                <TabsTrigger value="subjects">
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Subjects ({teacherAccess.subjectAccess.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="classes" className="mt-4">
+                <div className="space-y-3">
+                  {teacherAccess.classAccess.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <GraduationCap className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p>No classes assigned yet</p>
                     </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium mb-2">Subject Access</h4>
-                <div className="space-y-2">
-                  {teacherAccess.subjectAccess.map((subject, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-sm">{subject.subjectName}</span>
-                      <div className="flex gap-1">
-                        {subject.canCreateQuestions && (
-                          <Badge variant="outline" className="text-xs">Questions</Badge>
-                        )}
-                        {subject.canUploadSyllabus && (
-                          <Badge variant="outline" className="text-xs">Syllabus</Badge>
-                        )}
+                  ) : (
+                    teacherAccess.classAccess.map((cls, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <GraduationCap className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{cls.className}</h4>
+                            <div className="flex gap-2 mt-1">
+                              {cls.canUploadSheets && (
+                                <Badge variant="outline" className="text-xs">
+                                  Upload Sheets
+                                </Badge>
+                              )}
+                              {cls.canMarkAbsent && (
+                                <Badge variant="outline" className="text-xs">
+                                  Mark Absent
+                                </Badge>
+                              )}
+                              {cls.canMarkMissing && (
+                                <Badge variant="outline" className="text-xs">
+                                  Mark Missing
+                                </Badge>
+                              )}
+                              {cls.canOverrideAI && (
+                                <Badge variant="outline" className="text-xs">
+                                  Override AI
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant="secondary">{cls.accessLevel}</Badge>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
-              </div>
-            </div>
+              </TabsContent>
+
+              <TabsContent value="subjects" className="mt-4">
+                <div className="space-y-3">
+                  {teacherAccess.subjectAccess.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p>No subjects assigned yet</p>
+                    </div>
+                  ) : (
+                    teacherAccess.subjectAccess.map((subject, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-green-100 rounded-lg">
+                            <BookOpen className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium">
+                              {subject.subjectName}
+                            </h4>
+                            <div className="flex gap-2 mt-1">
+                              {subject.canCreateQuestions && (
+                                <Badge variant="outline" className="text-xs">
+                                  Create Questions
+                                </Badge>
+                              )}
+                              {subject.canUploadSyllabus && (
+                                <Badge variant="outline" className="text-xs">
+                                  Upload Syllabus
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant="secondary">{subject.accessLevel}</Badge>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}

@@ -111,7 +111,6 @@ const FlagManagementDashboard = () => {
       const response = await teacherDashboardAPI.getExamsWithContext();
       setExams(response.data || []);
     } catch (error) {
-      console.error('Error loading exams:', error);
       toast({
         title: "Error",
         description: `Failed to load exams: ${error.message}`,
@@ -133,7 +132,6 @@ const FlagManagementDashboard = () => {
       });
       setFlaggedSheets(response.data || []);
     } catch (error) {
-      console.error('Error loading flagged sheets:', error);
       toast({
         title: "Error",
         description: `Failed to load flagged answer sheets: ${error.message}`,
@@ -151,7 +149,6 @@ const FlagManagementDashboard = () => {
       const response = await teacherDashboardAPI.getFlagStatistics(examId);
       setFlagStatistics(response.data);
     } catch (error) {
-      console.error('Error loading flag statistics:', error);
       toast({
         title: "Error",
         description: `Failed to load flag statistics: ${error.message}`,
@@ -210,7 +207,6 @@ const FlagManagementDashboard = () => {
         await loadFlagStatistics(selectedExam);
       }
     } catch (error) {
-      console.error('Error adding flag:', error);
       toast({
         title: "Error",
         description: `Failed to add flag: ${error.message}`,
@@ -251,7 +247,6 @@ const FlagManagementDashboard = () => {
         await loadFlagStatistics(selectedExam);
       }
     } catch (error) {
-      console.error('Error bulk resolving flags:', error);
       toast({
         title: "Error",
         description: `Failed to resolve flags: ${error.message}`,
@@ -285,7 +280,6 @@ const FlagManagementDashboard = () => {
         await loadFlagStatistics(selectedExam);
       }
     } catch (error) {
-      console.error('Error auto-detecting flags:', error);
       toast({
         title: "Error",
         description: `Failed to auto-detect flags: ${error.message}`,

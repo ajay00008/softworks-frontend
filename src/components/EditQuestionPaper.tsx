@@ -141,10 +141,8 @@ export default function EditQuestionPaper({
   };
 
   const handleSaveQuestion = async () => {
-    console.log('handleSaveQuestion called!');
     if (!questionPaper) return;
 
-    console.log('Question paper exists, proceeding with save...');
     const updatedQuestions = [...questionPaper.questions];
     
     if (editingQuestion) {
@@ -167,29 +165,22 @@ export default function EditQuestionPaper({
 
     // Save to backend and regenerate PDF
     try {
-      console.log('About to call updateQuestionPaper...');
       await questionPaperAPI.updateQuestionPaper(questionPaperId, {
         questions: updatedQuestions,
       });
       
-      console.log('updateQuestionPaper completed, about to call regeneratePDF...');
       // Regenerate PDF to get updated download URL
       const response = await questionPaperAPI.regeneratePDF(questionPaperId);
-      console.log('Regenerate response:', response);
       setQuestionPaper(response.questionPaper);
       setCurrentDownloadUrl(response.downloadUrl);
       
       // Store the download URL for immediate use
-      console.log('Regenerate response downloadUrl:', response.downloadUrl);
-      console.log('QuestionPaper generatedPdf downloadUrl:', response.questionPaper.generatedPdf?.downloadUrl);
-      console.log('Current download URL set to:', response.downloadUrl);
       
       toast({
         title: 'Success',
         description: 'Question saved and PDF updated',
       });
     } catch (error) {
-      console.error('Error in handleSaveQuestion:', error);
       toast({
         title: 'Error',
         description: 'Failed to save question',
@@ -226,7 +217,6 @@ export default function EditQuestionPaper({
 
     try {
       setSaving(true);
-      console.log('handleSaveChanges called!');
       
       // First update the question paper
       const response = await questionPaperAPI.updateQuestionPaper(questionPaperId, {
@@ -238,11 +228,9 @@ export default function EditQuestionPaper({
         instructions: formData.instructions,
       });
 
-      console.log('Question paper updated, now regenerating PDF...');
       
       // Then regenerate PDF to get updated download URL
       const regenerateResponse = await questionPaperAPI.regeneratePDF(questionPaperId);
-      console.log('Regenerate response in handleSaveChanges:', regenerateResponse);
       
       setQuestionPaper(regenerateResponse.questionPaper);
       setCurrentDownloadUrl(regenerateResponse.downloadUrl);
@@ -253,7 +241,6 @@ export default function EditQuestionPaper({
         description: 'Question paper updated and PDF regenerated',
       });
     } catch (error) {
-      console.error('Error in handleSaveChanges:', error);
       toast({
         title: 'Error',
         description: 'Failed to save question paper',
@@ -295,18 +282,15 @@ export default function EditQuestionPaper({
   };
 
   const handleDownloadPDF = async () => {
-    console.log('handleDownloadPDF called!');
     
     try {
       // Always fetch the latest question paper data to get the most recent PDF URL
-      console.log('Fetching latest question paper data...');
       const response = await questionPaperAPI.getQuestionPaper(questionPaperId);
       const latestQuestionPaper = response.data;
       
       const downloadUrl = latestQuestionPaper.generatedPdf?.downloadUrl;
       
       if (!downloadUrl) {
-        console.log('No download URL available!');
         toast({
           title: 'Error',
           description: 'No PDF available for download',
@@ -315,7 +299,6 @@ export default function EditQuestionPaper({
         return;
       }
 
-      console.log('Downloading PDF with latest URL:', downloadUrl);
       await questionPaperAPI.downloadPDF(downloadUrl);
       
       // Update the local state with the latest data
@@ -327,7 +310,6 @@ export default function EditQuestionPaper({
         description: 'PDF download initiated',
       });
     } catch (error) {
-      console.error('Download error:', error);
       toast({
         title: 'Error',
         description: 'Failed to download PDF',
@@ -338,7 +320,6 @@ export default function EditQuestionPaper({
 
   // Function to handle PDF regeneration from external components
   const handleExternalPDFRegeneration = (downloadUrl: string) => {
-    console.log('External PDF regeneration detected, updating download URL:', downloadUrl);
     setCurrentDownloadUrl(downloadUrl);
     onPDFRegenerated?.(downloadUrl);
   };

@@ -150,18 +150,14 @@ const ClassSubjectManagement = () => {
 
   const loadSubjects = async () => {
     try {
-      console.log('ClassSubjectManagement - Loading subjects...');
       const response = await subjectManagementAPI.getAll({
         search: searchTerm,
         category: selectedCategory !== 'all' ? selectedCategory : undefined,
         level: selectedLevel !== 'all' ? parseInt(selectedLevel) : undefined,
       });
-      console.log('ClassSubjectManagement - Subjects response:', response);
       const subjectsData = response.subjects || [];
-      console.log('ClassSubjectManagement - Setting subjects:', subjectsData);
       setSubjects(subjectsData);
     } catch (error) {
-      console.error('ClassSubjectManagement - Error loading subjects:', error);
       setSubjects([]);
     }
   };

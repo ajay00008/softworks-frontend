@@ -47,7 +47,6 @@ const SimpleQuestionEditor: React.FC<SimpleQuestionEditorProps> = ({
     try {
       const questionPaperId = questionPaper._id || questionPaper.id;
       const questions = await questionPaperAPI.getQuestions(questionPaperId);
-      console.log("questions", questions);
       // Set first question as default if available
       if (questions && questions.length > 0) {
         setSelectedQuestion(questions[0]);

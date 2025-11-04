@@ -104,7 +104,6 @@ const EnhancedAnswerSheetUpload = () => {
       const response = await teacherDashboardAPI.getExamsWithContext();
       setExamsWithContext(response.data || []);
     } catch (error) {
-      console.error('Error loading exams with context:', error);
       toast({
         title: "Error",
         description: `Failed to load exams: ${error.message}`,
@@ -126,7 +125,6 @@ const EnhancedAnswerSheetUpload = () => {
       const statsResponse = await teacherDashboardAPI.getExamStatistics(examId);
       setExamStatistics(statsResponse.data);
     } catch (error) {
-      console.error('Error loading exam context:', error);
       toast({
         title: "Error",
         description: `Failed to load exam context: ${error.message}`,
@@ -206,7 +204,6 @@ const EnhancedAnswerSheetUpload = () => {
       }
 
     } catch (error) {
-      console.error('Error uploading files:', error);
       toast({
         title: "Error",
         description: `Failed to upload files: ${error.message}`,
@@ -223,7 +220,6 @@ const EnhancedAnswerSheetUpload = () => {
       const response = await teacherDashboardAPI.getAnswerSheets(examId);
       setExistingAnswerSheets(response.data || []);
     } catch (error) {
-      console.error('Error loading existing answer sheets:', error);
       toast({
         title: "Error",
         description: `Failed to load answer sheets: ${error.message}`,

@@ -72,7 +72,6 @@ const SuperAdminSubjectManagement = () => {
         ) 
       );
     } catch (error) {
-      console.error(`Error refreshing subjects for admin ${adminId}:`, error);
     }
   };
 
@@ -97,7 +96,6 @@ const SuperAdminSubjectManagement = () => {
               subjectCount: subjectsResponse.subjects?.length || 0
             };
           } catch (error) {
-            console.error(`Error loading subjects for admin ${admin.name}:`, error);
             return {
               ...admin,
               subjects: [],
@@ -109,7 +107,6 @@ const SuperAdminSubjectManagement = () => {
       
       setAdmins(adminsWithSubjects);
     } catch (error) {
-      console.error('Error loading admins with subjects:', error);
       setError('Failed to load admins and subjects');
       toast({
         title: "Error",
@@ -145,7 +142,7 @@ const SuperAdminSubjectManagement = () => {
     return (
       <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
         <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Subject Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Class and Subject Management</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Loading admins and subjects...</p>
         </div>
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -180,7 +177,7 @@ const SuperAdminSubjectManagement = () => {
     return (
       <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
         <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Subject Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Class and Subject Management</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Manage subjects across all admins</p>
         </div>
         <Card>
@@ -203,8 +200,8 @@ const SuperAdminSubjectManagement = () => {
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Subject Management</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">Manage subjects and templates across all admins</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Class and Subject Management</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Manage classes, subjects and templates across all admins</p>
       </div>
 
       {/* View Tabs */}
@@ -281,12 +278,12 @@ const SuperAdminSubjectManagement = () => {
             <Card 
               key={admin._id} 
               className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => {
-                setSelectedAdmin(admin);
-                setViewMode('subjects');
-                setSearchTerm('');
-                setSelectedCategory('all');
-              }}
+                    onClick={() => {
+                      setSelectedAdmin(admin);
+                      setViewMode('subjects');
+                      setSearchTerm('');
+                      setSelectedCategory('all');
+                    }}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-center space-x-3">

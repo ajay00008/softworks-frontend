@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -130,7 +130,9 @@ interface AnswerSheet {
 }
 
 const AnswerSheetUpload = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedExam, setSelectedExam] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -157,6 +159,11 @@ const AnswerSheetUpload = () => {
   });
   const { toast } = useToast();
 
+  // Get available subjects from selected exam
+  const availableSubjects = selectedExam 
+    ? exams.find(e => e._id === selectedExam)?.subjectIds || []
+    : [];
+
   const loadExams = useCallback(async () => {
     try {
       setLoadingExams(true);
@@ -164,7 +171,6 @@ const AnswerSheetUpload = () => {
       const response = await teacherDashboardAPI.getExamsWithContext();
       setExams(response.data || []);
     } catch (error) {
-      console.error('Error loading exams:', error);
       
       // Check if it's an authentication error
       if (error.message.includes('Unauthorized') || error.message.includes('Invalid or expired token') || error.message.includes('No authentication token')) {
@@ -190,13 +196,18 @@ const AnswerSheetUpload = () => {
     }
   }, [toast]);
 
-  const loadExistingAnswerSheets = useCallback(async (examId: string) => {
+  const loadExistingAnswerSheets = useCallback(async (examId: string, subjectId?: string) => {
     try {
       setLoadingExistingSheets(true);
       const response = await teacherDashboardAPI.getAnswerSheets(examId);
-      setExistingAnswerSheets(response.data || []);
+      const sheets: AnswerSheet[] = response.data || [];
+      
+      // Note: Subject filtering would require backend support since answer sheets
+      // are typically associated with exams, not individual subjects directly
+      // For now, all answer sheets for the selected exam are shown
+      
+      setExistingAnswerSheets(sheets);
     } catch (error) {
-      console.error('Error loading existing answer sheets:', error);
       toast({
         title: "Error",
         description: `Failed to load existing answer sheets: ${error.message}`,
@@ -213,7 +224,6 @@ const AnswerSheetUpload = () => {
       const response = await teacherDashboardAPI.getExamStudents(examId);
       setExamStudents(response.data.students || []);
     } catch (error) {
-      console.error('Error loading exam students:', error);
       toast({
         title: "Error",
         description: `Failed to load students: ${error.message}`,
@@ -241,7 +251,6 @@ const AnswerSheetUpload = () => {
       }
       setMatchingSheet(null);
     } catch (error: unknown) {
-      console.error('Error matching answer sheet:', error);
       toast({
         title: "Error",
         description: (error as Error).message || "Failed to match answer sheet to student",
@@ -252,6 +261,7 @@ const AnswerSheetUpload = () => {
 
   const handleExamChange = (examId: string) => {
     setSelectedExam(examId);
+    setSelectedSubject(''); // Reset subject when exam changes
     if (examId) {
       loadExistingAnswerSheets(examId);
       loadExamStudents(examId);
@@ -260,6 +270,13 @@ const AnswerSheetUpload = () => {
       setExamStudents([]);
     }
   };
+
+  // Reload answer sheets when subject changes
+  useEffect(() => {
+    if (selectedExam) {
+      loadExistingAnswerSheets(selectedExam, selectedSubject || undefined);
+    }
+  }, [selectedSubject, selectedExam, loadExistingAnswerSheets]);
 
   useEffect(() => {
     // Check if user is authenticated before loading exams
@@ -329,7 +346,7 @@ const AnswerSheetUpload = () => {
   };
 
   // Auto-detect flags for answer sheet
-  const handleAutoDetectFlags = async (answerSheet: any) => {
+  const handleAutoDetectFlags = async (answerSheet: AnswerSheet) => {
     try {
       const analysisData = {
         rollNumberDetected: answerSheet.rollNumberDetected,
@@ -352,7 +369,6 @@ const AnswerSheetUpload = () => {
         await loadExistingAnswerSheets(selectedExam);
       }
     } catch (error) {
-      console.error('Error auto-detecting flags:', error);
       toast({
         title: "Error",
         description: `Failed to auto-detect flags: ${error.message}`,
@@ -378,18 +394,37 @@ const AnswerSheetUpload = () => {
       setUploadProgress(0);
 
       const formData = new FormData();
+      const filesToUpload = selectedFiles.length;
       selectedFiles.forEach(file => {
         formData.append('files', file);
         });
       const response = await teacherDashboardAPI.uploadAnswerSheetFiles(selectedExam, formData);
-      setUploadResults(response.data.results || []);
+      // Handle both old and new response formats
+      const results = response.data?.results || response.data?.data?.results || [];
+      setUploadResults(results);
+      
+      // Show summary if available
+      if (response.data?.data) {
+        const summary = response.data.data;
+        if (summary.matchedStudents !== undefined || summary.unmatchedSheets !== undefined) {
+          toast({
+            title: "Upload Complete",
+            description: `Uploaded ${summary.successfulUploads || results.length} sheets. Matched: ${summary.matchedStudents || 0}, Unmatched: ${summary.unmatchedSheets || 0}`,
+          });
+        }
+      }
       
       // Clear selected files after successful upload to allow new uploads
       setSelectedFiles([]);
       
+      // Reset the file input element to allow re-uploading the same file
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
       toast({
         title: "Success",
-        description: `Successfully uploaded ${selectedFiles.length} answer sheets. Select new files to upload more.`,
+        description: `Successfully uploaded ${filesToUpload} answer sheets. Select new files to upload more.`,
       });
 
       // Refresh existing answer sheets list
@@ -512,7 +547,7 @@ const AnswerSheetUpload = () => {
           <CardDescription>Choose the exam to view or upload answer sheets</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="exam">Exam</Label>
               <Select value={selectedExam} onValueChange={handleExamChange}>
@@ -522,12 +557,30 @@ const AnswerSheetUpload = () => {
                 <SelectContent>
                   {exams.map((exam) => (
                     <SelectItem key={exam._id} value={exam._id}>
-                      {exam.title} - {exam.subjectIds.map(s => s.name).join(', ')} ({exam.classId.name})
+                      {exam.title} ({exam.classId.name})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            {selectedExam && availableSubjects.length > 0 && (
+              <div>
+                <Label htmlFor="subject">Subject {availableSubjects.length > 1 ? '(Optional)' : ''}</Label>
+                <Select value={selectedSubject || "all"} onValueChange={(value) => setSelectedSubject(value === "all" ? "" : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All subjects</SelectItem>
+                    {availableSubjects.map((subject) => (
+                      <SelectItem key={subject._id} value={subject._id}>
+                        {subject.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -822,33 +875,35 @@ const AnswerSheetUpload = () => {
                   ) : (
                     <div className="space-y-4">
                       {/* Unmatched Answer Sheets */}
-                      <div>
-                        <h4 className="font-medium mb-3 text-orange-600">Unmatched Answer Sheets</h4>
-                        <div className="space-y-2">
-                          {existingAnswerSheets
-                            .filter(sheet => !sheet.studentId)
-                            .map(sheet => (
-                              <div key={sheet._id} className="flex items-center justify-between p-3 border border-orange-200 rounded-lg bg-orange-50">
-                                <div className="flex items-center gap-2">
-                                  <FileText className="h-4 w-4 text-orange-600" />
-                                  <span className="font-medium">{sheet.originalFileName}</span>
-                                  {sheet.rollNumberDetected && (
-                                    <Badge variant="outline" className="text-xs">
-                                      Detected: {sheet.rollNumberDetected}
-                                    </Badge>
-                                  )}
+                      {existingAnswerSheets.filter(sheet => !sheet.studentId).length > 0 && (
+                        <div>
+                          <h4 className="font-medium mb-3 text-orange-600">Unmatched Answer Sheets</h4>
+                          <div className="space-y-2">
+                            {existingAnswerSheets
+                              .filter(sheet => !sheet.studentId)
+                              .map(sheet => (
+                                <div key={sheet._id} className="flex items-center justify-between p-3 border border-orange-200 rounded-lg bg-orange-50">
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-orange-600" />
+                                    <span className="font-medium">{sheet.originalFileName}</span>
+                                    {sheet.rollNumberDetected && (
+                                      <Badge variant="outline" className="text-xs">
+                                        Detected: {sheet.rollNumberDetected}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => setMatchingSheet({ id: sheet._id, fileName: sheet.originalFileName })}
+                                    className="bg-orange-600 hover:bg-orange-700"
+                                  >
+                                    Match Student
+                                  </Button>
                                 </div>
-                                <Button
-                                  size="sm"
-                                  onClick={() => setMatchingSheet({ id: sheet._id, fileName: sheet.originalFileName })}
-                                  className="bg-orange-600 hover:bg-orange-700"
-                                >
-                                  Match Student
-                                </Button>
-                              </div>
-                            ))}
+                              ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Student List */}
                       <div>
@@ -1064,7 +1119,7 @@ const AnswerSheetUpload = () => {
                 {/* File Upload */}
                 <div 
                   className="border-2 border-dashed border-gray-300 rounded-lg p-6 cursor-pointer hover:border-gray-400"
-                  onClick={() => document.getElementById('file-upload')?.click()}
+                  onClick={() => fileInputRef.current?.click()}
                 >
                   <div className="text-center">
                     <Upload className="mx-auto h-12 w-12 text-gray-400" />
@@ -1074,6 +1129,7 @@ const AnswerSheetUpload = () => {
                           Drop files here or click to browse
                         </span>
                         <Input
+                          ref={fileInputRef}
                           id="file-upload"
                           type="file"
                           multiple

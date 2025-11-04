@@ -151,6 +151,7 @@ interface AIStats {
 
 const AIAnswerChecking = () => {
   const [selectedExam, setSelectedExam] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
   const [exams, setExams] = useState<Exam[]>([]);
   const [answerSheets, setAnswerSheets] = useState<AnswerSheet[]>([]);
   const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
@@ -167,6 +168,11 @@ const AIAnswerChecking = () => {
   const [selectedSheetForOverride, setSelectedSheetForOverride] = useState<AnswerSheet | null>(null);
   const [manualMarks, setManualMarks] = useState<{ [key: string]: number }>({});
   const { toast } = useToast();
+
+  // Get available subjects from selected exam
+  const availableSubjects = selectedExam 
+    ? exams.find(e => e._id === selectedExam)?.subjectIds || []
+    : [];
 
   const loadExams = useCallback(async () => {
     try {
@@ -189,11 +195,18 @@ const AIAnswerChecking = () => {
     
     try {
       setLoading(true);
-      const response = await teacherDashboardAPI.getAnswerSheetsForAIChecking(selectedExam, {
+      const params: any = {
         page: 1,
         limit: 100,
         status: filterStatus === 'all' ? undefined : filterStatus
-      });
+      };
+      
+      // Add subject filter if selected
+      if (selectedSubject && selectedSubject !== 'all') {
+        params.subjectId = selectedSubject;
+      }
+      
+      const response = await teacherDashboardAPI.getAnswerSheetsForAIChecking(selectedExam, params);
       
       if (response.success) {
         setAnswerSheets(response.data.answerSheets || []);
@@ -222,7 +235,6 @@ const AIAnswerChecking = () => {
       const response = await teacherDashboardAPI.getAIStats(selectedExam);
       setAiStats(response.data);
     } catch (error) {
-      console.error('Failed to load AI stats:', error);
     }
   }, [selectedExam]);
 
@@ -244,10 +256,19 @@ const AIAnswerChecking = () => {
 
   useEffect(() => {
     if (selectedExam) {
+      // Reset subject when exam changes
+      setSelectedSubject('');
       loadAnswerSheets();
       loadAIStats();
     }
   }, [selectedExam, filterStatus, loadAnswerSheets, loadAIStats, toast]);
+
+  // Reload answer sheets when subject changes
+  useEffect(() => {
+    if (selectedExam) {
+      loadAnswerSheets();
+    }
+  }, [selectedSubject, selectedExam, loadAnswerSheets]);
 
   const handleSingleAICheck = async (answerSheetId: string) => {
     try {
@@ -353,7 +374,6 @@ const AIAnswerChecking = () => {
           }));
         }
       } catch (error) {
-        console.error('Failed to load AI results:', error);
       }
     }
     
@@ -462,15 +482,22 @@ const AIAnswerChecking = () => {
     try {
       // Get list of students who haven't submitted answer sheets
       const response = await teacherDashboardAPI.getStudentsForExam(selectedExam);
-      const allStudents = response.data || [];
       
-      // Get submitted answer sheets
-      const submittedStudentIds = answerSheets.map(sheet => sheet.studentId?._id).filter(Boolean);
+      // The API returns { success: true, data: { students: [...], exam: {...}, ... } }
+      const allStudents = response.data?.students || [];
       
-      // Find missing students
-      const missingStudents = allStudents.filter(student => 
-        !submittedStudentIds.includes(student._id)
-      );
+      if (!Array.isArray(allStudents)) {
+        toast({
+          title: "Error",
+          description: "Invalid response format from server",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Get submitted answer sheets - use the hasAnswerSheet flag from API response
+      // The API already checks which students have answer sheets
+      const missingStudents = allStudents.filter(student => !student.hasAnswerSheet);
 
       if (missingStudents.length === 0) {
         toast({
@@ -481,9 +508,20 @@ const AIAnswerChecking = () => {
       }
 
       // Send notification for missing answer sheets
+      // API expects student IDs, which are in the 'id' field (not '_id')
+      const studentIds = missingStudents.map(s => s.id || s._id).filter(Boolean);
+      
+      if (studentIds.length === 0) {
+        toast({
+          title: "Info",
+          description: "No students to notify",
+        });
+        return;
+      }
+      
       const notificationResponse = await teacherDashboardAPI.sendMissingAnswerSheetNotification(
         selectedExam,
-        missingStudents.map(s => s._id)
+        studentIds
       );
 
       if (notificationResponse.success) {
@@ -586,7 +624,7 @@ const AIAnswerChecking = () => {
           <CardDescription>Choose an exam to process answer sheets with AI</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="exam">Exam</Label>
               <Select value={selectedExam} onValueChange={setSelectedExam}>
@@ -602,6 +640,24 @@ const AIAnswerChecking = () => {
                 </SelectContent>
               </Select>
             </div>
+            {selectedExam && availableSubjects.length > 1 && (
+              <div>
+                <Label htmlFor="subject">Subject (Optional)</Label>
+                <Select value={selectedSubject || "all"} onValueChange={(value) => setSelectedSubject(value === "all" ? "" : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All subjects" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All subjects</SelectItem>
+                    {availableSubjects.map((subject) => (
+                      <SelectItem key={subject._id} value={subject._id}>
+                        {subject.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label htmlFor="status">Filter by Status</Label>
               <Select value={filterStatus} onValueChange={setFilterStatus}>

@@ -225,11 +225,8 @@ export default function EnhancedPDFEditor({
       setLoading(true);
       const questionPaperId = questionPaper._id || questionPaper.id;
       const questions = await questionPaperAPI.getQuestions(questionPaperId);
-      console.log('EnhancedPDFEditor - Questions loaded:', questions);
-      console.log('EnhancedPDFEditor - Questions count:', questions?.length);
       setQuestions(questions || []);
     } catch (error) {
-      console.error('EnhancedPDFEditor - Error loading questions:', error);
       toast({
         title: "Error",
         description: "Failed to load questions",

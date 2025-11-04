@@ -68,7 +68,6 @@ const SamplePaperManagement: React.FC = () => {
       const subjectsData = await subjectManagementAPI.getAll();
       setSubjects(subjectsData.subjects || []);
     } catch (error) {
-      console.error('Error loading subjects:', error);
     }
   };
 

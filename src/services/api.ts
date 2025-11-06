@@ -5,9 +5,10 @@ import { SamplePaper, CreateSamplePaperRequest, UpdateSamplePaperRequest, Sample
 // Construct API base URL with proper protocol
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
-  
+  console.log('testing:', envUrl);
   if (envUrl) {
     // If environment variable is set, use it as is
+    console.log('[API] 🔍 Environment URL:', envUrl);
     return envUrl.startsWith('http') ? envUrl : `http://${envUrl}`;
   }
   
@@ -20,14 +21,16 @@ const getApiBaseUrl = () => {
     // Use current host with port 4000 for API (or 4001, 4002, etc. if 4000 is frontend)
     const apiPort = port === '8080' || port === '5173' || port === '3000' ? '4000' : (port || '4000');
     
+    console.log('[API] 🔍 Auto-detected URL:', `${protocol}//${hostname}:${apiPort}/api`);
     return `${protocol}//${hostname}:${apiPort}/api`;
   }
   
   // Fallback for SSR or Node.js environments
-  return 'http://localhost:4000/api';
+  return 'https://api.arkafx.com/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
+console.log('[API] 🔍 API Base URL:', API_BASE_URL);
 
 // Backend connection will be tested when needed through actual API calls
 

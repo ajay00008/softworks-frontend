@@ -263,18 +263,18 @@ const TeacherResults = () => {
 
   const getGradeBadge = (grade: string) => {
     const gradeConfig = {
-      A: { color: 'bg-green-100 text-green-800', icon: Award },
-      B: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
-      C: { color: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
-      D: { color: 'bg-orange-100 text-orange-800', icon: AlertTriangle },
-      F: { color: 'bg-red-100 text-red-800', icon: X },
+      A: { color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300', icon: Award },
+      B: { color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300', icon: CheckCircle },
+      C: { color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300', icon: AlertTriangle },
+      D: { color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300', icon: AlertTriangle },
+      F: { color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300', icon: X },
     };
 
     const config = gradeConfig[grade as keyof typeof gradeConfig] || gradeConfig.F;
     const Icon = config.icon;
 
     return (
-      <Badge className={config.color}>
+      <Badge className={`${config.color} text-xs`}>
         <Icon className="w-3 h-3 mr-1" />
         Grade {grade}
       </Badge>
@@ -283,17 +283,17 @@ const TeacherResults = () => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      PASSED: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-      FAILED: { color: 'bg-red-100 text-red-800', icon: X },
-      ABSENT: { color: 'bg-gray-100 text-gray-800', icon: Clock },
-      PENDING: { color: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
+      PASSED: { color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300', icon: CheckCircle },
+      FAILED: { color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300', icon: X },
+      ABSENT: { color: 'bg-muted text-muted-foreground', icon: Clock },
+      PENDING: { color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300', icon: AlertTriangle },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
     const Icon = config.icon;
 
     return (
-      <Badge className={config.color}>
+      <Badge className={`${config.color} text-xs`}>
         <Icon className="w-3 h-3 mr-1" />
         {status}
       </Badge>
@@ -508,7 +508,7 @@ const TeacherResults = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading teacher access...</p>
+          <p className="text-muted-foreground">Loading teacher access...</p>
         </div>
       </div>
     );
@@ -517,25 +517,27 @@ const TeacherResults = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Exam Results</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl sm:text-3xl font-bold">Exam Results</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             View and analyze student performance and results
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             onClick={loadResults}
             disabled={loadingResults}
+            className="w-full sm:w-auto"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${loadingResults ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Download className="w-4 h-4 mr-2" />
-            Export Results
+            <span className="hidden sm:inline">Export Results</span>
+            <span className="sm:hidden">Export</span>
           </Button>
         </div>
       </div>
@@ -547,7 +549,7 @@ const TeacherResults = () => {
           <CardDescription>Choose an exam to view results</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="exam">Exam</Label>
               <Select value={selectedExam} onValueChange={setSelectedExam} disabled={loadingExams}>
@@ -601,7 +603,7 @@ const TeacherResults = () => {
             <CardTitle>Filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="grade">Grade</Label>
                 <Select value={filterGrade} onValueChange={setFilterGrade}>
@@ -648,51 +650,51 @@ const TeacherResults = () => {
 
       {/* Class Statistics */}
       {classStats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Students</p>
-                  <p className="text-2xl font-bold">{classStats.totalStudents}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Total Students</p>
+                  <p className="text-xl sm:text-2xl font-bold">{classStats.totalStudents}</p>
                 </div>
-                <Users className="h-8 w-8 text-blue-500" />
+                <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
           
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Appeared</p>
-                  <p className="text-2xl font-bold">{classStats.appearedStudents}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Appeared</p>
+                  <p className="text-xl sm:text-2xl font-bold">{classStats.appearedStudents}</p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-green-500" />
+                <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
           
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Average Marks</p>
-                  <p className="text-2xl font-bold">{classStats.averageMarks.toFixed(1)}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Average Marks</p>
+                  <p className="text-xl sm:text-2xl font-bold">{classStats.averageMarks.toFixed(1)}</p>
                 </div>
-                <BarChart3 className="h-8 w-8 text-purple-500" />
+                <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
           
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Pass Percentage</p>
-                  <p className="text-2xl font-bold">{classStats.passPercentage.toFixed(1)}%</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Pass Percentage</p>
+                  <p className="text-xl sm:text-2xl font-bold">{classStats.passPercentage.toFixed(1)}%</p>
                 </div>
-                <Target className="h-8 w-8 text-orange-500" />
+                <Target className="h-6 w-6 sm:h-8 sm:w-8 text-orange-500 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
@@ -706,11 +708,11 @@ const TeacherResults = () => {
             <CardTitle>Grade Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
               {Object.entries(classStats.gradeDistribution).map(([grade, count]) => (
                 <div key={grade} className="text-center">
-                  <div className="text-2xl font-bold">{count}</div>
-                  <div className="text-sm text-gray-600">Grade {grade}</div>
+                  <div className="text-xl sm:text-2xl font-bold">{count}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Grade {grade}</div>
                   <Progress 
                     value={(count / classStats.totalStudents) * 100} 
                     className="mt-2" 
@@ -736,9 +738,9 @@ const TeacherResults = () => {
         <Card>
           <CardContent className="p-6">
             <div className="text-center">
-              <Award className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No results found</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <Award className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mt-2 text-sm font-medium text-foreground">No results found</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
                 {selectedExam ? 'No results found for this exam.' : 'Please select an exam to view results.'}
               </p>
             </div>
@@ -749,74 +751,80 @@ const TeacherResults = () => {
           {sortedResults.map((result) => (
             <Card key={result._id}>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{result.studentId.name}</CardTitle>
-                    <CardDescription>
-                      Roll Number: {result.studentId.rollNumber} | Rank: #{result.rank}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base sm:text-lg truncate">{result.studentId.name}</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
+                      <span className="block sm:inline">Roll: {result.studentId.rollNumber}</span>
+                      <span className="hidden sm:inline"> | </span>
+                      <span className="block sm:inline">Rank: #{result.rank}</span>
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                     {getGradeBadge(result.grade)}
                     {getStatusBadge(result.status)}
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
                   <div>
-                    <div className="text-sm text-gray-500">Marks Obtained</div>
-                    <div className="text-lg font-bold">
+                    <div className="text-xs sm:text-sm text-muted-foreground">Marks Obtained</div>
+                    <div className="text-base sm:text-lg font-bold">
                       {result.obtainedMarks} / {result.totalMarks}
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Percentage</div>
-                    <div className="text-lg font-bold">{result.percentage.toFixed(1)}%</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Percentage</div>
+                    <div className="text-base sm:text-lg font-bold">{result.percentage.toFixed(1)}%</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Grade</div>
-                    <div className="text-lg font-bold">{result.grade}</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Grade</div>
+                    <div className="text-base sm:text-lg font-bold">{result.grade}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Status</div>
-                    <div className="text-lg font-bold">{result.status}</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Status</div>
+                    <div className="text-base sm:text-lg font-bold">{result.status}</div>
                   </div>
                 </div>
 
                 {result.aiCorrectionResults && (
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <div className="text-sm font-medium text-blue-800 mb-2">AI Feedback</div>
-                    <div className="text-sm text-blue-700">{result.aiCorrectionResults.overallFeedback}</div>
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">AI Feedback</div>
+                    <div className="text-sm text-blue-700 dark:text-blue-200">{result.aiCorrectionResults.overallFeedback}</div>
                   </div>
                 )}
 
                 {result.manualOverride && (
-                  <div className="mt-4 p-3 bg-purple-50 rounded-lg">
-                    <div className="text-sm font-medium text-purple-800 mb-2">Manual Override</div>
-                    <div className="text-sm text-purple-700">
+                  <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                    <div className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-2">Manual Override</div>
+                    <div className="text-sm text-purple-700 dark:text-purple-200">
                       Reason: {result.manualOverride.reason}
                     </div>
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 mt-4">
+                <div className="flex flex-col sm:flex-row gap-2 mt-4">
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => handleViewDetails(result)}
+                    className="w-full sm:w-auto text-xs sm:text-sm"
                   >
                     <Eye className="h-4 w-4 mr-2" />
-                    View Details
+                    <span className="hidden sm:inline">View Details</span>
+                    <span className="sm:hidden">Details</span>
                   </Button>
                   
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => handleDownloadReport(result)}
+                    className="w-full sm:w-auto text-xs sm:text-sm"
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Download Report
+                    <span className="hidden sm:inline">Download Report</span>
+                    <span className="sm:hidden">Download</span>
                   </Button>
                 </div>
               </CardContent>
@@ -827,7 +835,7 @@ const TeacherResults = () => {
 
       {/* View Details Dialog */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
@@ -840,38 +848,45 @@ const TeacherResults = () => {
 
           {selectedResult && (
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="questions">Question Details</TabsTrigger>
-                <TabsTrigger value="analysis">Analysis</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 h-auto">
+                <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="questions" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                  <span className="hidden sm:inline">Question Details</span>
+                  <span className="sm:hidden">Questions</span>
+                </TabsTrigger>
+                <TabsTrigger value="analysis" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                  Analysis
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="text-sm text-gray-500">Total Marks</div>
-                      <div className="text-2xl font-bold">
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="text-xs sm:text-sm text-muted-foreground">Total Marks</div>
+                      <div className="text-xl sm:text-2xl font-bold">
                         {selectedResult.obtainedMarks} / {selectedResult.totalMarks}
                       </div>
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="text-sm text-gray-500">Percentage</div>
-                      <div className="text-2xl font-bold">{selectedResult.percentage.toFixed(1)}%</div>
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="text-xs sm:text-sm text-muted-foreground">Percentage</div>
+                      <div className="text-xl sm:text-2xl font-bold">{selectedResult.percentage.toFixed(1)}%</div>
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="text-sm text-gray-500">Grade</div>
-                      <div className="text-2xl font-bold">{selectedResult.grade}</div>
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="text-xs sm:text-sm text-muted-foreground">Grade</div>
+                      <div className="text-xl sm:text-2xl font-bold">{selectedResult.grade}</div>
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="text-sm text-gray-500">Rank</div>
-                      <div className="text-2xl font-bold">#{selectedResult.rank}</div>
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="text-xs sm:text-sm text-muted-foreground">Rank</div>
+                      <div className="text-xl sm:text-2xl font-bold">#{selectedResult.rank}</div>
                     </CardContent>
                   </Card>
                 </div>
@@ -881,21 +896,21 @@ const TeacherResults = () => {
                     <CardTitle>Student Information</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <div className="text-sm text-gray-500">Name</div>
+                        <div className="text-sm text-muted-foreground">Name</div>
                         <div className="font-medium">{selectedResult.studentId.name}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">Roll Number</div>
+                        <div className="text-sm text-muted-foreground">Roll Number</div>
                         <div className="font-medium">{selectedResult.studentId.rollNumber}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">Status</div>
+                        <div className="text-sm text-muted-foreground">Status</div>
                         <div>{getStatusBadge(selectedResult.status)}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">Corrected At</div>
+                        <div className="text-sm text-muted-foreground">Corrected At</div>
                         <div className="font-medium">
                           {selectedResult.correctedAt 
                             ? new Date(selectedResult.correctedAt).toLocaleString()
@@ -925,11 +940,11 @@ const TeacherResults = () => {
                     <CardContent>
                       <div className="space-y-2">
                         <div>
-                          <div className="text-sm text-gray-500">Reason</div>
+                          <div className="text-sm text-muted-foreground">Reason</div>
                           <div className="font-medium">{selectedResult.manualOverride.reason}</div>
                         </div>
                         <div>
-                          <div className="text-sm text-gray-500">Overridden At</div>
+                          <div className="text-sm text-muted-foreground">Overridden At</div>
                           <div className="font-medium">
                             {new Date(selectedResult.manualOverride.overriddenAt).toLocaleString()}
                           </div>
@@ -947,13 +962,13 @@ const TeacherResults = () => {
                     {selectedResult.aiCorrectionResults.questionWiseResults.map((qResult, index) => (
                       <Card key={index}>
                         <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <CardTitle>Question {qResult.questionNumber}</CardTitle>
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <CardTitle className="text-sm sm:text-base">Question {qResult.questionNumber}</CardTitle>
                             <Badge 
                               className={
                                 qResult.isCorrect 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
+                                  ? 'bg-green-100 text-green-800 text-xs' 
+                                  : 'bg-red-100 text-red-800 text-xs'
                               }
                             >
                               {qResult.marksObtained} / {qResult.maxMarks} Marks
@@ -962,17 +977,17 @@ const TeacherResults = () => {
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div>
-                            <div className="text-sm font-medium text-gray-700 mb-1">Student Answer:</div>
-                            <div className="text-sm bg-gray-50 p-2 rounded">{qResult.studentAnswer}</div>
+                            <div className="text-sm font-medium text-foreground mb-1">Student Answer:</div>
+                            <div className="text-sm bg-muted p-2 rounded">{qResult.studentAnswer}</div>
                           </div>
                           <div>
-                            <div className="text-sm font-medium text-gray-700 mb-1">Correct Answer:</div>
-                            <div className="text-sm bg-green-50 p-2 rounded">{qResult.correctAnswer}</div>
+                            <div className="text-sm font-medium text-foreground mb-1">Correct Answer:</div>
+                            <div className="text-sm bg-green-50 dark:bg-green-900/20 p-2 rounded border border-green-200 dark:border-green-800">{qResult.correctAnswer}</div>
                           </div>
                           {qResult.feedback && (
                             <div>
-                              <div className="text-sm font-medium text-gray-700 mb-1">Feedback:</div>
-                              <div className="text-sm bg-blue-50 p-2 rounded">{qResult.feedback}</div>
+                              <div className="text-sm font-medium text-foreground mb-1">Feedback:</div>
+                              <div className="text-sm bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800">{qResult.feedback}</div>
                             </div>
                           )}
                         </CardContent>
@@ -981,7 +996,7 @@ const TeacherResults = () => {
                   </div>
                 ) : (
                   <Card>
-                    <CardContent className="p-6 text-center text-gray-500">
+                    <CardContent className="p-6 text-center text-muted-foreground">
                       No question-wise details available
                     </CardContent>
                   </Card>
@@ -1041,7 +1056,7 @@ const TeacherResults = () => {
                   </div>
                 ) : (
                   <Card>
-                    <CardContent className="p-6 text-center text-gray-500">
+                    <CardContent className="p-6 text-center text-muted-foreground">
                       No analysis data available
                     </CardContent>
                   </Card>

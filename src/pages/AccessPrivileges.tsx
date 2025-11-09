@@ -79,6 +79,7 @@ interface StaffAccess {
     canAccessAnalytics: boolean;
     canPrintReports: boolean;
     canSendNotifications: boolean;
+    canAccessQuestionPapers: boolean;
   };
   isActive: boolean;
   expiresAt?: string;
@@ -149,6 +150,7 @@ const AccessPrivileges = () => {
       canAccessAnalytics: false,
       canPrintReports: true,
       canSendNotifications: false,
+      canAccessQuestionPapers: false,
     },
     expiresAt: '',
     notes: ''
@@ -256,7 +258,14 @@ const AccessPrivileges = () => {
       staffId: access.staffId._id,
       classAccess: classAccess,
       subjectAccess: subjectAccess,
-      globalPermissions: access.globalPermissions,
+      globalPermissions: {
+        canViewAllClasses: access.globalPermissions?.canViewAllClasses ?? false,
+        canViewAllSubjects: access.globalPermissions?.canViewAllSubjects ?? false,
+        canAccessAnalytics: access.globalPermissions?.canAccessAnalytics ?? false,
+        canPrintReports: access.globalPermissions?.canPrintReports ?? true,
+        canSendNotifications: access.globalPermissions?.canSendNotifications ?? false,
+        canAccessQuestionPapers: access.globalPermissions?.canAccessQuestionPapers ?? false,
+      },
       expiresAt: access.expiresAt || '',
       notes: access.notes || ''
     });
@@ -332,6 +341,7 @@ const AccessPrivileges = () => {
         canAccessAnalytics: false,
         canPrintReports: true,
         canSendNotifications: false,
+        canAccessQuestionPapers: false,
       },
       expiresAt: '',
       notes: ''
@@ -452,22 +462,22 @@ const AccessPrivileges = () => {
   return (
       <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <Shield className="w-8 h-8 text-accent" />
-            <h1 className="text-3xl font-bold">Access Privileges</h1>
+            <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
+            <h1 className="text-2xl sm:text-3xl font-bold">Access Privileges</h1>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage teacher permissions and access control
           </p>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={loadData}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={loadData} className="w-full sm:w-auto">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button onClick={() => setShowCreateDialog(true)} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             Create Access
           </Button>
@@ -475,7 +485,7 @@ const AccessPrivileges = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex space-x-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -488,7 +498,7 @@ const AccessPrivileges = () => {
           </div>
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -522,17 +532,17 @@ const AccessPrivileges = () => {
           filteredAccess.map((access) => (
           <Card key={access._id}>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center space-x-2">
-                    <span>{access.staffId.name}</span>
-                    <Badge variant={access.isActive ? "default" : "secondary"}>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="flex flex-wrap items-center gap-2">
+                    <span className="truncate">{access.staffId.name}</span>
+                    <Badge variant={access.isActive ? "default" : "secondary"} className="flex-shrink-0">
                       {access.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </CardTitle>
-                  <CardDescription>{access.staffId.email}</CardDescription>
+                  <CardDescription className="truncate">{access.staffId.email}</CardDescription>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 flex-shrink-0">
                   <Button variant="outline" size="sm" onClick={() => handleEditAccess(access)}>
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -544,10 +554,18 @@ const AccessPrivileges = () => {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="classes" className="w-full">
-                <TabsList>
-                  <TabsTrigger value="classes">Class Access</TabsTrigger>
-                  <TabsTrigger value="subjects">Subject Access</TabsTrigger>
-                  <TabsTrigger value="permissions">Global Permissions</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 h-auto">
+                  <TabsTrigger value="classes" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                    <span className="truncate">Class</span>
+                    <span className="hidden sm:inline"> Access</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="subjects" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                    <span className="truncate">Subject</span>
+                    <span className="hidden sm:inline"> Access</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="permissions" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                    Global
+                  </TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="classes" className="space-y-4">
@@ -562,7 +580,7 @@ const AccessPrivileges = () => {
                             </Badge>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                           <div className="space-y-2">
                             <div className="flex items-center space-x-2">
                               <Checkbox checked={classAccess.canUploadSheets} disabled />
@@ -601,7 +619,7 @@ const AccessPrivileges = () => {
                             </Badge>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                           <div className="flex items-center space-x-2">
                             <Checkbox checked={subjectAccess.canCreateQuestions} disabled />
                             <Label className="text-sm">Can Create Questions</Label>
@@ -617,7 +635,7 @@ const AccessPrivileges = () => {
                 </TabsContent>
                 
                 <TabsContent value="permissions" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-center space-x-2">
                       <Checkbox checked={access.globalPermissions.canViewAllClasses} disabled />
                       <Label className="text-sm">Can View All Classes</Label>
@@ -638,6 +656,10 @@ const AccessPrivileges = () => {
                       <Checkbox checked={access.globalPermissions.canSendNotifications} disabled />
                       <Label className="text-sm">Can Send Notifications</Label>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox checked={access.globalPermissions.canAccessQuestionPapers} disabled />
+                      <Label className="text-sm">Can Access Question Papers</Label>
+                    </div>
                   </div>
                 </TabsContent>
               </Tabs>
@@ -649,7 +671,7 @@ const AccessPrivileges = () => {
 
       {/* Create Access Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Access Privileges</DialogTitle>
             <DialogDescription>
@@ -674,22 +696,22 @@ const AccessPrivileges = () => {
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label className="text-lg font-medium">Class Access</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addClassAccess}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <Label className="text-base sm:text-lg font-medium">Class Access</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addClassAccess} className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Class
                 </Button>
               </div>
               {accessForm.classAccess.map((classAccess, index) => (
                 <div key={index} className="p-4 border rounded-lg space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-medium">Class Access {index + 1}</h4>
-                    <Button type="button" variant="outline" size="sm" onClick={() => removeClassAccess(index)}>
+                  <div className="flex justify-between items-center gap-2">
+                    <h4 className="font-medium text-sm sm:text-base">Class Access {index + 1}</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => removeClassAccess(index)} className="flex-shrink-0">
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Class</Label>
                       <Select 
@@ -729,7 +751,7 @@ const AccessPrivileges = () => {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox 
@@ -768,22 +790,22 @@ const AccessPrivileges = () => {
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label className="text-lg font-medium">Subject Access</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addSubjectAccess}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <Label className="text-base sm:text-lg font-medium">Subject Access</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addSubjectAccess} className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Subject
                 </Button>
               </div>
               {accessForm.subjectAccess.map((subjectAccess, index) => (
                 <div key={index} className="p-4 border rounded-lg space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-medium">Subject Access {index + 1}</h4>
-                    <Button type="button" variant="outline" size="sm" onClick={() => removeSubjectAccess(index)}>
+                  <div className="flex justify-between items-center gap-2">
+                    <h4 className="font-medium text-sm sm:text-base">Subject Access {index + 1}</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => removeSubjectAccess(index)} className="flex-shrink-0">
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Subject</Label>
                       <Select 
@@ -823,7 +845,7 @@ const AccessPrivileges = () => {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-center space-x-2">
                       <Checkbox 
                         checked={subjectAccess.canCreateQuestions} 
@@ -844,8 +866,8 @@ const AccessPrivileges = () => {
             </div>
 
             <div className="space-y-4">
-              <Label className="text-lg font-medium">Global Permissions</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <Label className="text-base sm:text-lg font-medium">Global Permissions</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     checked={accessForm.globalPermissions.canViewAllClasses} 
@@ -887,8 +909,8 @@ const AccessPrivileges = () => {
                   <Label className="text-sm">Can Print Reports</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    checked={accessForm.globalPermissions.canSendNotifications} 
+                  <Checkbox
+                    checked={accessForm.globalPermissions.canSendNotifications}
                     onCheckedChange={(checked) => setAccessForm(prev => ({
                       ...prev,
                       globalPermissions: { ...prev.globalPermissions, canSendNotifications: !!checked }
@@ -896,10 +918,20 @@ const AccessPrivileges = () => {
                   />
                   <Label className="text-sm">Can Send Notifications</Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={accessForm.globalPermissions?.canAccessQuestionPapers ?? false}
+                    onCheckedChange={(checked) => setAccessForm(prev => ({
+                      ...prev,
+                      globalPermissions: { ...prev.globalPermissions, canAccessQuestionPapers: !!checked }
+                    }))}
+                  />
+                  <Label className="text-sm">Can Access Question Papers</Label>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Expiration Date (Optional)</Label>
                 <Input
@@ -935,7 +967,7 @@ const AccessPrivileges = () => {
 
       {/* Edit Access Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Access Privileges</DialogTitle>
             <DialogDescription>
@@ -957,22 +989,22 @@ const AccessPrivileges = () => {
 
             {/* Class Access */}
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label className="text-lg font-medium">Class Access</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addClassAccess}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <Label className="text-base sm:text-lg font-medium">Class Access</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addClassAccess} className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Class
                 </Button>
               </div>
               {accessForm.classAccess.map((classAccess, index) => (
                 <div key={index} className="p-4 border rounded-lg space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-medium">Class Access {index + 1}</h4>
-                    <Button type="button" variant="outline" size="sm" onClick={() => removeClassAccess(index)}>
+                  <div className="flex justify-between items-center gap-2">
+                    <h4 className="font-medium text-sm sm:text-base">Class Access {index + 1}</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => removeClassAccess(index)} className="flex-shrink-0">
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Class</Label>
                       <Select 
@@ -1012,7 +1044,7 @@ const AccessPrivileges = () => {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox 
@@ -1056,22 +1088,22 @@ const AccessPrivileges = () => {
 
             {/* Subject Access */}
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label className="text-lg font-medium">Subject Access</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addSubjectAccess}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <Label className="text-base sm:text-lg font-medium">Subject Access</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addSubjectAccess} className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Subject
                 </Button>
               </div>
               {accessForm.subjectAccess.map((subjectAccess, index) => (
                 <div key={index} className="p-4 border rounded-lg space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-medium">Subject Access {index + 1}</h4>
-                    <Button type="button" variant="outline" size="sm" onClick={() => removeSubjectAccess(index)}>
+                  <div className="flex justify-between items-center gap-2">
+                    <h4 className="font-medium text-sm sm:text-base">Subject Access {index + 1}</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => removeSubjectAccess(index)} className="flex-shrink-0">
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Subject</Label>
                       <Select 
@@ -1111,7 +1143,7 @@ const AccessPrivileges = () => {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-center space-x-2">
                       <Checkbox 
                         id={`create-questions-${index}`}
@@ -1135,8 +1167,8 @@ const AccessPrivileges = () => {
 
             {/* Global Permissions */}
             <div className="space-y-4">
-              <Label className="text-lg font-medium">Global Permissions</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <Label className="text-base sm:text-lg font-medium">Global Permissions</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <Checkbox 

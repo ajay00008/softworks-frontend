@@ -852,6 +852,13 @@ export interface Subject {
     uploadedAt: string;
     uploadedBy: string;
   };
+  syllabus?: Record<string, { // Key is classId, value is syllabus info
+    exists: boolean;
+    _id?: string;
+    title?: string;
+    academicYear?: string;
+  }>;
+  templates?: any[];
   createdAt: string;
   updatedAt: string;
 }
@@ -979,7 +986,7 @@ export const classManagementAPI = {
 
 // Subject Management API
 export const subjectManagementAPI = {
-  getAll: async (filters?: SubjectFilters): Promise<{ subjects: Subject[]; total: number; page: number; limit: number }> => {
+  getAll: async (filters?: SubjectFilters & { classId?: string }): Promise<{ subjects: Subject[]; total: number; page: number; limit: number }> => {
     try {
       const params = new URLSearchParams();
       if (filters?.page) params.append('page', filters.page.toString());
@@ -988,6 +995,7 @@ export const subjectManagementAPI = {
       if (filters?.category) params.append('category', filters.category);
       if (filters?.level) params.append('level', filters.level.toString());
       if (filters?.isActive !== undefined) params.append('isActive', filters.isActive.toString());
+      if (filters?.classId) params.append('classId', filters.classId);
 
       const response = await fetch(`${API_BASE_URL}/admin/subjects?${params}`, {
         method: 'GET',
@@ -2368,6 +2376,23 @@ export const syllabusAPI = {
     }
   },
 
+  // Check if syllabus exists for subject and class (returns null if not found, doesn't throw error)
+  checkSyllabusExists: async (subjectId: string, classId: string): Promise<Syllabus | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/syllabi/subject/${subjectId}/class/${classId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        return await handleApiResponse<Syllabus>(response);
+      } else {
+        return null;
+      }
+    } catch (error) {
+      return null;
+    }
+  },
+
   // Upload syllabus file
   uploadFile: async (id: string, file: File): Promise<Syllabus> => {
     try {
@@ -3317,6 +3342,104 @@ export const performanceAPI = {
         headers: getAuthHeaders(),
       });
       return await handleApiResponse<any>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+// Absenteeism Management API
+export const absenteeismAPI = {
+  // Get all absenteeism reports
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    examId?: string;
+    studentId?: string;
+    type?: 'ABSENT' | 'MISSING_SHEET' | 'LATE_SUBMISSION';
+    status?: 'PENDING' | 'ACKNOWLEDGED' | 'RESOLVED' | 'ESCALATED';
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  }): Promise<{ success: boolean; data: any[]; pagination: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.search) queryParams.append('search', params.search);
+      if (params?.examId) queryParams.append('examId', params.examId);
+      if (params?.studentId) queryParams.append('studentId', params.studentId);
+      if (params?.type) queryParams.append('type', params.type);
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.priority) queryParams.append('priority', params.priority);
+
+      const response = await fetch(`${API_BASE_URL}/admin/absenteeism?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; data: any[]; pagination: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get single absenteeism report
+  getById: async (id: string): Promise<{ success: boolean; absenteeism: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/absenteeism/${id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; absenteeism: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Acknowledge absenteeism
+  acknowledge: async (id: string, adminRemarks: string): Promise<{ success: boolean; absenteeism: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/absenteeism/${id}/acknowledge`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ adminRemarks }),
+      });
+      return await handleApiResponse<{ success: boolean; absenteeism: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Resolve absenteeism
+  resolve: async (id: string, adminRemarks: string): Promise<{ success: boolean; absenteeism: any }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/absenteeism/${id}/resolve`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ adminRemarks }),
+      });
+      return await handleApiResponse<{ success: boolean; absenteeism: any }>(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get statistics
+  getStatistics: async (params?: {
+    examId?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{ success: boolean; statistics: any }> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.examId) queryParams.append('examId', params.examId);
+      if (params?.startDate) queryParams.append('startDate', params.startDate);
+      if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+      const response = await fetch(`${API_BASE_URL}/admin/absenteeism/statistics?${queryParams}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      return await handleApiResponse<{ success: boolean; statistics: any }>(response);
     } catch (error) {
       throw error;
     }

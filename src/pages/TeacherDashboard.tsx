@@ -126,7 +126,7 @@ const TeacherDashboard = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+          <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -141,7 +141,7 @@ const TeacherDashboard = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Classes</p>
+                  <p className="text-sm text-muted-foreground">Classes</p>
                   <p className="text-2xl font-bold">{stats.totalClasses}</p>
                 </div>
                 <Users className="h-8 w-8 text-blue-500" />
@@ -153,7 +153,7 @@ const TeacherDashboard = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Subjects</p>
+                  <p className="text-sm text-muted-foreground">Subjects</p>
                   <p className="text-2xl font-bold">{stats.totalSubjects}</p>
                 </div>
                 <BookOpen className="h-8 w-8 text-green-500" />
@@ -165,7 +165,7 @@ const TeacherDashboard = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Pending Sheets</p>
+                  <p className="text-sm text-muted-foreground">Pending Sheets</p>
                   <p className="text-2xl font-bold">{stats.pendingSheets}</p>
                 </div>
                 <Clock className="h-8 w-8 text-orange-500" />
@@ -177,7 +177,7 @@ const TeacherDashboard = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Avg Performance</p>
+                  <p className="text-sm text-muted-foreground">Avg Performance</p>
                   <p className="text-2xl font-bold">
                     {stats.averagePerformance.toFixed(1)}%
                   </p>
@@ -234,7 +234,7 @@ const TeacherDashboard = () => {
                     <p className="text-sm font-medium">
                       {activity.description}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {new Date(activity.timestamp).toLocaleString()}
                     </p>
                   </div>
@@ -268,12 +268,12 @@ const TeacherDashboard = () => {
           <CardContent>
             <Tabs defaultValue="classes" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="classes">
-                  <GraduationCap className="w-4 h-4 mr-2" />
+                <TabsTrigger value="classes" className="text-xs sm:text-sm">
+                  <GraduationCap className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Classes ({teacherAccess.classAccess.length})
                 </TabsTrigger>
-                <TabsTrigger value="subjects">
-                  <BookOpen className="w-4 h-4 mr-2" />
+                <TabsTrigger value="subjects" className="text-xs sm:text-sm">
+                  <BookOpen className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Subjects ({teacherAccess.subjectAccess.length})
                 </TabsTrigger>
               </TabsList>
@@ -281,47 +281,47 @@ const TeacherDashboard = () => {
               <TabsContent value="classes" className="mt-4">
                 <div className="space-y-3">
                   {teacherAccess.classAccess.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <GraduationCap className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                    <div className="text-center py-8 text-muted-foreground">
+                      <GraduationCap className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
                       <p>No classes assigned yet</p>
                     </div>
                   ) : (
                     teacherAccess.classAccess.map((cls, index) => (
                       <div
                         key={index}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3"
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <GraduationCap className="w-5 h-5 text-blue-600" />
+                        <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                          <div className="p-1.5 sm:p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex-shrink-0">
+                            <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
                           </div>
-                          <div>
-                            <h4 className="font-medium">{cls.className}</h4>
-                            <div className="flex gap-2 mt-1">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm sm:text-base truncate">{cls.className}</h4>
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
                               {cls.canUploadSheets && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs whitespace-nowrap">
                                   Upload Sheets
                                 </Badge>
                               )}
                               {cls.canMarkAbsent && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs whitespace-nowrap">
                                   Mark Absent
                                 </Badge>
                               )}
                               {cls.canMarkMissing && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs whitespace-nowrap">
                                   Mark Missing
                                 </Badge>
                               )}
                               {cls.canOverrideAI && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs whitespace-nowrap">
                                   Override AI
                                 </Badge>
                               )}
                             </div>
                           </div>
                         </div>
-                        <Badge variant="secondary">{cls.accessLevel}</Badge>
+                        <Badge variant="secondary" className="flex-shrink-0 text-xs sm:text-sm">{cls.accessLevel}</Badge>
                       </div>
                     ))
                   )}
@@ -331,39 +331,39 @@ const TeacherDashboard = () => {
               <TabsContent value="subjects" className="mt-4">
                 <div className="space-y-3">
                   {teacherAccess.subjectAccess.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                    <div className="text-center py-8 text-muted-foreground">
+                      <BookOpen className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
                       <p>No subjects assigned yet</p>
                     </div>
                   ) : (
                     teacherAccess.subjectAccess.map((subject, index) => (
                       <div
                         key={index}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3"
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <BookOpen className="w-5 h-5 text-green-600" />
+                        <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                          <div className="p-1.5 sm:p-2 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0">
+                            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" />
                           </div>
-                          <div>
-                            <h4 className="font-medium">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm sm:text-base truncate">
                               {subject.subjectName}
                             </h4>
-                            <div className="flex gap-2 mt-1">
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
                               {subject.canCreateQuestions && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs whitespace-nowrap">
                                   Create Questions
                                 </Badge>
                               )}
                               {subject.canUploadSyllabus && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs whitespace-nowrap">
                                   Upload Syllabus
                                 </Badge>
                               )}
                             </div>
                           </div>
                         </div>
-                        <Badge variant="secondary">{subject.accessLevel}</Badge>
+                        <Badge variant="secondary" className="flex-shrink-0 text-xs sm:text-sm">{subject.accessLevel}</Badge>
                       </div>
                     ))
                   )}

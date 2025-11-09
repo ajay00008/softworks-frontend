@@ -37,6 +37,7 @@ import {
   UpdateSubjectRequest
 } from '@/services/api';
 import ReferenceBookManager from '@/components/ReferenceBookManager';
+import ClassSectionSelector from '@/components/ClassSectionSelector';
 
 const ClassSubjectManagement = () => {
   const [activeTab, setActiveTab] = useState('classes');
@@ -767,7 +768,7 @@ const ClassSubjectManagement = () => {
         setShowClassDialog(open);
         if (!open) resetClassForm();
       }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Users className="w-5 h-5 mr-2" />
@@ -860,7 +861,7 @@ const ClassSubjectManagement = () => {
         setShowSubjectDialog(open);
         if (!open) resetSubjectForm();
       }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Book className="w-5 h-5 mr-2" />
@@ -871,7 +872,7 @@ const ClassSubjectManagement = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="space-y-6 overflow-y-auto flex-1 pr-2">
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Subject Code *</Label>
@@ -941,42 +942,30 @@ const ClassSubjectManagement = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Classes *</Label>
-              {classes.length === 0 ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-amber-800">
-                    <AlertTriangle className="w-5 h-5" />
-                    <div>
-                      <p className="font-medium">No Classes Available</p>
-                      <p className="text-sm">Please create classes first before creating subjects.</p>
-                    </div>
+            {classes.length === 0 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-amber-800">
+                  <AlertTriangle className="w-5 h-5" />
+                  <div>
+                    <p className="font-medium">No Classes Available</p>
+                    <p className="text-sm">Please create classes first before creating subjects.</p>
                   </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                  {classes.map(cls => (
-                    <label key={cls._id} className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50">
-                      <input  
-                        type="checkbox"
-                        checked={subjectForm.classIds.includes(cls._id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSubjectForm(prev => ({ ...prev, classIds: [...prev.classIds, cls._id] }));
-                          } else {
-                            setSubjectForm(prev => ({ ...prev, classIds: prev.classIds.filter(id => id !== cls._id) }));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="text-sm">Name: {cls.displayName} ({cls.name})</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <ClassSectionSelector
+                classes={classes}
+                selectedClassIds={subjectForm.classIds}
+                onSelectionChange={(classIds) => setSubjectForm(prev => ({ ...prev, classIds }))}
+                mode="multiple"
+                showLevelFirst={true}
+                required={true}
+                label="Select Classes for this Subject"
+                description="Select one or more classes (sections) where this subject will be taught. You can filter by level and select specific sections."
+              />
+            )}
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Color</Label>
                 <div className="flex items-center space-x-2">
@@ -1005,20 +994,21 @@ const ClassSubjectManagement = () => {
               />
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setShowSubjectDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={editingSubject ? handleUpdateSubject : handleCreateSubject}
-                disabled={isLoading || !subjectForm.code || !subjectForm.name || !subjectForm.shortName || subjectForm.classIds.length === 0 || classes.length === 0 || !!subjectCodeError}
-              >
-                {isLoading ? "Saving..." : editingSubject ? "Update Subject" : "Create Subject"}
-              </Button>
-            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t mt-4 flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowSubjectDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={editingSubject ? handleUpdateSubject : handleCreateSubject}
+              disabled={isLoading || !subjectForm.code || !subjectForm.name || !subjectForm.shortName || subjectForm.classIds.length === 0 || classes.length === 0 || !!subjectCodeError}
+            >
+              {isLoading ? "Saving..." : editingSubject ? "Update Subject" : "Create Subject"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

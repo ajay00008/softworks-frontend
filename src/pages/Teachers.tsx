@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { teachersAPI, Teacher, subjectsAPI, classesAPI, Subject, Class } from "@/services/api";
 import { Pagination } from "@/components/ui/pagination";
+import ClassSectionSelector from "@/components/ClassSectionSelector";
 import {
   Plus,
   GraduationCap,
@@ -861,56 +862,37 @@ const Teachers = () => {
 
                   {/* Classes Assignment - Show First */}
                   <div className="space-y-3">
-                    <Label className="text-base font-medium flex items-center">
-                      <Users className="w-4 h-4 mr-2 text-purple-600" />
-                      Assign Classes *
-                      <span className="text-red-500 ml-1">(Required - Select First)</span>
-                    </Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50">
-                      {classes.length === 0 ? (
-                        <p className="text-sm text-gray-500 col-span-full text-center py-4">No classes available</p>
-                      ) : (
-                        classes.map((cls) => (
-                          <div key={cls.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`create-class-${cls.id}`}
-                              checked={createFormAssignments.selectedClasses.includes(cls.id)}
-                              onCheckedChange={() => {
-                                handleCreateClassToggle(cls.id);
-                                // Clear selected subjects when class selection changes
-                                setCreateFormAssignments(prev => ({
-                                  ...prev,
-                                  selectedSubjects: []
-                                }));
-                              }}
-                            />
-                            <Label
-                              htmlFor={`create-class-${cls.id}`}
-                              className="text-sm font-normal cursor-pointer"
-                            >
-                              {cls.name}
-                            </Label>
+                    {classes.length === 0 ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 text-amber-800">
+                          <AlertTriangle className="w-5 h-5" />
+                          <div>
+                            <p className="font-medium">No Classes Available</p>
+                            <p className="text-sm">Please create classes first before assigning teachers.</p>
                           </div>
-                        ))
-                      )}
-                    </div>
-                    {createFormAssignments.selectedClasses.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-xs text-muted-foreground">Selected:</span>
-                        {createFormAssignments.selectedClasses.map(id => {
-                          const cls = classes.find(c => c.id === id);
-                          return (
-                            <Badge key={id} variant="outline" className="text-xs">
-                              {cls?.name || id}
-                            </Badge>
-                          );
-                        })}
+                        </div>
                       </div>
                     ) : (
-                      <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                        <span className="text-sm font-medium">Please select at least one class first to see subjects</span>
-                      </div>
+                      <ClassSectionSelector
+                        classes={classes.map(cls => ({
+                          ...cls,
+                          _id: cls._id || cls.id,
+                          id: cls.id || cls._id
+                        }))}
+                        selectedClassIds={createFormAssignments.selectedClasses}
+                        onSelectionChange={(classIds) => {
+                          setCreateFormAssignments(prev => ({
+                            ...prev,
+                            selectedClasses: classIds,
+                            selectedSubjects: [] // Clear selected subjects when class selection changes
+                          }));
+                        }}
+                        mode="multiple"
+                        showLevelFirst={true}
+                        required={true}
+                        label="Assign Classes (Sections) to Teacher"
+                        description="Select one or more class sections that this teacher will teach. Filter by level to find specific sections."
+                      />
                     )}
                   </div>
 
@@ -1064,7 +1046,7 @@ const Teachers = () => {
       {/* Assignment Form */}
       {showAssignment && assigningTeacher && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto border-2 border-blue-200 bg-white dark:bg-gray-900 shadow-2xl">
+          <Card className="w-full max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto border-2 border-blue-200 bg-white dark:bg-gray-900 shadow-2xl">
             <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-b">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -1097,7 +1079,7 @@ const Teachers = () => {
             </CardHeader>
             
             <CardContent className="p-6">
-              <div className="grid lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
                 {/* Subjects Assignment */}
                 <div className="space-y-4">
                   <div className="flex items-center space-x-2 mb-4">
@@ -1206,7 +1188,7 @@ const Teachers = () => {
               {/* Summary */}
               <div className="mt-6 p-4 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-lg border">
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Assignment Summary</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600 dark:text-gray-400">Subjects:</span>
                     <span className="ml-2 font-medium text-green-600">

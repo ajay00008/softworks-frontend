@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Exam, CreateExamRequest, examsAPI, subjectManagementAPI, classManagementAPI, syllabusAPI } from '@/services/api';
+import ClassSectionSelector from '@/components/ClassSectionSelector';
 
 export default function ExamManagement() {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -71,20 +72,40 @@ export default function ExamManagement() {
 
   // Filter subjects based on selected class
   const filteredSubjects = formData.classId 
-    ? subjects.filter(subject => subject.classIds?.includes(formData.classId))
+    ? subjects.filter(subject => {
+        if (!subject.classIds || subject.classIds.length === 0) return false;
+        // Handle both string IDs and populated class objects
+        return subject.classIds.some(classId => {
+          // If classId is a string, compare directly
+          if (typeof classId === 'string') {
+            return classId === formData.classId;
+          }
+          // If classId is an object (populated), check _id property
+          if (classId && typeof classId === 'object') {
+            // Handle MongoDB ObjectId or plain object with _id
+            const classIdStr = classId._id 
+              ? (typeof classId._id === 'string' ? classId._id : classId._id.toString())
+              : classId.toString();
+            return classIdStr === formData.classId;
+          }
+          return false;
+        });
+      })
     : [];
 
-  // Check if reference book exists for a subject
-  const hasReferenceBookForSubject = (subjectId: string) => {
+  // Check if syllabus (reference book) exists for a subject
+  // We check referenceBook field in subject response - if it exists, syllabus is uploaded
+  // If reference book exists, show nothing. If not, show warning.
+  const hasSyllabusForSubject = (subjectId: string) => {
     const subject = subjects.find(s => s._id === subjectId || s.id === subjectId);
     return subject && subject.referenceBook && subject.referenceBook.fileName;
   };
 
-  // Check if any of the selected subjects have reference books
-  const hasReferenceBookForSelectedSubjects = () => {
+  // Check if all selected subjects have syllabus (reference book)
+  const hasSyllabusForSelectedSubjects = () => {
     if (formData.subjectIds.length === 0) return true;
-    return formData.subjectIds.some(subjectId => 
-      hasReferenceBookForSubject(subjectId)
+    return formData.subjectIds.every(subjectId => 
+      hasSyllabusForSubject(subjectId)
     );
   };
 
@@ -202,18 +223,18 @@ export default function ExamManagement() {
 
   const handleCreate = async () => {
     try {
-      // Validate reference book availability for selected subjects
-      if (!hasReferenceBookForSelectedSubjects()) {
+      // Validate syllabus (reference book) availability for selected subjects
+      if (!hasSyllabusForSelectedSubjects()) {
         const missingSubjects = formData.subjectIds.filter(subjectId => 
-          !hasReferenceBookForSubject(subjectId)
+          !hasSyllabusForSubject(subjectId)
         );
         const subjectNames = missingSubjects.map(subjectId => 
           subjects.find(s => s._id === subjectId || s.id === subjectId)?.name || 'Unknown'
         ).join(', ');
         
         toast({
-          title: "Reference Book Required",
-          description: `Reference book not uploaded for subject(s): ${subjectNames}. Please upload reference books for these subjects before creating the exam.`,
+          title: "Syllabus Required",
+          description: `Syllabus (reference book) not uploaded for subject(s): ${subjectNames}. Please upload syllabus for these subjects before creating the exam.`,
           variant: "destructive",
         });
         return;
@@ -419,13 +440,14 @@ export default function ExamManagement() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Exam Management</h1>
-          <p className="text-muted-foreground">Create and manage exams for your institution</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Exam Management</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Create and manage exams for your institution</p>
         </div>
         <Button 
           onClick={() => setIsCreateDialogOpen(true)}
+          className="w-full sm:w-auto"
           disabled={subjects.length === 0 || classes.length === 0}
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -542,7 +564,7 @@ export default function ExamManagement() {
                         {getStatusBadge(exam.status)}
                       </div>
                       <p className="text-muted-foreground mb-2">{exam.description}</p>
-                      <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
                           <span>
@@ -600,7 +622,7 @@ export default function ExamManagement() {
           resetForm();
         }
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Exam</DialogTitle>
             <DialogDescription>
@@ -640,7 +662,7 @@ export default function ExamManagement() {
                 <p className="text-gray-600">Select the type of exam you want to create</p>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {examTypeOptions.map((option) => (
                   <Card 
                     key={option.value}
@@ -709,7 +731,7 @@ export default function ExamManagement() {
                 <p className="text-gray-600">Configure the exam settings and requirements</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="title">Exam Title</Label>
                   <Input
@@ -741,38 +763,35 @@ export default function ExamManagement() {
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="class">Class *</Label>
-                  <Select 
-                    value={formData.classId} 
-                    onValueChange={(value) => {
+              <div className="grid grid-cols-1 gap-4">
+                {classes.length === 0 ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 text-amber-800">
+                      <AlertTriangle className="w-5 h-5" />
+                      <div>
+                        <p className="font-medium">No Classes Available</p>
+                        <p className="text-sm">Please create classes first before creating exams.</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <ClassSectionSelector
+                    classes={classes}
+                    selectedClassIds={formData.classId ? [formData.classId] : []}
+                    onSelectionChange={(classIds) => {
                       setFormData(prev => ({ 
                         ...prev, 
-                        classId: value,
+                        classId: classIds[0] || '',
                         subjectIds: [] // Clear subjects when class changes
                       }));
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select class first" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes.length === 0 ? (
-                        <SelectItem value="" disabled>No classes available. Create classes first.</SelectItem>
-                      ) : (
-                        classes.map((cls) => (
-                          <SelectItem key={cls.id} value={cls._id}>
-                            {cls.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {!formData.classId && (
-                    <p className="text-sm text-red-500 mt-1">Please select a class first</p>
-                  )}
-                </div>
+                    mode="single"
+                    showLevelFirst={true}
+                    required={true}
+                    label="Select Class (Section) for this Exam"
+                    description="Select the specific class section for this exam. Filter by level to find the section you need."
+                  />
+                )}
                 <div>
                   <Label htmlFor="subjects">Subjects *</Label>
                   <div className="space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
@@ -782,7 +801,7 @@ export default function ExamManagement() {
                       <p className="text-sm text-gray-500">No subjects available for the selected class</p>
                     ) : (
                       filteredSubjects.map((subject) => {
-                        const hasReferenceBook = hasReferenceBookForSubject(subject._id);
+                        const hasSyllabus = hasSyllabusForSubject(subject._id); // Check referenceBook field
                         return (
                           <div key={subject._id} className="flex items-center space-x-2">
                             <input
@@ -804,12 +823,12 @@ export default function ExamManagement() {
                               }}
                               className="rounded border-gray-300"
                             />
-                            <Label htmlFor={`subject-${subject._id}`} className="text-sm flex items-center space-x-2">
+                            <Label htmlFor={`subject-${subject._id}`} className="text-sm flex items-center space-x-2 flex-1">
                               <span>{subject.name} ({subject.code})</span>
-                              {hasReferenceBook ? (
-                                <CheckCircle className="h-4 w-4 text-green-500" title="Reference book available" />
-                              ) : (
-                                <AlertTriangle className="h-4 w-4 text-amber-500" title="Reference book required" />
+                              {!hasSyllabus && (
+                                <div className="flex items-center space-x-1 ml-auto" title="Syllabus (reference book) not uploaded">
+                                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                                </div>
                               )}
                             </Label>
                           </div>
@@ -819,13 +838,13 @@ export default function ExamManagement() {
                     {formData.classId && formData.subjectIds.length === 0 && (
                       <p className="text-sm text-red-500">Please select at least one subject</p>
                     )}
-                    {formData.classId && formData.subjectIds.length > 0 && !hasReferenceBookForSelectedSubjects() && (
-                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                        <div className="flex items-center space-x-2 text-amber-800">
+                    {formData.classId && formData.subjectIds.length > 0 && !hasSyllabusForSelectedSubjects() && (
+                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center space-x-2 text-red-800">
                           <AlertTriangle className="h-4 w-4" />
                           <p className="text-sm">
-                            <strong>Warning:</strong> Some selected subjects don't have reference books uploaded. 
-                            You won't be able to create the exam until reference books are available for all selected subjects.
+                            <strong>Error:</strong> Some selected subjects don't have syllabus (reference book) uploaded. 
+                            You won't be able to create the exam until syllabus is available for all selected subjects.
                           </p>
                         </div>
                       </div>
@@ -834,7 +853,7 @@ export default function ExamManagement() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="duration">Duration (minutes)</Label>
                   <Input
@@ -913,9 +932,9 @@ export default function ExamManagement() {
                   </Button>
                   <Button 
                     onClick={handleCreate}
-                    disabled={!formData.title || formData.subjectIds.length === 0 || !formData.classId || !hasReferenceBookForSelectedSubjects()}
+                    disabled={!formData.title || formData.subjectIds.length === 0 || !formData.classId || !hasSyllabusForSelectedSubjects()}
                     className="bg-blue-600 hover:bg-blue-700"
-                    title={!hasReferenceBookForSelectedSubjects() ? "Reference book required for all selected subjects" : ""}
+                    title={!hasSyllabusForSelectedSubjects() ? "Syllabus (reference book) required for all selected subjects" : ""}
                   >
                     Create Exam
                   </Button>

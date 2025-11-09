@@ -225,23 +225,24 @@ const TeacherAnalytics = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl sm:text-3xl font-bold">Analytics Dashboard</h1>
+          <p className="text-sm sm:text-base text-gray-600">
             Comprehensive analytics and insights for teaching performance
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             onClick={loadAnalytics}
             disabled={loadingAnalytics}
+            className="w-full sm:w-auto"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${loadingAnalytics ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Download className="w-4 h-4 mr-2" />
             Export Report
           </Button>
@@ -254,7 +255,7 @@ const TeacherAnalytics = () => {
           <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="class">Class</Label>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
@@ -330,11 +331,11 @@ const TeacherAnalytics = () => {
       ) : (
         <>
           {/* Class Performance Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {analyticsData.classPerformance.map((classData, index) => (
               <Card key={index}>
                 <CardHeader>
-                  <CardTitle className="text-lg">{classData.className}</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">{classData.className}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -369,19 +370,19 @@ const TeacherAnalytics = () => {
               <div className="space-y-4">
                 {analyticsData.subjectPerformance.map((subject, index) => (
                   <div key={index} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
                       <div>
-                        <h3 className="font-medium">{subject.subjectName}</h3>
-                        <p className="text-sm text-gray-600">{subject.totalExams} exams</p>
+                        <h3 className="font-medium text-sm sm:text-base">{subject.subjectName}</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">{subject.totalExams} exams</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {getDifficultyBadge(subject.difficultyLevel)}
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs">
                           {subject.averageMarks.toFixed(1)} avg marks
                         </Badge>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500">Average Marks</span>
                         <div className="font-medium">{subject.averageMarks.toFixed(1)}</div>
@@ -417,14 +418,14 @@ const TeacherAnalytics = () => {
               <div className="space-y-4">
                 {analyticsData.studentProgress.map((student, index) => (
                   <div key={index} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
                       <div>
-                        <h3 className="font-medium">{student.studentName}</h3>
-                        <p className="text-sm text-gray-600">Roll: {student.rollNumber}</p>
+                        <h3 className="font-medium text-sm sm:text-base">{student.studentName}</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">Roll: {student.rollNumber}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {getImprovementBadge(student.improvement)}
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs">
                           {student.averageMarks.toFixed(1)} avg
                         </Badge>
                       </div>
@@ -477,19 +478,19 @@ const TeacherAnalytics = () => {
               <div className="space-y-4">
                 {analyticsData.examTrends.map((exam, index) => (
                   <div key={index} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
                       <div>
-                        <h3 className="font-medium">{exam.examTitle}</h3>
-                        <p className="text-sm text-gray-600">{new Date(exam.date).toLocaleDateString()}</p>
+                        <h3 className="font-medium text-sm sm:text-base">{exam.examTitle}</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">{new Date(exam.date).toLocaleDateString()}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {getDifficultyBadge(exam.difficultyLevel)}
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs">
                           {exam.totalQuestions} questions
                         </Badge>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500">Average Marks</span>
                         <div className="font-medium">{exam.averageMarks.toFixed(1)}</div>
@@ -522,7 +523,7 @@ const TeacherAnalytics = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {analyticsData.bloomsTaxonomyAnalysis.map((level, index) => (
                   <div key={index} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
@@ -555,7 +556,7 @@ const TeacherAnalytics = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {analyticsData.questionTypeAnalysis.map((type, index) => (
                   <div key={index} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">

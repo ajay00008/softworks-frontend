@@ -27,7 +27,7 @@ import {
   Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { authAPI, User } from '@/services/api';
+import { authAPI, User, teacherDashboardAPI } from '@/services/api';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +35,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { notificationService } from '@/services/notifications';
 
-const getNavigation = (userRole?: string) => {
+const getNavigation = (userRole?: string, teacherAccess?: { 
+  subjectAccess?: Array<{ canCreateQuestions?: boolean }>;
+  globalPermissions?: { canAccessQuestionPapers?: boolean };
+} | null) => {
   // Check if user is super admin (handle both 'super_admin' and 'SUPER_ADM(N' cases)
   const isSuperAdmin = userRole === 'super_admin' || userRole?.toLowerCase().includes('super_admin') || userRole?.includes('SUPER_ADM');
   
@@ -54,15 +57,22 @@ const getNavigation = (userRole?: string) => {
 
   // Teacher navigation - teacher-specific features
   if (isTeacher) {
-    return [
+    // Check if teacher has canCreateQuestions permission for any subject
+    const hasQuestionPaperAccess = teacherAccess?.subjectAccess?.some(
+      (subject) => subject.canCreateQuestions === true
+    ) ?? false;
+    
+    const navigationItems = [
       { name: 'Teacher Dashboard', href: '/dashboard/teacher-dashboard', icon: GraduationCap, section: 'MAIN' },
       { name: 'My Students', href: '/dashboard/teacher/students', icon: Users, section: 'MAIN' },
       { name: 'Upload Answer Sheets', href: '/dashboard/teacher/upload-sheets', icon: Upload, section: 'TEACHING' },
       { name: 'AI Answer Checking', href: '/dashboard/teacher/ai-checking', icon: Brain, section: 'TEACHING' },
-      { name: 'Question Papers', href: '/dashboard/teacher/question-papers', icon: BookOpen, section: 'TEACHING' },
+      // Show admin question paper page if teacher has canCreateQuestions permission
+      ...(hasQuestionPaperAccess ? [{ name: 'Question Papers', href: '/dashboard/question-papers', icon: BookOpen, section: 'TEACHING' }] : []),
       { name: 'Results', href: '/dashboard/teacher/results', icon: Award, section: 'ANALYTICS' },
-      { name: 'Analytics', href: '/dashboard/teacher/analytics', icon: BarChart3, section: 'ANALYTICS' },
     ];
+    
+    return navigationItems;
   }
 
   // Regular admin navigation - educational management features
@@ -75,7 +85,6 @@ const getNavigation = (userRole?: string) => {
     { name: 'Exams', href: '/dashboard/exams', icon: GraduationCap, section: 'CONTENT' },
     { name: 'Absenteeism Tracking', href: '/dashboard/absenteeism', icon: AlertTriangle, section: 'TRACKING' },
     { name: 'Access Privileges', href: '/dashboard/access-privileges', icon: Settings, section: 'SYSTEM' },
-    { name: 'Mirror Login', href: '/dashboard/mirror', icon: UserCheck, section: 'SYSTEM' },
   ];
 };
 
@@ -86,6 +95,10 @@ const DashboardLayout = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [newNotificationDialog, setNewNotificationDialog] = useState(false);
   const [currentNotification, setCurrentNotification] = useState<any>(null);
+  const [teacherAccess, setTeacherAccess] = useState<{ 
+    subjectAccess?: Array<{ canCreateQuestions?: boolean }>;
+    globalPermissions?: { canAccessQuestionPapers?: boolean };
+  } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -93,6 +106,7 @@ const DashboardLayout = () => {
   // Get current user role
   const currentUser = authAPI.getCurrentUser();
   const userRole = currentUser?.role;
+  const isTeacher = userRole === 'TEACHER' || userRole?.toLowerCase().includes('teacher');
 
   // Load notifications
   const loadNotifications = async () => {
@@ -114,6 +128,25 @@ const DashboardLayout = () => {
       // Error loading notifications - silent
     }
   };
+
+  // Load teacher access if user is a teacher
+  useEffect(() => {
+    const loadTeacherAccess = async () => {
+      if (isTeacher) {
+        try {
+          const response = await teacherDashboardAPI.getAccess();
+          if (response.success && response.data) {
+            setTeacherAccess(response.data);
+          }
+        } catch (error) {
+          console.error('Failed to load teacher access:', error);
+          // Don't show error toast - just log it
+        }
+      }
+    };
+    
+    loadTeacherAccess();
+  }, [isTeacher]);
 
   // Load notifications on mount and when popover opens
   useEffect(() => {
@@ -361,7 +394,7 @@ const DashboardLayout = () => {
     return location.pathname.startsWith(href);
   };
 
-  const navigation = getNavigation(userRole);
+  const navigation = getNavigation(userRole, teacherAccess);
   const groupedNavigation = navigation.reduce((acc, item) => {
     if (!acc[item.section]) {
       acc[item.section] = [];
@@ -455,7 +488,7 @@ const DashboardLayout = () => {
       {/* Main content */}
       <div className="ml-0 lg:ml-72 min-h-screen bg-background">
         {/* Top header */}
-        <header className="h-16 bg-card border-b flex items-center justify-between px-6 sticky top-0 z-30">
+        <header className="h-16 bg-card border-b flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30">
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
@@ -601,7 +634,7 @@ const DashboardLayout = () => {
         </header>
 
         {/* Page content */}
-        <main className="p-6 min-h-[calc(100vh-4rem)] bg-background">
+        <main className="p-3 sm:p-4 md:p-6 min-h-[calc(100vh-4rem)] bg-background">
           <Outlet />
         </main>
       </div>

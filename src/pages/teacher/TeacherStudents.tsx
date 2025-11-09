@@ -153,19 +153,19 @@ const TeacherStudents = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Students</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">My Students</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             View and manage students in your assigned classes
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={exportStudents}>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={exportStudents} className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button variant="outline" onClick={loadStudents} disabled={loading}>
+          <Button variant="outline" onClick={loadStudents} disabled={loading} className="w-full sm:w-auto">
             <RefreshCw
               className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
             />
@@ -176,7 +176,7 @@ const TeacherStudents = () => {
 
       {/* Class Statistics */}
       {classes.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {classes.map((cls) => (
             <Card key={cls._id}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -273,38 +273,43 @@ const TeacherStudents = () => {
               {students.map((student) => (
                 <div
                   key={student._id}
-                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                  className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                        <User className="h-5 w-5 text-primary" />
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                        <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                       </div>
-                      <div>
-                        <h3 className="font-medium">
-                          Name: {student.user?.name || student.userId.name}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm sm:text-base truncate">
+                          {student.user?.name || student.userId.name}
                         </h3>
-                        <p className="text-sm text-muted-foreground">
-                          Roll: {student.rollNumber} • Class:{" "}
-                          {student.class?.displayName ||
-                            student.classId.displayName}{" "}
-                          • Email: {student.user?.email || student.userId.email}
-                        </p>
+                        <div className="text-xs sm:text-sm text-muted-foreground space-y-1 mt-1">
+                          <p className="truncate">
+                            Roll: {student.rollNumber} • Class:{" "}
+                            {student.class?.displayName ||
+                              student.classId.displayName}
+                          </p>
+                          <p className="truncate">
+                            Email: {student.user?.email || student.userId.email}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end">
                       <Badge
                         variant={
                           student.user?.isActive ? "default" : "secondary"
                         }
+                        className="text-xs sm:text-sm"
                       >
                         {student.user?.isActive ? "Active" : "Inactive"}
                       </Badge>
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                           <Mail className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                           <Phone className="h-4 w-4" />
                         </Button>
                       </div>
@@ -317,21 +322,23 @@ const TeacherStudents = () => {
 
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6 pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row items-center justify-between mt-6 pt-4 border-t gap-4">
+              <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                 Showing {(pagination.currentPage - 1) * 20 + 1} to{" "}
                 {Math.min(pagination.currentPage * 20, pagination.totalCount)}{" "}
                 of {pagination.totalCount} students
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-center">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handlePageChange(pagination.currentPage - 1)}
                   disabled={!pagination.hasPrev}
+                  className="text-xs sm:text-sm"
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Previous</span>
+                  <span className="sm:hidden">Prev</span>
                 </Button>
                 <div className="flex items-center gap-1">
                   {Array.from(
@@ -348,7 +355,7 @@ const TeacherStudents = () => {
                           }
                           size="sm"
                           onClick={() => handlePageChange(page)}
-                          className="w-8 h-8 p-0"
+                          className="w-7 h-7 sm:w-8 sm:h-8 p-0 text-xs sm:text-sm"
                         >
                           {page}
                         </Button>
@@ -361,9 +368,10 @@ const TeacherStudents = () => {
                   size="sm"
                   onClick={() => handlePageChange(pagination.currentPage + 1)}
                   disabled={!pagination.hasNext}
+                  className="text-xs sm:text-sm"
                 >
                   Next
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>

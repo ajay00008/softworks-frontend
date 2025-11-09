@@ -11,6 +11,8 @@ import { ViewTabs } from '@/components/ui/view-tabs';
 import { studentsAPI, classesAPI, Student, ClassMapping } from '@/services/api';
 import { Pagination } from '@/components/ui/pagination';
 import { Plus, Users, Edit, Trash2, UserPlus, AlertCircle, ExternalLink } from 'lucide-react';
+import ClassSectionSelector from '@/components/ClassSectionSelector';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const Students = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -475,10 +477,14 @@ setStudents([...students, newStudent]);
                     onChange={(e) => handleFieldChange('email', e.target.value)}
                     required
                     className={formErrors.email ? 'border-red-500' : ''}
+                    placeholder="student@example.com"
                   />
                   {formErrors.email && (
                     <p className="text-sm text-red-500">{formErrors.email}</p>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    Student login email (must be unique - each student needs a unique email for login)
+                  </p>
                 </div>
                 {!editStudent && (
                   <div className="space-y-2">
@@ -522,31 +528,42 @@ setStudents([...students, newStudent]);
                   {formErrors.rollNumber && (
                     <p className="text-sm text-red-500">{formErrors.rollNumber}</p>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    Roll number (unique within the selected section)
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Class *</Label>
-                  <select
-                    value={selectedClassId}
-                    onChange={(e) => setSelectedClassId(e.target.value)}
-                    className="w-full p-2 border rounded-md"
-                    required
-                    disabled={classes.length === 0}
-                  >
-                    <option value="">
-                      {classes.length === 0 ? "No classes available" : "Select a class"}
-                    </option>
-                    {classes?.map((cls) => (
-                      <option key={cls._id} value={cls._id}>
-                        {cls.name}
-                      </option>
-                    ))}
-                  </select>
-                  {classes.length === 0 && (
-                    <p className="text-sm text-orange-600 dark:text-orange-400">
-                      Please create classes first in Class & Subject Management
-                    </p>
-                  )}
-                </div>
+              </div>
+
+              {/* Class (Section) Selection */}
+              <div className="space-y-2">
+                {classes.length === 0 ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 text-amber-800">
+                      <AlertCircle className="w-5 h-5" />
+                      <div>
+                        <p className="font-medium">No Classes Available</p>
+                        <p className="text-sm">Please create classes (sections) first in Class & Subject Management</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <ClassSectionSelector
+                    classes={classes.map(cls => ({
+                      ...cls,
+                      _id: cls._id || cls.id,
+                      id: cls.id || cls._id
+                    }))}
+                    selectedClassIds={selectedClassId ? [selectedClassId] : []}
+                    onSelectionChange={(classIds) => {
+                      setSelectedClassId(classIds[0] || '');
+                    }}
+                    mode="single"
+                    showLevelFirst={true}
+                    required={true}
+                    label="Select Class (Section) *"
+                    description="Select the specific class section for this student. Each section (e.g., 11A, 11B) is a separate class."
+                  />
+                )}
               </div>
 
               {/* father + mother + DOB */}
@@ -600,10 +617,14 @@ setStudents([...students, newStudent]);
                     value={formData.parentsEmail}
                     onChange={(e) => handleFieldChange('parentsEmail', e.target.value)}
                     className={formErrors.parentsEmail ? 'border-red-500' : ''}
+                    placeholder="parent@example.com"
                   />
                   {formErrors.parentsEmail && (
                     <p className="text-sm text-red-500">{formErrors.parentsEmail}</p>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    Parent contact email (can be same for siblings in different sections)
+                  </p>
                 </div>
               </div>
 

@@ -1471,19 +1471,20 @@
     return (
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Question Paper Management</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl sm:text-3xl font-bold">Question Paper Management</h1>
+            <p className="text-sm sm:text-base text-gray-600">
               Create and manage question papers with AI generation
             </p>
           </div>
           <Button
             onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Create Question Paper
+            <span className="hidden sm:inline">Create Question Paper</span>
+            <span className="sm:hidden">Create</span>
           </Button>
         </div>
 
@@ -1493,7 +1494,7 @@
             <CardTitle>Filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div>
                 <Label htmlFor="search">Search</Label>
                 <Input
@@ -1708,7 +1709,7 @@
 
         {/* Create Question Paper Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Question Paper</DialogTitle>
               <DialogDescription>
@@ -1717,7 +1718,7 @@
             </DialogHeader>
 
             {/* Step Progress Indicator */}
-            <div className="flex items-center justify-center space-x-4 mb-6">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-6">
               <div className="flex items-center space-x-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -1738,7 +1739,7 @@
                   Basic Info
                 </span>
               </div>
-              <div className="w-8 h-0.5 bg-gray-200"></div>
+              <div className="w-4 sm:w-8 h-0.5 bg-gray-200"></div>
               <div className="flex items-center space-x-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -1759,7 +1760,7 @@
                   Distribution
                 </span>
               </div>
-              <div className="w-8 h-0.5 bg-gray-200"></div>
+              <div className="w-4 sm:w-8 h-0.5 bg-gray-200"></div>
               <div className="flex items-center space-x-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -1988,7 +1989,7 @@
                             <span>{isCheckingTemplates ? "Checking..." : hasTemplates ? "Select Template & Auto-Fetch Marks" : "No Templates Available"}</span>
                           </Button>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
                             <Label htmlFor="oneMark">1 Mark Questions</Label>
                             <Input
@@ -2257,7 +2258,7 @@
                             <span>{isCheckingTemplates ? "Checking..." : "Select Template & Auto-Fetch Marks"}</span>
                           </Button>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                           <Label htmlFor="oneMark">1 Mark Questions</Label>
                           <Input
@@ -2352,7 +2353,7 @@
                       {/* Blooms Distribution Summary */}
                       <div className="bg-green-50 p-4 rounded-lg">
                         <h6 className="font-medium text-sm mb-2">Distribution Summary</h6>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                           {BLOOMS_LEVELS.map((level) => {
                             const percentage = getBloomsDistribution(formData.bloomsDistribution).find(d => d.level === level.id)?.percentage || 0;
                             return (
@@ -2674,7 +2675,7 @@
                                   <span>Select Template</span>
                                 </Button>
                               </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
                                   <Label htmlFor={`${subjectData._id}-oneMark`}>
                                     1 Mark Questions
@@ -2890,7 +2891,7 @@
                                 <h4 className="font-medium text-sm mb-2">
                                   Distribution Summary
                                 </h4>
-                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                   {BLOOMS_LEVELS.map((level) => {
                                     const percentage =
                                       getBloomsDistribution(distribution.bloomsDistribution).find(
@@ -3770,7 +3771,7 @@
             open={!!selectedQuestionPaper}
             onOpenChange={() => setSelectedQuestionPaper(null)}
           > 
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-[95vw] sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>{selectedQuestionPaper.title}</DialogTitle>
                 <DialogDescription>
@@ -3779,7 +3780,7 @@
               </DialogHeader>
 
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="font-medium">Status</Label>
                     <div className="mt-1">
@@ -3843,7 +3844,7 @@
         {/* Auto-Fetch Marks Dialog */}
         {isAutoFetchDialogOpen && (
           <Dialog open={isAutoFetchDialogOpen} onOpenChange={setIsAutoFetchDialogOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Select Question Paper Template</DialogTitle>
                 <DialogDescription>

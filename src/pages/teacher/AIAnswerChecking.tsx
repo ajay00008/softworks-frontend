@@ -49,7 +49,7 @@ import {
   Pause,
   Square
 } from 'lucide-react';
-import { teacherDashboardAPI } from '@/services/api';
+import { teacherDashboardAPI, absenteeismAPI } from '@/services/api';
 
 interface AIResult {
   answerSheetId: string;
@@ -167,6 +167,7 @@ const AIAnswerChecking = () => {
   const [showManualOverride, setShowManualOverride] = useState(false);
   const [selectedSheetForOverride, setSelectedSheetForOverride] = useState<AnswerSheet | null>(null);
   const [manualMarks, setManualMarks] = useState<{ [key: string]: number }>({});
+  const [absenteeismStatus, setAbsenteeismStatus] = useState<{ [studentId: string]: { status: string; acknowledged: boolean } }>({});
   const { toast } = useToast();
 
   // Get available subjects from selected exam
@@ -190,6 +191,35 @@ const AIAnswerChecking = () => {
     }
   }, [toast]);
 
+  // Check absenteeism status for missing students
+  const checkAbsenteeismStatus = useCallback(async (examId: string, studentIds: string[]) => {
+    if (!examId || studentIds.length === 0) return;
+    
+    try {
+      const response = await absenteeismAPI.getAll({ 
+        examId, 
+        type: 'MISSING_SHEET',
+        limit: 100 
+      });
+      
+      if (response.success && response.data) {
+        const statusMap: { [key: string]: { status: string; acknowledged: boolean } } = {};
+        response.data.forEach((report: any) => {
+          const studentId = String(report.studentId?._id || report.studentId || '');
+          if (studentIds.includes(studentId)) {
+            statusMap[studentId] = {
+              status: report.status || 'PENDING',
+              acknowledged: report.status === 'ACKNOWLEDGED' || report.status === 'RESOLVED'
+            };
+          }
+        });
+        setAbsenteeismStatus(statusMap);
+      }
+    } catch (error) {
+      console.error('Error checking absenteeism status:', error);
+    }
+  }, []);
+
   const loadAnswerSheets = useCallback(async () => {
     if (!selectedExam) return;
     
@@ -210,6 +240,20 @@ const AIAnswerChecking = () => {
       
       if (response.success) {
         setAnswerSheets(response.data.answerSheets || []);
+        
+        // Check absenteeism status for students without answer sheets
+        try {
+          const studentsResponse = await teacherDashboardAPI.getStudentsForExam(selectedExam);
+          const allStudents = studentsResponse.data?.students || [];
+          const missingStudents = allStudents.filter((s: any) => !s.hasAnswerSheet);
+          const missingStudentIds = missingStudents.map((s: any) => s.id || s._id).filter(Boolean);
+          
+          if (missingStudentIds.length > 0) {
+            await checkAbsenteeismStatus(selectedExam, missingStudentIds);
+          }
+        } catch (err) {
+          console.error('Error checking absenteeism status:', err);
+        }
       } else {
         toast({
           title: "Error",
@@ -217,7 +261,7 @@ const AIAnswerChecking = () => {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
         description: `Failed to load answer sheets: ${error.message}`,
@@ -226,7 +270,7 @@ const AIAnswerChecking = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedExam, filterStatus, toast]);
+  }, [selectedExam, filterStatus, toast, checkAbsenteeismStatus]);
 
   const loadAIStats = useCallback(async () => {
     if (!selectedExam) return;
@@ -507,14 +551,20 @@ const AIAnswerChecking = () => {
         return;
       }
 
-      // Send notification for missing answer sheets
-      // API expects student IDs, which are in the 'id' field (not '_id')
-      const studentIds = missingStudents.map(s => s.id || s._id).filter(Boolean);
+      // Filter out students who already have acknowledged/resolved absenteeism reports
+      const studentIds = missingStudents
+        .map(s => s.id || s._id)
+        .filter((id: string) => {
+          const status = absenteeismStatus[id];
+          // Only include if no absenteeism record or if it's still pending
+          return !status || (!status.acknowledged && status.status === 'PENDING');
+        })
+        .filter(Boolean);
       
       if (studentIds.length === 0) {
         toast({
           title: "Info",
-          description: "No students to notify",
+          description: "All missing answer sheets have already been reported and acknowledged by admin",
         });
         return;
       }
@@ -527,10 +577,12 @@ const AIAnswerChecking = () => {
       if (notificationResponse.success) {
         toast({
           title: "Success",
-          description: `Notification sent to ${missingStudents.length} students about missing answer sheets`,
+          description: `Notification sent to ${studentIds.length} students about missing answer sheets`,
         });
+        // Refresh absenteeism status
+        await checkAbsenteeismStatus(selectedExam, studentIds);
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
         description: `Failed to send notification: ${error.message}`,
@@ -578,7 +630,7 @@ const AIAnswerChecking = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading exams...</p>
+          <p className="text-muted-foreground">Loading exams...</p>
         </div>
       </div>
     );
@@ -587,29 +639,43 @@ const AIAnswerChecking = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Brain className="h-8 w-8 text-blue-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <Brain className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             AI Answer Sheet Checking
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Process and analyze student answer sheets with advanced AI technology
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             onClick={handleSendNotification}
-            disabled={!selectedExam}
+            disabled={!selectedExam || (Object.keys(absenteeismStatus).length > 0 && 
+              Object.values(absenteeismStatus).every(s => s.acknowledged))}
+            title={
+              Object.keys(absenteeismStatus).length > 0 && 
+              Object.values(absenteeismStatus).every(s => s.acknowledged)
+                ? "All missing answer sheets have been reported and acknowledged"
+                : "Notify admin about missing answer sheets"
+            }
+            className="w-full sm:w-auto text-xs sm:text-sm"
           >
             <MessageSquare className="w-4 h-4 mr-2" />
-            Notify Missing Sheets
+            <span className="hidden sm:inline">Notify Missing Sheets</span>
+            <span className="sm:hidden">Notify Missing</span>
+            {Object.keys(absenteeismStatus).length > 0 && 
+             Object.values(absenteeismStatus).some(s => s.acknowledged) && (
+              <span className="ml-2 text-xs">(Some acknowledged)</span>
+            )}
           </Button>
           <Button
             variant="outline"
             onClick={loadAnswerSheets}
             disabled={loading}
+            className="w-full sm:w-auto"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -687,28 +753,28 @@ const AIAnswerChecking = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">{aiStats.totalProcessed}</div>
-                <div className="text-sm text-gray-600">Total Processed</div>
+                <div className="text-sm text-muted-foreground">Total Processed</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
                   {Math.round(aiStats.averageConfidence * 100)}%
                 </div>
-                <div className="text-sm text-gray-600">Avg Confidence</div>
+                <div className="text-sm text-muted-foreground">Avg Confidence</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">
                   {Math.round(aiStats.averagePercentage)}%
                 </div>
-                <div className="text-sm text-gray-600">Avg Score</div>
+                <div className="text-sm text-muted-foreground">Avg Score</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">
                   {Math.round(aiStats.processingTime?.average || 0)}s
                 </div>
-                <div className="text-sm text-gray-600">Avg Processing Time</div>
+                <div className="text-sm text-muted-foreground">Avg Processing Time</div>
               </div>
             </div>
           </CardContent>
@@ -719,28 +785,33 @@ const AIAnswerChecking = () => {
       {selectedExam && (
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <CardTitle>Answer Sheets</CardTitle>
                 <CardDescription>
                   {filteredSheets.length} answer sheets found
                 </CardDescription>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Input
                   placeholder="Search by student name or roll number..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-64"
+                  className="w-full sm:w-64"
                 />
                 {selectedSheets.length > 0 && (
                   <Button
                     onClick={handleBatchAICheck}
                     disabled={processing}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto text-xs sm:text-sm"
                   >
                     <Brain className="w-4 h-4 mr-2" />
-                    {processing ? 'Processing...' : `Process ${selectedSheets.length} Sheets`}
+                    {processing ? 'Processing...' : (
+                      <>
+                        <span className="hidden sm:inline">Process {selectedSheets.length} Sheets</span>
+                        <span className="sm:hidden">Process {selectedSheets.length}</span>
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
@@ -750,24 +821,29 @@ const AIAnswerChecking = () => {
             <div className="space-y-4">
               {/* Batch Actions */}
               {filteredSheets.some(sheet => sheet.status === 'UPLOADED') && (
-                <div className="flex gap-2 p-4 bg-blue-50 rounded-lg">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={selectAllSheets}
-                  >
-                    <CheckSquare className="w-4 h-4 mr-2" />
-                    Select All Available
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearSelection}
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Clear Selection
-                  </Button>
-                  <span className="text-sm text-gray-600 flex items-center">
+                <div className="flex flex-col sm:flex-row gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={selectAllSheets}
+                      className="text-xs sm:text-sm"
+                    >
+                      <CheckSquare className="w-4 h-4 mr-2" />
+                      <span className="hidden sm:inline">Select All Available</span>
+                      <span className="sm:hidden">Select All</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearSelection}
+                      className="text-xs sm:text-sm"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Clear Selection
+                    </Button>
+                  </div>
+                  <span className="text-xs sm:text-sm text-muted-foreground flex items-center">
                     {selectedSheets.length} sheets selected
                   </span>
                 </div>
@@ -775,49 +851,49 @@ const AIAnswerChecking = () => {
 
               {/* Answer Sheets */}
               {filteredSheets.map((sheet) => (
-                <div key={sheet._id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
+                <div key={sheet._id} className="border rounded-lg p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       <input
                         type="checkbox"
                         checked={selectedSheets.includes(sheet._id)}
                         onChange={() => toggleSheetSelection(sheet._id)}
                         disabled={sheet.status !== 'UPLOADED'}
-                        className="w-4 h-4"
+                        className="w-4 h-4 flex-shrink-0"
                       />
-                      <div>
-                        <div className="font-medium">{sheet.studentId?.name || 'Unknown Student'}</div>
-                        <div className="text-sm text-gray-600">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm sm:text-base truncate">{sheet.studentId?.name || 'Unknown Student'}</div>
+                        <div className="text-xs sm:text-sm text-muted-foreground">
                           Roll: {sheet.studentId?.rollNumber || 'N/A'}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                       {getStatusBadge(sheet.status)}
                       {sheet.confidence && getConfidenceBadge(sheet.confidence)}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
                     <div>
-                      <span className="text-gray-500">Uploaded:</span>
+                      <span className="text-muted-foreground">Uploaded:</span>
                       <div>{new Date(sheet.uploadedAt).toLocaleDateString()}</div>
                     </div>
                     {sheet.processedAt && (
                       <div>
-                        <span className="text-gray-500">Processed:</span>
+                        <span className="text-muted-foreground">Processed:</span>
                         <div>{new Date(sheet.processedAt).toLocaleDateString()}</div>
                       </div>
                     )}
                     {sheet.scanQuality && (
                       <div>
-                        <span className="text-gray-500">Quality:</span>
+                        <span className="text-muted-foreground">Quality:</span>
                         <div>{sheet.scanQuality}</div>
                       </div>
                     )}
                     {sheet.rollNumberDetected && (
                       <div>
-                        <span className="text-gray-500">Roll Detected:</span>
+                        <span className="text-muted-foreground">Roll Detected:</span>
                         <div className="flex items-center gap-1">
                           <CheckCircle className="h-3 w-3 text-green-500" />
                           <span>{sheet.rollNumberDetected}</span>
@@ -828,16 +904,16 @@ const AIAnswerChecking = () => {
 
                   {/* Error Display */}
                   {aiErrors[sheet._id] && (
-                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                       <div className="flex items-start gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-500 mt-0.5" />
+                        <AlertCircle className="h-4 w-4 text-red-500 dark:text-red-400 mt-0.5" />
                         <div className="flex-1">
-                          <p className="text-sm text-red-800 font-medium">AI Processing Failed</p>
-                          <p className="text-sm text-red-700 mt-1">{aiErrors[sheet._id]}</p>
+                          <p className="text-sm text-red-800 dark:text-red-300 font-medium">AI Processing Failed</p>
+                          <p className="text-sm text-red-700 dark:text-red-200 mt-1">{aiErrors[sheet._id]}</p>
                           <Button
                             size="sm"
                             variant="outline"
-                            className="mt-2 text-red-700 border-red-300 hover:bg-red-100"
+                            className="mt-2 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/30"
                             onClick={() => handleManualOverride(sheet)}
                           >
                             <Edit className="w-4 h-4 mr-2" />
@@ -848,15 +924,17 @@ const AIAnswerChecking = () => {
                     </div>
                   )}
 
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex flex-wrap gap-2 mt-3">
                     {sheet.status === 'UPLOADED' && (
                       <Button
                         size="sm"
                         onClick={() => handleSingleAICheck(sheet._id)}
                         disabled={processing}
+                        className="text-xs sm:text-sm"
                       >
                         <Brain className="w-4 h-4 mr-2" />
-                        Process with AI
+                        <span className="hidden sm:inline">Process with AI</span>
+                        <span className="sm:hidden">Process AI</span>
                       </Button>
                     )}
                     {sheet.status === 'AI_CORRECTED' && (
@@ -865,6 +943,7 @@ const AIAnswerChecking = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => handleViewResults(sheet)}
+                          className="text-xs sm:text-sm"
                         >
                           <Eye className="w-4 h-4 mr-2" />
                           View Results
@@ -874,6 +953,7 @@ const AIAnswerChecking = () => {
                           variant="outline"
                           onClick={() => handleRecheck(sheet._id)}
                           disabled={processing}
+                          className="text-xs sm:text-sm"
                         >
                           <RotateCcw className="w-4 h-4 mr-2" />
                           Recheck
@@ -885,6 +965,7 @@ const AIAnswerChecking = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => handleViewResults(sheet)}
+                        className="text-xs sm:text-sm"
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         View Results
@@ -895,16 +976,18 @@ const AIAnswerChecking = () => {
                       size="sm"
                       variant="outline"
                       onClick={() => handleManualOverride(sheet)}
+                      className="text-xs sm:text-sm"
                     >
                       <Edit className="w-4 h-4 mr-2" />
-                      Manual Marks
+                      <span className="hidden sm:inline">Manual Marks</span>
+                      <span className="sm:hidden">Manual</span>
                     </Button>
                   </div>
                 </div>
               ))}
 
               {filteredSheets.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No answer sheets found for the selected criteria.
                 </div>
               )}
@@ -915,7 +998,7 @@ const AIAnswerChecking = () => {
 
       {/* AI Results Dialog */}
       <Dialog open={showResults} onOpenChange={setShowResults}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl lg:max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5" />
@@ -928,21 +1011,29 @@ const AIAnswerChecking = () => {
 
           {selectedSheet && aiResults[selectedSheet._id] && (
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="questions">Questions</TabsTrigger>
-                <TabsTrigger value="analysis">Analysis</TabsTrigger>
-                <TabsTrigger value="insights">Insights</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 h-auto">
+                <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="questions" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                  Questions
+                </TabsTrigger>
+                <TabsTrigger value="analysis" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                  Analysis
+                </TabsTrigger>
+                <TabsTrigger value="insights" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 min-w-0">
+                  Insights
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                   <Card>
                     <CardContent className="p-4">
                       <div className="text-2xl font-bold text-blue-600">
                         {aiResults[selectedSheet._id].percentage.toFixed(1)}%
                       </div>
-                      <div className="text-sm text-gray-600">Overall Score</div>
+                      <div className="text-sm text-muted-foreground">Overall Score</div>
                     </CardContent>
                   </Card>
                   <Card>
@@ -950,7 +1041,7 @@ const AIAnswerChecking = () => {
                       <div className="text-2xl font-bold text-green-600">
                         {aiResults[selectedSheet._id].obtainedMarks}/{aiResults[selectedSheet._id].totalMarks}
                       </div>
-                      <div className="text-sm text-gray-600">Marks Obtained</div>
+                      <div className="text-sm text-muted-foreground">Marks Obtained</div>
                     </CardContent>
                   </Card>
                   <Card>
@@ -958,7 +1049,7 @@ const AIAnswerChecking = () => {
                       <div className="text-2xl font-bold text-purple-600">
                         {Math.round(aiResults[selectedSheet._id].confidence * 100)}%
                       </div>
-                      <div className="text-sm text-gray-600">AI Confidence</div>
+                      <div className="text-sm text-muted-foreground">AI Confidence</div>
                     </CardContent>
                   </Card>
                   <Card>
@@ -966,7 +1057,7 @@ const AIAnswerChecking = () => {
                       <div className="text-2xl font-bold text-orange-600">
                         {aiResults[selectedSheet._id].processingTime}ms
                       </div>
-                      <div className="text-sm text-gray-600">Processing Time</div>
+                      <div className="text-sm text-muted-foreground">Processing Time</div>
                     </CardContent>
                   </Card>
                 </div>
@@ -1035,21 +1126,21 @@ const AIAnswerChecking = () => {
                 {aiResults[selectedSheet._id].questionWiseResults.map((result, index) => (
                   <Card key={index}>
                     <CardHeader>
-                      <div className="flex justify-between items-center">
-                        <CardTitle>Question {result.questionNumber}</CardTitle>
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <CardTitle className="text-sm sm:text-base">Question {result.questionNumber}</CardTitle>
+                        <div className="flex items-center gap-2 flex-wrap">
                           {result.isCorrect ? (
-                            <Badge className="bg-green-100 text-green-800">
+                            <Badge className="bg-green-100 text-green-800 text-xs">
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Correct
                             </Badge>
                           ) : (
-                            <Badge className="bg-red-100 text-red-800">
+                            <Badge className="bg-red-100 text-red-800 text-xs">
                               <XCircle className="w-3 h-3 mr-1" />
                               Incorrect
                             </Badge>
                           )}
-                          <Badge variant="outline">
+                          <Badge variant="outline" className="text-xs">
                             {result.marksObtained}/{result.maxMarks} marks
                           </Badge>
                         </div>
@@ -1057,23 +1148,25 @@ const AIAnswerChecking = () => {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div>
-                        <Label className="text-sm font-medium text-gray-600">Correct Answer:</Label>
-                        <p className="text-sm bg-green-50 p-2 rounded">{result.correctAnswer}</p>
+                        <Label className="text-sm font-medium text-foreground">Correct Answer:</Label>
+                        <p className="text-sm bg-green-50 dark:bg-green-900/20 p-2 rounded border border-green-200 dark:border-green-800">{result.correctAnswer}</p>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-gray-600">Student Answer:</Label>
-                        <p className="text-sm bg-blue-50 p-2 rounded">{result.studentAnswer}</p>
+                        <Label className="text-sm font-medium text-foreground">Student Answer:</Label>
+                        <p className="text-sm bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800">{result.studentAnswer}</p>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-gray-600">Feedback:</Label>
-                        <p className="text-sm text-gray-700">{result.feedback}</p>
+                        <Label className="text-sm font-medium text-foreground">Feedback:</Label>
+                        <p className="text-sm text-foreground">{result.feedback}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm font-medium text-gray-600">Confidence:</Label>
-                        <Progress value={result.confidence * 100} className="w-32" />
-                        <span className="text-sm text-gray-600">
-                          {Math.round(result.confidence * 100)}%
-                        </span>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                        <Label className="text-sm font-medium text-foreground">Confidence:</Label>
+                        <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
+                          <Progress value={result.confidence * 100} className="flex-1 sm:w-32" />
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            {Math.round(result.confidence * 100)}%
+                          </span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1090,7 +1183,7 @@ const AIAnswerChecking = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                           <Label className="text-sm font-medium text-gray-600">Overall Quality</Label>
                           <div className="text-lg font-semibold">
@@ -1138,7 +1231,7 @@ const AIAnswerChecking = () => {
                             {aiResults[selectedSheet._id].academicInsights.subjectMastery}
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
                             <Label className="text-sm font-medium text-gray-600">Conceptual Understanding</Label>
                             <Progress value={aiResults[selectedSheet._id].academicInsights.conceptualUnderstanding} className="w-full" />
@@ -1180,7 +1273,7 @@ const AIAnswerChecking = () => {
 
       {/* Manual Override Dialog */}
       <Dialog open={showManualOverride} onOpenChange={setShowManualOverride}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5" />
@@ -1209,15 +1302,17 @@ const AIAnswerChecking = () => {
                 />
               </div>
               
-              <div className="flex gap-2 justify-end">
+              <div className="flex flex-col sm:flex-row gap-2 justify-end">
                 <Button
                   variant="outline"
                   onClick={() => setShowManualOverride(false)}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleSaveManualMarks}
+                  className="w-full sm:w-auto"
                 >
                   Save Marks
                 </Button>

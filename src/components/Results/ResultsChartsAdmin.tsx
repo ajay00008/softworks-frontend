@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { BarChart3, TrendingUp, Users, BookOpen, GraduationCap, AlertTriangle } from 'lucide-react';
-import { performanceAPI, classManagementAPI, subjectManagementAPI } from '@/services/api';
+import { teacherDashboardAPI, classManagementAPI, subjectManagementAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import {
   BarChart,
@@ -60,10 +60,10 @@ const ResultsChartsAdmin = () => {
       if (selectedClass !== 'all') params.classId = selectedClass;
       if (selectedSubject !== 'all') params.subjectId = selectedSubject;
 
-      const response = await performanceAPI.getAnalytics(params);
+      const response = await teacherDashboardAPI.getPerformanceGraphs(params);
       
-      if (response && response.analytics) {
-        setChartData(response.analytics);
+      if (response.success && response.data) {
+        setChartData(response.data);
       } else {
         setChartData(null);
       }
@@ -95,11 +95,13 @@ const ResultsChartsAdmin = () => {
     name: item.subjectName || 'Unknown',
     subjectId: item._id || item.subjectId,
     average: Math.round(item.averagePercentage || 0),
-    passRate: Math.round(item.passPercentage || 0),
-    totalExams: item.totalExams || 0,
-    passedExams: item.passedExams || 0,
-    passed: item.passedExams || 0,
-    total: item.totalExams || 0
+    passRate: item.totalStudents > 0 
+      ? Math.round((item.passedStudents / item.totalStudents) * 100) 
+      : (item.passPercentage ? Math.round(item.passPercentage) : 0),
+    totalExams: item.totalExams || item.totalStudents || 0,
+    passedExams: item.passedExams || item.passedStudents || 0,
+    passed: item.passedExams || item.passedStudents || 0,
+    total: item.totalExams || item.totalStudents || 0
   })) || [];
 
   // Class-wise performance (if available in response)
@@ -121,22 +123,25 @@ const ResultsChartsAdmin = () => {
       }))
     : [];
 
-  const overview = chartData?.overview || {
-    totalResults: 0,
-    averagePercentage: 0,
-    passedResults: 0,
-    failedResults: 0,
-    passPercentage: 0
+  // Failure analysis (from teacher endpoint response)
+  const failureAnalysis = chartData?.failureAnalysis || {
+    totalStudents: 0,
+    failedStudents: 0,
+    absentStudents: 0,
+    missingSheets: 0,
+    failureRate: 0
   };
 
-  // Failure analysis
-  const failureAnalysis = chartData?.failureAnalysis || {
-    totalStudents: overview.totalResults || 0,
-    failedStudents: overview.failedResults || 0,
-    absentStudents: overview.absentResults || 0,
-    missingSheets: overview.missingSheets || 0,
-    failureRate: overview.totalResults > 0 
-      ? ((overview.failedResults || 0) / overview.totalResults) * 100 
+  // Overview stats (derived from failure analysis if overview not available)
+  const overview = chartData?.overview || {
+    totalResults: failureAnalysis.totalStudents || 0,
+    averagePercentage: 0,
+    passedResults: (failureAnalysis.totalStudents || 0) - (failureAnalysis.failedStudents || 0),
+    failedResults: failureAnalysis.failedStudents || 0,
+    absentResults: failureAnalysis.absentStudents || 0,
+    missingSheets: failureAnalysis.missingSheets || 0,
+    passPercentage: failureAnalysis.totalStudents > 0 
+      ? (((failureAnalysis.totalStudents - failureAnalysis.failedStudents) / failureAnalysis.totalStudents) * 100)
       : 0
   };
 

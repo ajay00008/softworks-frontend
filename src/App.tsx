@@ -31,7 +31,6 @@ import NotFound from "./pages/NotFound";
 // Teacher specific pages
 import AnswerSheetUpload from "./pages/teacher/AnswerSheetUpload";
 import AIAnswerChecking from "./pages/teacher/AIAnswerChecking";
-import QuestionPaperCreation from "./pages/teacher/QuestionPaperCreation";
 import TeacherResults from "./pages/teacher/TeacherResults";
 import TeacherAnalytics from "./pages/teacher/TeacherAnalytics";
 import TeacherStudents from "./pages/teacher/TeacherStudents";
@@ -182,7 +181,7 @@ const App = () => (
               <Route path="teacher/students" element={<TeacherStudents />} />
               <Route path="teacher/upload-sheets" element={<AnswerSheetUpload />} />
               <Route path="teacher/ai-checking" element={<AIAnswerChecking />} />
-              <Route path="teacher/question-papers" element={<QuestionPaperCreation />} />
+              <Route path="teacher/question-papers" element={<QuestionPaperManagement />} />
               <Route path="teacher/results" element={<TeacherResults />} />
               <Route path="teacher/analytics" element={<TeacherAnalytics />} />
             </Route>
